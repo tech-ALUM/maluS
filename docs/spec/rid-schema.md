@@ -77,6 +77,7 @@ rids:
 | `duplicates` | list[str] | RID ids clustered under this one (this RID is the master). |
 | `verified_by` | str \| null | Reviewer (or moderator on their behalf) who set `verified`. |
 | `verified_on` | date \| null | Date of verification. |
+| `ai_drafted` | bool | *(optional)* `true` when the reply/disposition was AI-drafted and awaits human confirmation; omitted when false. |
 
 ### Serialization conventions (git-friendliness)
 

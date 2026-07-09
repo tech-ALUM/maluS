@@ -123,3 +123,24 @@ def test_multiline_string_serializes_as_single_quoted_line() -> None:
     comment_line = next(ln for ln in text.splitlines() if ln.strip().startswith("comment:"))
     assert "line one\\nline two" in comment_line  # the whole value is on one line
     assert RTD.from_yaml(text).rids[0].comment == "line one\nline two"  # round-trips
+
+
+def test_ai_drafted_optional_round_trip() -> None:
+    r = RID(
+        rid="X-Y-0001",
+        reviewer="claude",
+        created=dt.date(2026, 7, 3),
+        kind=Kind.COMM,
+        comment="c",
+        ai_drafted=True,
+    )
+    m = Meta(
+        review_id="R", document="d", baseline_sha="s", created=dt.date(2026, 7, 3), owner="o"
+    )
+    text = RTD(meta=m, rids=[r]).to_yaml()
+    assert "ai_drafted: true" in text
+    assert RTD.from_yaml(text).rids[0].ai_drafted is True
+
+
+def test_ai_drafted_omitted_when_false() -> None:
+    assert "ai_drafted" not in _sample_rtd().to_yaml()

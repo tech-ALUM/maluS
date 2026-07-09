@@ -106,10 +106,11 @@ class RID:
     duplicates: list[str] = field(default_factory=list)
     verified_by: str | None = None
     verified_on: _dt.date | None = None
+    ai_drafted: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize in the normative schema key order (rid-schema.md §1)."""
-        return {
+        data: dict[str, Any] = {
             "rid": self.rid,
             "reviewer": self.reviewer,
             "created": self.created,
@@ -121,12 +122,19 @@ class RID:
             "comment": self.comment,
             "reply": self.reply,
             "disposition": None if self.disposition is None else self.disposition.value,
-            "resolution": self.resolution,
-            "master": self.master,
-            "duplicates": list(self.duplicates),
-            "verified_by": self.verified_by,
-            "verified_on": self.verified_on,
         }
+        if self.ai_drafted:  # only serialized when set, to keep diffs minimal
+            data["ai_drafted"] = True
+        data.update(
+            {
+                "resolution": self.resolution,
+                "master": self.master,
+                "duplicates": list(self.duplicates),
+                "verified_by": self.verified_by,
+                "verified_on": self.verified_on,
+            }
+        )
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RID:
@@ -147,6 +155,7 @@ class RID:
             duplicates=list(data.get("duplicates") or []),
             verified_by=data.get("verified_by"),
             verified_on=_as_date(data.get("verified_on")),
+            ai_drafted=bool(data.get("ai_drafted", False)),
         )
 
 
