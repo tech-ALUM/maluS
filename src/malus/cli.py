@@ -17,6 +17,7 @@ from . import __version__
 from .harvest import freeze_review, harvest_review, init_review, make_copies
 from .lifecycle import check_traceability, pending_for_reviewer, reopen_rid, verify_rid
 from .models import RTD, TransitionError
+from .report import report_review
 from .triage import apply_suggs_review, triage_review
 
 app = typer.Typer(
@@ -165,9 +166,16 @@ def apply_suggs(
 
 
 @app.command("report")
-def report() -> None:
-    """Generate the review report/dashboard from rtd.yaml."""
-    _stub("report", "Step 5")
+def report(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+) -> None:
+    """Validate rtd.yaml and generate report.md (review minutes + dashboard)."""
+    errors = report_review(review)
+    if errors:
+        for e in errors:
+            typer.echo(f"INVALID: {e}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"wrote {review / 'report.md'}")
 
 
 @app.command("verify")
