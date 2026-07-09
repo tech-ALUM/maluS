@@ -14,7 +14,15 @@ from typing import Any, TypeVar
 
 import yaml
 
-from .constants import CommentType, Disposition, Kind, Severity, Status
+from .constants import (
+    CommentType,
+    Disposition,
+    Kind,
+    Role,
+    Severity,
+    Status,
+    is_allowed_transition,
+)
 
 _E = TypeVar("_E", bound=Enum)
 
@@ -186,3 +194,69 @@ class RTD:
     @classmethod
     def from_yaml(cls, text: str) -> RTD:
         return cls.from_dict(yaml.safe_load(text))
+
+
+class TransitionError(ValueError):
+    """Raised when a status transition is structurally illegal or unauthorized."""
+
+
+def transition(
+    rid: RID,
+    target: Status,
+    *,
+    actor_role: Role,
+    actor_name: str | None = None,
+    actor_is_ai: bool = False,
+    on: _dt.date | None = None,
+) -> None:
+    """Move ``rid`` to ``target`` in place, enforcing the lifecycle rules.
+
+    Two independent gates must pass (rid-schema.md §3):
+
+    1. **Status graph** — ``rid.status -> target`` must be in
+       :data:`malus.constants.TRANSITIONS`.
+    2. **Actor authority** — the closure-authority invariant (D3):
+
+       * only the RID's own reviewer, or a moderator on their behalf, may set
+         ``verified``; the owner never may, and an AI never may regardless of
+         seat;
+       * only the RID's own reviewer may ``withdraw`` (from ``open`` only,
+         which the status graph already enforces).
+
+    On a successful verify the RID is stamped with ``verified_by``/
+    ``verified_on``. Raises :class:`TransitionError` without mutating ``rid``
+    when either gate fails.
+    """
+    if not is_allowed_transition(rid.status, target):
+        raise TransitionError(
+            f"illegal transition {rid.status.value} -> {target.value}"
+        )
+
+    if target is Status.VERIFIED:
+        if actor_is_ai:
+            raise TransitionError(
+                "an AI may never set 'verified' (closure-authority invariant)"
+            )
+        if actor_role is Role.OWNER:
+            raise TransitionError(
+                "the owner may never set 'verified'; closure belongs to the reviewer"
+            )
+        if (
+            actor_role is Role.REVIEWER
+            and actor_name is not None
+            and actor_name != rid.reviewer
+        ):
+            raise TransitionError(
+                f"reviewer {actor_name!r} may not verify a RID owned by {rid.reviewer!r}"
+            )
+
+    if target is Status.WITHDRAWN:
+        if actor_role is not Role.REVIEWER or (
+            actor_name is not None and actor_name != rid.reviewer
+        ):
+            raise TransitionError("only the RID's own reviewer may withdraw it")
+
+    rid.status = target
+    if target is Status.VERIFIED:
+        rid.verified_by = actor_name
+        rid.verified_on = on
