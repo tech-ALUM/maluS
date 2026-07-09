@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "malus"
-version = "0.0.1"
+version = "0.1.0"
 description = "Formal RID-based review management for Markdown documents"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,9 @@ malus = "malus.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"malus.prompts" = ["*.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

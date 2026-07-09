@@ -15,6 +15,7 @@ reads the key from the environment (never stored in the repo).
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 from typing import Protocol
 
@@ -25,14 +26,11 @@ from .parser import ParseError
 from .triage import ClusterProposal, DuplicateLink, apply_clusters
 
 DEFAULT_MODEL = "claude-opus-4-8"
-_PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
 
 def load_prompt(role: str) -> str:
-    path = _PROMPTS_DIR / f"{role}.md"
-    if not path.is_file():
-        raise FileNotFoundError(f"prompt template not found: {path}")
-    return path.read_text(encoding="utf-8")
+    """Load a versioned prompt template shipped as package data."""
+    return (resources.files("malus.prompts") / f"{role}.md").read_text(encoding="utf-8")
 
 
 class Engine(Protocol):
