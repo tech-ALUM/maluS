@@ -1,0 +1,11 @@
+meta:
+  review_id: SIN-SRS-R1
+  document: baseline.md
+  baseline_sha: "0000000"
+  created: 2026-07-03
+  owner: A. Boffi
+  reviewers:
+  - F. Miccoli
+  - R. Bianchi
+  - G. Verdi
+rids: []

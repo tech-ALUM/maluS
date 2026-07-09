@@ -8,13 +8,20 @@ are assigned in document order and reconciled across re-harvests by content.
 
 from __future__ import annotations
 
+import datetime as _dt
 import difflib
 import re
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .constants import CommentType, Kind, Severity, Status
 from .models import RID, RTD, Anchor, Meta
 from .parser import ParseError, ParsedBlock, scan
+
+BASELINE_NAME = "baseline.md"
+RTD_NAME = "rtd.yaml"
+REVIEWERS_DIR = "reviewers"
 
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)\s*$")
 
@@ -254,3 +261,94 @@ def build_rtd(
         output.values(), key=lambda r: (_rid_number(r.rid, prefix) or 0, r.rid)
     )
     return HarvestResult(rtd=RTD(meta=meta, rids=ordered), violations=violations)
+
+
+# --------------------------------------------------------------------------- #
+# file-based review instance (reviewer copies are files, per the D1 deviation)
+# --------------------------------------------------------------------------- #
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _baseline_sha(baseline_path: Path) -> str:
+    """Return the git blob SHA of the baseline (deterministic, no commit needed)."""
+    result = subprocess.run(
+        ["git", "hash-object", str(baseline_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def freeze_review(
+    review_dir: Path | str,
+    *,
+    review_id: str | None = None,
+    owner: str | None = None,
+    reviewers: list[str] | None = None,
+) -> str:
+    """Record the baseline SHA into the review meta, creating rtd.yaml if absent."""
+    review_dir = Path(review_dir)
+    sha = _baseline_sha(review_dir / BASELINE_NAME)
+    rtd_path = review_dir / RTD_NAME
+    if rtd_path.exists():
+        rtd = RTD.from_yaml(_read(rtd_path))
+        rtd.meta.baseline_sha = sha
+        if review_id:
+            rtd.meta.review_id = review_id
+        if owner:
+            rtd.meta.owner = owner
+        if reviewers is not None:
+            rtd.meta.reviewers = list(reviewers)
+    else:
+        rtd = RTD(
+            meta=Meta(
+                review_id=review_id or review_dir.resolve().name,
+                document=BASELINE_NAME,
+                baseline_sha=sha,
+                created=_dt.date.today(),
+                owner=owner or "",
+                reviewers=list(reviewers or []),
+            )
+        )
+    rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
+    return sha
+
+
+def make_copies(review_dir: Path | str) -> list[Path]:
+    """Create a per-reviewer baseline copy for each meta reviewer lacking one."""
+    review_dir = Path(review_dir)
+    rtd = RTD.from_yaml(_read(review_dir / RTD_NAME))
+    baseline = _read(review_dir / BASELINE_NAME)
+    reviewers_dir = review_dir / REVIEWERS_DIR
+    reviewers_dir.mkdir(exist_ok=True)
+    created: list[Path] = []
+    for name in rtd.meta.reviewers:
+        path = reviewers_dir / f"{name}.md"
+        if not path.exists():
+            path.write_text(baseline, encoding="utf-8")
+            created.append(path)
+    return created
+
+
+def harvest_review(review_dir: Path | str) -> HarvestResult:
+    """Harvest all reviewer copies in a review directory and rewrite rtd.yaml."""
+    review_dir = Path(review_dir)
+    rtd_path = review_dir / RTD_NAME
+    if not rtd_path.exists():
+        raise FileNotFoundError(
+            f"{rtd_path} not found; run 'malus freeze' to create the review meta first"
+        )
+    baseline = _read(review_dir / BASELINE_NAME)
+    existing = RTD.from_yaml(_read(rtd_path))
+    copies: dict[str, str] = {}
+    reviewers_dir = review_dir / REVIEWERS_DIR
+    if reviewers_dir.is_dir():
+        for path in sorted(reviewers_dir.glob("*.md")):
+            copies[path.stem] = _read(path)
+    result = build_rtd(baseline, existing.meta, copies, existing=existing)
+    rtd_path.write_text(result.rtd.to_yaml(), encoding="utf-8")
+    return result

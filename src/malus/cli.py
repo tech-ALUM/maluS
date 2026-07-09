@@ -7,9 +7,13 @@ entry point is ``malus = malus.cli:app`` (see ``pyproject.toml``).
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Optional
+
 import typer
 
 from . import __version__
+from .harvest import freeze_review, harvest_review, make_copies
 
 app = typer.Typer(
     name="malus",
@@ -51,21 +55,50 @@ def init() -> None:
 
 
 @app.command("freeze")
-def freeze() -> None:
-    """Freeze the DUR baseline and record its git SHA."""
-    _stub("freeze", "Step 2")
+def freeze(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    review_id: Optional[str] = typer.Option(None, "--review-id", help="Set the review id."),
+    owner: Optional[str] = typer.Option(None, "--owner", help="Set the document owner."),
+    reviewers: Optional[str] = typer.Option(
+        None, "--reviewers", help="Comma-separated reviewer names."
+    ),
+) -> None:
+    """Freeze the DUR baseline and record its git SHA into the review meta."""
+    names = [r.strip() for r in reviewers.split(",") if r.strip()] if reviewers else None
+    sha = freeze_review(review, review_id=review_id, owner=owner, reviewers=names)
+    typer.echo(f"baseline frozen: {sha}")
 
 
 @app.command("copies")
-def copies() -> None:
+def copies(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+) -> None:
     """Create one frozen per-reviewer copy of the baseline."""
-    _stub("copies", "Step 2")
+    created = make_copies(review)
+    if not created:
+        typer.echo("no copies created (reviewer files already exist)")
+    for path in created:
+        typer.echo(f"created {path}")
 
 
 @app.command("harvest")
-def harvest() -> None:
+def harvest(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+) -> None:
     """Parse reviewer copies and (re)generate rtd.yaml."""
-    _stub("harvest", "Step 2")
+    try:
+        result = harvest_review(review)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from None
+    typer.echo(f"harvested {len(result.rtd.rids)} RID(s) from {review}")
+    for violation in result.violations:
+        where = f" (baseline line {violation.line})" if violation.line else ""
+        typer.echo(
+            f"VIOLATION [{violation.reviewer}]{where}: {violation.message}", err=True
+        )
+    if result.violations:
+        raise typer.Exit(code=1)
 
 
 @app.command("triage")
