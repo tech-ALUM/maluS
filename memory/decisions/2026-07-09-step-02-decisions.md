@@ -25,9 +25,13 @@ the harvest step (parser, freeze validation, rtd.yaml assembly). Follows
 - [decision] RID id prefix `<PROJECT>-<DOC>` is `meta.rid_prefix` when set, else
   `review_id` minus its trailing `-<revision>` segment (SIN-SRS-R1 → SIN-SRS);
   `rid_prefix` added as an optional Meta field, serialized only when set #ids
-- [decision] `freeze` records the baseline git blob SHA (`git hash-object`),
-  deterministic without a commit; it also bootstraps rtd.yaml meta when absent,
-  since `init` remains a stub for now #freeze
+- [decision] `freeze` records the baseline SHA into meta and can bootstrap
+  rtd.yaml when absent. SUPERSEDED 2026-07-09: it originally recorded the git
+  *blob* hash (`git hash-object`), but freeze now records the git *commit* SHA
+  (`git rev-parse HEAD`) so the Step-5 traceability range `baseline_sha..HEAD`
+  resolves; freeze now requires a git repo with a commit. See
+  [[Step 5 Decisions 2026-07-09]]. (`init` is no longer a stub — see
+  [[init Command 2026-07-09]].) #freeze
 - [spec] Freeze validation = strip parsed comment blocks from a copy; the residue
   must differ from baseline.md only in whitespace (char-level difflib). Violating
   or malformed copies are reported per-copy; the others still harvest #validation
