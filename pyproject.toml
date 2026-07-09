@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "malus"
+version = "0.0.1"
+description = "Formal RID-based review management for Markdown documents"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Alberto Boffi", email = "alberto.boffi@alum-lab.com" }]
+keywords = ["review", "rid", "markdown", "documentation", "rtd"]
+dependencies = [
+    "typer>=0.12",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+malus = "malus.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
