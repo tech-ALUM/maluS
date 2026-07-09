@@ -27,6 +27,13 @@ from .constants import (
 _E = TypeVar("_E", bound=Enum)
 
 
+class _NoAliasDumper(yaml.SafeDumper):
+    """SafeDumper that never emits YAML anchors/aliases, for stable git diffs."""
+
+    def ignore_aliases(self, data: Any) -> bool:
+        return True
+
+
 def _as_date(value: Any) -> _dt.date | None:
     """Coerce a YAML scalar to a ``date`` (accepts ``date``/``datetime``/ISO string)."""
     if value is None:
@@ -191,8 +198,9 @@ class RTD:
 
     def to_yaml(self) -> str:
         """Render to YAML with stable key order and plain scalars."""
-        return yaml.safe_dump(
+        return yaml.dump(
             self.to_dict(),
+            Dumper=_NoAliasDumper,
             sort_keys=False,
             allow_unicode=True,
             default_flow_style=False,

@@ -95,3 +95,13 @@ def test_meta_rid_prefix_optional_round_trip() -> None:
 
 def test_meta_without_rid_prefix_omits_key() -> None:
     assert "rid_prefix" not in _sample_rtd().to_yaml()
+
+
+def test_yaml_never_emits_anchors_for_shared_objects() -> None:
+    shared = dt.date(2026, 7, 3)
+    m = Meta(
+        review_id="R", document="d", baseline_sha="s", created=shared, owner="o"
+    )
+    rid = RID(rid="R-D-0001", reviewer="x", created=shared, kind=Kind.COMM, comment="c")
+    text = RTD(meta=m, rids=[rid]).to_yaml()
+    assert "&id" not in text and "*id" not in text
