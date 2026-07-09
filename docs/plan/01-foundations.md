@@ -8,12 +8,12 @@ every later step builds on frozen contracts.
 
 ## Deliverables
 
-- [ ] `docs/spec/comment-syntax.md` — normative comment block grammar
-- [ ] `docs/spec/rid-schema.md` — normative RID/rtd.yaml schema + lifecycle
-- [ ] `src/malus/` package: `models.py`, `constants.py`, `cli.py`
-- [ ] `pyproject.toml` (PEP 621, entry point `malus = malus.cli:app`)
-- [ ] pytest setup + model unit tests
-- [ ] All CLI subcommands present as stubs with `--help` text
+- [x] `docs/spec/comment-syntax.md` — normative comment block grammar
+- [x] `docs/spec/rid-schema.md` — normative RID/rtd.yaml schema + lifecycle
+- [x] `src/malus/` package: `models.py`, `constants.py`, `cli.py`
+- [x] `pyproject.toml` (PEP 621, entry point `malus = malus.cli:app`)
+- [x] pytest setup + model unit tests
+- [x] All CLI subcommands present as stubs with `--help` text
 
 ## Specifications to write (normative content)
 
@@ -76,6 +76,33 @@ Transition rules are data (`constants.py`), enforced by CLI and GUI alike.
 - Specs reviewed against `memory/specs/` notes (no contradiction).
 - `pip install -e .` succeeds; `malus --help` lists all subcommands.
 - `python -m pytest -q` green.
+
+## Deviations
+
+Decisions settled during Step 1 (also cited in the `docs/spec/` Sources;
+candidates for `memory/decisions/`):
+
+- **Fourth `{COMM}` type = `process`** (not `question`). Settled with
+  Alberto Boffi 2026-07-09; resolves the open question in
+  `memory/specs/comment-syntax.md`.
+- **`{SUGG}` stays mechanical-only** — no rationale parameter; a reviewer who
+  needs to justify a change attaches a neighbouring `{COMM}`. Settled 2026-07-09.
+
+Deliberate scoping and spec completions (no behavioural conflict with the plan):
+
+- **Transition enforcement scope.** `transition()` enforces the status graph
+  plus the closure-authority invariant. Disposition-conditional routing
+  (`accepted → implemented`; `{rejected, deferred} → verified`), the
+  traceability rule, and finalize gating are documented as normative in
+  `docs/spec/rid-schema.md` but enforced in Step 5 (lifecycle).
+- **SUGG payload field.** The frozen RID schema lists no dedicated `old`/`new`
+  field for a `{SUGG}`; implemented verbatim (the `comment` field renders the
+  change). Whether to add explicit fields is flagged for Step 2.
+- **Escaping.** Beyond memory's `\}` rule, the normative spec adds `\"` inside
+  `{SUGG}` operands and an "otherwise-literal backslash" rule; flagged as a
+  candidate `memory/decisions/` note.
+- **Packaging.** Version pinned to `0.0.1` pre-release (the plan sets `0.1.0`
+  at Step 7); editable install verified inside a local `.venv`.
 
 ## Out of scope
 
