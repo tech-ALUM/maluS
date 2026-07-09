@@ -34,6 +34,17 @@ class _NoAliasDumper(yaml.SafeDumper):
         return True
 
 
+def _represent_str(dumper: Any, data: str) -> Any:
+    # Force multi-line strings onto a single double-quoted line so the GUI's
+    # line-oriented reader never has to parse block scalars; single-line strings
+    # keep PyYAML's default style, so existing output is unchanged.
+    style = '"' if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_NoAliasDumper.add_representer(str, _represent_str)
+
+
 def _as_date(value: Any) -> _dt.date | None:
     """Coerce a YAML scalar to a ``date`` (accepts ``date``/``datetime``/ISO string)."""
     if value is None:
@@ -204,6 +215,7 @@ class RTD:
             sort_keys=False,
             allow_unicode=True,
             default_flow_style=False,
+            width=1_000_000,  # never wrap scalars, so every value stays on one line
         )
 
     @classmethod

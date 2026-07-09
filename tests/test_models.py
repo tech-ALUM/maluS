@@ -105,3 +105,21 @@ def test_yaml_never_emits_anchors_for_shared_objects() -> None:
     rid = RID(rid="R-D-0001", reviewer="x", created=shared, kind=Kind.COMM, comment="c")
     text = RTD(meta=m, rids=[rid]).to_yaml()
     assert "&id" not in text and "*id" not in text
+
+
+def test_multiline_string_serializes_as_single_quoted_line() -> None:
+    m = Meta(
+        review_id="R", document="d", baseline_sha="s", created=dt.date(2026, 7, 3), owner="o"
+    )
+    rid = RID(
+        rid="R-D-0001",
+        reviewer="x",
+        created=dt.date(2026, 7, 3),
+        kind=Kind.COMM,
+        comment="line one\nline two",
+    )
+    text = RTD(meta=m, rids=[rid]).to_yaml()
+    assert "line one\\nline two" in text  # escaped onto a single line
+    comment_line = next(ln for ln in text.splitlines() if ln.strip().startswith("comment:"))
+    assert "line one\\nline two" in comment_line  # the whole value is on one line
+    assert RTD.from_yaml(text).rids[0].comment == "line one\nline two"  # round-trips
