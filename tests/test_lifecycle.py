@@ -8,7 +8,7 @@ import datetime as dt
 
 import pytest
 
-from malus.constants import Kind, Role, Status
+from malus.constants import Disposition, Kind, Role, Status
 from malus.models import RID, TransitionError, transition
 
 
@@ -80,6 +80,7 @@ def test_moderator_may_verify_on_behalf() -> None:
 
 def test_legal_forward_path() -> None:
     rid = _rid(status=Status.OPEN)
+    rid.disposition = Disposition.ACCEPTED  # a decision is required to answer
     transition(rid, Status.ANSWERED, actor_role=Role.OWNER, actor_name="A. Boffi")
     assert rid.status is Status.ANSWERED
     transition(rid, Status.IMPLEMENTED, actor_role=Role.OWNER, actor_name="A. Boffi")
@@ -90,8 +91,34 @@ def test_legal_forward_path() -> None:
 
 def test_rejected_or_deferred_path_skips_implemented() -> None:
     rid = _rid(status=Status.ANSWERED)
+    rid.disposition = Disposition.REJECTED
     transition(rid, Status.VERIFIED, actor_role=Role.REVIEWER, actor_name="F. Miccoli")
     assert rid.status is Status.VERIFIED
+
+
+def test_answering_requires_a_disposition() -> None:
+    rid = _rid(status=Status.OPEN)  # disposition is None
+    with pytest.raises(TransitionError):
+        transition(rid, Status.ANSWERED, actor_role=Role.OWNER, actor_name="A. Boffi")
+    assert rid.status is Status.OPEN
+
+
+def test_only_accepted_may_be_implemented() -> None:
+    rid = _rid(status=Status.ANSWERED)
+    rid.disposition = Disposition.REJECTED
+    with pytest.raises(TransitionError):
+        transition(rid, Status.IMPLEMENTED, actor_role=Role.OWNER, actor_name="A. Boffi")
+    rid.disposition = Disposition.ACCEPTED
+    transition(rid, Status.IMPLEMENTED, actor_role=Role.OWNER, actor_name="A. Boffi")
+    assert rid.status is Status.IMPLEMENTED
+
+
+def test_answered_to_verified_only_for_rejected_or_deferred() -> None:
+    rid = _rid(status=Status.ANSWERED)
+    rid.disposition = Disposition.ACCEPTED  # accepted must go through implemented
+    with pytest.raises(TransitionError):
+        transition(rid, Status.VERIFIED, actor_role=Role.REVIEWER, actor_name="F. Miccoli")
+    assert rid.status is Status.ANSWERED
 
 
 @pytest.mark.parametrize("target", [Status.VERIFIED, Status.IMPLEMENTED])

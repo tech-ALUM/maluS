@@ -238,7 +238,7 @@ def transition(
 ) -> None:
     """Move ``rid`` to ``target`` in place, enforcing the lifecycle rules.
 
-    Two independent gates must pass (rid-schema.md §3):
+    Three gates must pass (rid-schema.md §3):
 
     1. **Status graph** — ``rid.status -> target`` must be in
        :data:`malus.constants.TRANSITIONS`.
@@ -249,6 +249,9 @@ def transition(
          seat;
        * only the RID's own reviewer may ``withdraw`` (from ``open`` only,
          which the status graph already enforces).
+    3. **Disposition routing** — a disposition is required to ``answer``; an
+       accepted RID goes ``answered → implemented → verified`` while a rejected
+       or deferred one goes ``answered → verified``.
 
     On a successful verify the RID is stamped with ``verified_by``/
     ``verified_on``. Raises :class:`TransitionError` without mutating ``rid``
@@ -282,6 +285,20 @@ def transition(
             actor_name is not None and actor_name != rid.reviewer
         ):
             raise TransitionError("only the RID's own reviewer may withdraw it")
+
+    # Disposition routing (rid-schema.md §3): a decision is required to answer;
+    # accepted RIDs are implemented before verified, rejected/deferred ones are
+    # verified straight from answered.
+    if target is Status.ANSWERED and rid.disposition is None:
+        raise TransitionError("answering a RID requires a disposition")
+    if target is Status.IMPLEMENTED and rid.disposition is not Disposition.ACCEPTED:
+        raise TransitionError("only an accepted RID may become 'implemented'")
+    if (
+        target is Status.VERIFIED
+        and rid.status is Status.ANSWERED
+        and rid.disposition not in (Disposition.REJECTED, Disposition.DEFERRED)
+    ):
+        raise TransitionError("answered → verified is only for rejected or deferred RIDs")
 
     rid.status = target
     if target is Status.VERIFIED:
