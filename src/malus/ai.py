@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import Protocol
 
 from .constants import Disposition, Kind, Status
-from .harvest import FreezeViolation, validate_insertion_only
+from .harvest import BASELINE_NAME, REVIEWERS_DIR, RTD_NAME, FreezeViolation, validate_insertion_only
 from .models import RID, RTD
 from .parser import ParseError
-from .triage import ClusterProposal, DuplicateLink
+from .triage import ClusterProposal, DuplicateLink, apply_clusters
 
 DEFAULT_MODEL = "claude-opus-4-8"
 _PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
@@ -194,3 +194,45 @@ def ai_triage(engine: Engine, rtd: RTD) -> list[ClusterProposal]:
         if links:
             proposals.append(ClusterProposal(master, links))
     return proposals
+
+
+# --------------------------------------------------------------------------- #
+# review-level orchestration (file I/O)
+# --------------------------------------------------------------------------- #
+
+
+def write_ai_review(review_dir: Path | str, reviewer: str, engine: Engine) -> Path:
+    """Have the AI author ``reviewers/<reviewer>.md``; raises if the output is invalid."""
+    review_dir = Path(review_dir)
+    baseline = (review_dir / BASELINE_NAME).read_text(encoding="utf-8")
+    copy = ai_review(engine, baseline)
+    reviewers_dir = review_dir / REVIEWERS_DIR
+    reviewers_dir.mkdir(exist_ok=True)
+    path = reviewers_dir / f"{reviewer}.md"
+    path.write_text(copy, encoding="utf-8")
+    return path
+
+
+def draft_dispositions(review_dir: Path | str, engine: Engine) -> int:
+    """Draft AI dispositions into the review's rtd.yaml; returns the count drafted."""
+    review_dir = Path(review_dir)
+    rtd_path = review_dir / RTD_NAME
+    rtd = RTD.from_yaml(rtd_path.read_text(encoding="utf-8"))
+    count = ai_disposition(engine, rtd)
+    rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
+    return count
+
+
+def propose_triage(
+    review_dir: Path | str, engine: Engine, *, auto: bool = False
+) -> tuple[list[ClusterProposal], int]:
+    """Propose AI duplicate clusters; with ``auto`` link them and save. Returns (proposals, applied)."""
+    review_dir = Path(review_dir)
+    rtd_path = review_dir / RTD_NAME
+    rtd = RTD.from_yaml(rtd_path.read_text(encoding="utf-8"))
+    proposals = ai_triage(engine, rtd)
+    applied = 0
+    if auto and proposals:
+        applied = apply_clusters(rtd, proposals)
+        rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
+    return proposals, applied

@@ -45,7 +45,3 @@ def test_version_option() -> None:
     assert __version__ in result.output
 
 
-def test_stub_reports_not_implemented_and_exits_nonzero() -> None:
-    result = runner.invoke(app, ["ai"])
-    assert result.exit_code != 0
-    assert "not yet implemented" in result.output.lower()

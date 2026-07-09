@@ -23,6 +23,7 @@ from .lifecycle import (
     verify_rid,
 )
 from .models import RTD, TransitionError
+from .ai import draft_dispositions, get_engine, propose_triage, write_ai_review
 from .report import report_review
 from .triage import apply_suggs_review, triage_review
 
@@ -53,10 +54,12 @@ def main(
     """maluS — formal RID-based review management for Markdown documents."""
 
 
-def _stub(command: str, step: str) -> None:
-    """Common body for a not-yet-implemented subcommand."""
-    typer.echo(f"malus {command}: not yet implemented ({step}).")
-    raise typer.Exit(code=1)
+def _resolve_engine(name: str):
+    try:
+        return get_engine(name)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from None
 
 
 @app.command("init")
@@ -246,10 +249,55 @@ def finalize(
     typer.echo(f"finalized {review}: wrote final.md, report.md, carryover.yaml, FINALIZED")
 
 
-@app.command("ai")
-def ai() -> None:
-    """Drive an AI in the owner / reviewer / moderator seat."""
-    _stub("ai", "Step 6")
+ai_app = typer.Typer(
+    help="Drive an AI in the owner / reviewer / moderator seat.", no_args_is_help=True
+)
+app.add_typer(ai_app, name="ai")
+
+
+@ai_app.command("review")
+def ai_review_cmd(
+    reviewer: str = typer.Option(..., "--reviewer", help="Reviewer name for the AI copy."),
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    engine: str = typer.Option("mock", "--engine", help="AI engine: mock | anthropic."),
+) -> None:
+    """AI writes its own reviewer copy (validated by the parser before it is written)."""
+    resolved = _resolve_engine(engine)
+    try:
+        path = write_ai_review(review, reviewer, resolved)
+    except (ValueError, FileNotFoundError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"wrote {path}")
+
+
+@ai_app.command("disposition")
+def ai_disposition_cmd(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    engine: str = typer.Option("mock", "--engine", help="AI engine: mock | anthropic."),
+) -> None:
+    """AI (owner) drafts replies + dispositions, marked ai_drafted; a human confirms."""
+    count = draft_dispositions(review, _resolve_engine(engine))
+    typer.echo(f"drafted {count} disposition(s) — ai_drafted, awaiting human confirmation")
+
+
+@ai_app.command("triage")
+def ai_triage_cmd(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    auto: bool = typer.Option(False, "--auto", help="Link the proposed duplicate groups."),
+    engine: str = typer.Option("mock", "--engine", help="AI engine: mock | anthropic."),
+) -> None:
+    """AI (moderator) proposes semantic duplicate groups (same confirmation flow)."""
+    proposals, applied = propose_triage(review, _resolve_engine(engine), auto=auto)
+    if auto:
+        typer.echo(f"linked {applied} duplicate(s)")
+        return
+    if not proposals:
+        typer.echo("no duplicate groups proposed")
+    for proposal in proposals:
+        typer.echo(
+            f"master {proposal.master}: " + ", ".join(link.duplicate for link in proposal.links)
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover
