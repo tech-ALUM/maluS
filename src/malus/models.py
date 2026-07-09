@@ -142,16 +142,22 @@ class Meta:
     created: _dt.date
     owner: str
     reviewers: list[str] = field(default_factory=list)
+    rid_prefix: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "review_id": self.review_id,
-            "document": self.document,
-            "baseline_sha": self.baseline_sha,
-            "created": self.created,
-            "owner": self.owner,
-            "reviewers": list(self.reviewers),
-        }
+        data: dict[str, Any] = {"review_id": self.review_id}
+        if self.rid_prefix is not None:
+            data["rid_prefix"] = self.rid_prefix
+        data.update(
+            {
+                "document": self.document,
+                "baseline_sha": self.baseline_sha,
+                "created": self.created,
+                "owner": self.owner,
+                "reviewers": list(self.reviewers),
+            }
+        )
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Meta:
@@ -162,6 +168,7 @@ class Meta:
             created=_as_date(data.get("created")),
             owner=data["owner"],
             reviewers=list(data.get("reviewers") or []),
+            rid_prefix=data.get("rid_prefix"),
         )
 
 

@@ -77,3 +77,21 @@ def test_sugg_type_and_severity_are_null_in_yaml() -> None:
     text = _sample_rtd().to_yaml()
     assert "type: null" in text
     assert "duplicates: []" in text
+
+
+def test_meta_rid_prefix_optional_round_trip() -> None:
+    m = Meta(
+        review_id="SIN-SRS-R1",
+        document="baseline.md",
+        baseline_sha="abc",
+        created=dt.date(2026, 7, 3),
+        owner="A. Boffi",
+        rid_prefix="SIN-SRS",
+    )
+    text = RTD(meta=m, rids=[]).to_yaml()
+    assert "rid_prefix: SIN-SRS" in text
+    assert RTD.from_yaml(text).meta.rid_prefix == "SIN-SRS"
+
+
+def test_meta_without_rid_prefix_omits_key() -> None:
+    assert "rid_prefix" not in _sample_rtd().to_yaml()

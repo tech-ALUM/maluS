@@ -50,6 +50,7 @@ rids:
 | Field | Meaning |
 |-------|---------|
 | `review_id` | Identifier of this review instance. |
+| `rid_prefix` | *(optional)* Overrides the `<PROJECT>-<DOC>` RID id prefix; when absent it is derived from `review_id` (§2). |
 | `document` | Path to the frozen baseline DUR. |
 | `baseline_sha` | Git SHA of the frozen baseline commit. |
 | `created` | Date the review was created (`YYYY-MM-DD`). |
@@ -91,7 +92,9 @@ To keep GUI/CLI saves as minimal git diffs (a hard constraint):
 RID ids have the form `<PROJECT>-<DOC>-<NNNN>`:
 
 - `PROJECT` and `DOC` are short uppercase alphanumeric tokens (e.g. `SIN`,
-  `SRS`).
+  `SRS`). The `<PROJECT>-<DOC>` prefix is `meta.rid_prefix` when set, otherwise
+  `review_id` with its trailing `-<revision>` segment removed (e.g.
+  `SIN-SRS-R1` → `SIN-SRS`).
 - `NNNN` is a zero-padded sequence number (≥ 4 digits), assigned in
   **document order** (by anchor position) at the **first** harvest.
 
