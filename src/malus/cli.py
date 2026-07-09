@@ -7,6 +7,7 @@ entry point is ``malus = malus.cli:app`` (see ``pyproject.toml``).
 
 from __future__ import annotations
 
+import datetime as _dt
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,8 @@ import typer
 
 from . import __version__
 from .harvest import freeze_review, harvest_review, init_review, make_copies
+from .lifecycle import check_traceability, pending_for_reviewer, reopen_rid, verify_rid
+from .models import RTD, TransitionError
 from .triage import apply_suggs_review, triage_review
 
 app = typer.Typer(
@@ -168,9 +171,52 @@ def report() -> None:
 
 
 @app.command("verify")
-def verify() -> None:
-    """Reviewer-side verification and closure of RIDs."""
-    _stub("verify", "Step 5")
+def verify(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    check: bool = typer.Option(False, "--check", help="Run the commit-to-RID traceability check."),
+    reviewer: Optional[str] = typer.Option(None, "--reviewer", help="Reviewer name (listing or verdicts)."),
+    rid: Optional[str] = typer.Option(None, "--rid", help="RID to verify or reopen."),
+    reopen: Optional[str] = typer.Option(None, "--reopen", help="Reopen the RID with this reason."),
+    moderator: bool = typer.Option(False, "--moderator", help="Act as moderator on a reviewer's behalf."),
+) -> None:
+    """Reviewer-side verification, reopen, and the traceability check."""
+    rtd_path = review / "rtd.yaml"
+    rtd = RTD.from_yaml(rtd_path.read_text(encoding="utf-8"))
+    if check:
+        report = check_traceability(rtd, review)
+        for a in report.accepted_unreferenced:
+            typer.echo(f"UNREFERENCED  accepted {a} has no commit referencing it", err=True)
+        for x in report.referenced_not_accepted:
+            typer.echo(f"ANOMALY       {x} is referenced by a commit but not accepted", err=True)
+        if report.ok:
+            typer.echo("traceability OK")
+            return
+        raise typer.Exit(code=1)
+    if rid:
+        if not reviewer:
+            typer.echo("--rid requires --reviewer", err=True)
+            raise typer.Exit(code=2)
+        try:
+            if reopen is not None:
+                reopen_rid(rtd, rid, reviewer=reviewer, reason=reopen, moderator=moderator)
+                typer.echo(f"reopened {rid}")
+            else:
+                verify_rid(rtd, rid, reviewer=reviewer, moderator=moderator, on=_dt.date.today())
+                typer.echo(f"verified {rid}")
+        except (TransitionError, ValueError) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from None
+        rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
+        return
+    if reviewer:
+        pending = pending_for_reviewer(rtd, reviewer)
+        if not pending:
+            typer.echo(f"no RIDs awaiting {reviewer}")
+        for r in pending:
+            typer.echo(f"{r.rid}  [{r.status.value}]  {r.comment or ''}")
+        return
+    typer.echo("specify --check, --reviewer NAME, or --rid ID", err=True)
+    raise typer.Exit(code=2)
 
 
 @app.command("finalize")
