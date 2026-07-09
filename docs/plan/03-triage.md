@@ -7,10 +7,10 @@ findings under master RIDs and batch-apply mechanical suggestions.
 
 ## Deliverables
 
-- [ ] `src/malus/triage.py` — clustering + SUGG application
-- [ ] `malus triage` — interactive/auto duplicate clustering
-- [ ] `malus apply-suggs` — apply accepted SUGGs to a working copy
-- [ ] Tests on fixtures with overlapping comments
+- [x] `src/malus/triage.py` — clustering + SUGG application
+- [x] `malus triage` — interactive/auto duplicate clustering
+- [x] `malus apply-suggs` — apply accepted SUGGs to a working copy
+- [x] Tests on fixtures with overlapping comments
 
 ## Key behaviors
 
@@ -34,6 +34,31 @@ findings under master RIDs and batch-apply mechanical suggestions.
 Fixture with 3 reviewers flagging the same issue → one master + 2 linked
 duplicates after `malus triage --auto`; `apply-suggs --dry-run` shows correct
 diff and real run applies it; suite green.
+
+## Deviations
+
+Decisions settled with Alberto Boffi 2026-07-09 (candidates for `memory/decisions/`):
+
+- **`apply-suggs` applies every suggestion not explicitly rejected** (default-
+  accepted per D4), so batch-apply runs during triage — not only owner-accepted
+  ones.
+- **`triage` = list + `--auto`**: without `--auto` it lists the proposed groups
+  and changes nothing; `--auto` links the high-confidence groups. Interactive
+  per-group yes/no prompts were deferred.
+
+Implementation choices:
+
+- **Master selection** = the lowest-numbered RID in a group; **thresholds**
+  0.60 to propose a group, 0.82 to auto-accept (adjustable via `--threshold`),
+  using a difflib similarity on the normalized comment text within the same
+  section.
+- **Duplicate status follows the master** at clustering time; ongoing sync when
+  the master changes belongs to Step 5.
+- **SUGG operand escaping** added to the harvest rendering so the stored comment
+  re-parses losslessly (`parse_sugg_comment`), since the RID schema has no
+  dedicated `old`/`new` fields.
+- **`apply-suggs` writes `<review>/working.md`** from the frozen `baseline.md`
+  (the baseline is never modified); `--dry-run` previews a unified diff.
 
 ## Out of scope
 
