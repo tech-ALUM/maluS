@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maluS — RTD</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --ink:#1c2330; --muted:#6b7280; --line:#e2e5ea;
+    --accent:#2f6feb; --ok:#1a7f45; --warn:#b26a00; --crit:#c0392b; --chip:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);display:flex;flex-direction:column}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  select,input[type=text],textarea{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  label{color:var(--muted);font-size:12px}
+  .grow{flex:1}
+  .dash{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .stat{background:var(--chip);border-radius:6px;padding:4px 9px;font-size:12px}
+  .stat b{font-size:13px}
+  .bar{height:6px;background:var(--chip);border-radius:4px;overflow:hidden;min-width:120px;flex:1;align-self:center}
+  .bar>i{display:block;height:100%;background:var(--ok)}
+  main{flex:1;display:flex;min-height:0}
+  .list{flex:1.4;overflow:auto;border-right:1px solid var(--line)}
+  .detail{flex:1;overflow:auto;padding:14px 16px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;font-weight:600}
+  th:hover{color:var(--accent)}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f0f4ff}
+  tbody tr.sel{background:#e4ecff}
+  .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--chip)}
+  .s-open{background:#eef1f6}.s-answered{background:#e7f0ff;color:#1e4fbf}
+  .s-implemented{background:#fff2d9;color:var(--warn)}.s-verified{background:#e3f6ea;color:var(--ok)}
+  .s-withdrawn{background:#eee;color:var(--muted);text-decoration:line-through}
+  .sev-minor{color:var(--muted)}.sev-major{color:var(--warn)}.sev-critical{color:var(--crit);font-weight:700}
+  .dup{color:var(--muted);font-size:11px}
+  .detail h2{font-size:15px;margin:0 0 2px}
+  .detail .meta{color:var(--muted);font-size:12px;margin-bottom:10px}
+  .detail .comment{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;white-space:pre-wrap;margin-bottom:12px}
+  .fieldset{margin:12px 0}
+  .fieldset>label{display:block;margin-bottom:3px;font-weight:600;color:var(--ink)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .empty{color:var(--muted);padding:40px;text-align:center}
+  .banner{padding:8px 16px;font-size:13px}
+  .banner.err{background:#fdecea;color:var(--crit)}
+  .banner.ok{background:#e3f6ea;color:var(--ok)}
+  .dirty-dot{color:var(--crit);font-weight:700;display:none}
+  .dirty .dirty-dot{display:inline}
+  code{background:var(--chip);padding:1px 4px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>malu<span>S</span> · RTD <span class="dirty-dot" title="unsaved changes">●</span></h1>
+    <button id="openBtn">Open rtd.yaml…</button>
+    <button id="saveBtn" class="primary" disabled>Save</button>
+    <span class="grow"></span>
+    <label>Role</label>
+    <select id="roleSel">
+      <option value="owner">Owner</option>
+      <option value="reviewer">Reviewer</option>
+      <option value="moderator">Moderator</option>
+    </select>
+    <label>Acting as</label>
+    <select id="actorSel"><option value="">—</option></select>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <input type="text" id="search" placeholder="search text / rid…" style="min-width:180px">
+    <select id="fStatus"><option value="">status: all</option></select>
+    <select id="fReviewer"><option value="">reviewer: all</option></select>
+    <select id="fType"><option value="">type: all</option></select>
+    <select id="fSeverity"><option value="">severity: all</option></select>
+    <select id="fDisposition"><option value="">disposition: all</option></select>
+  </div>
+  <div class="dash" id="dash"></div>
+</header>
+<div id="banner"></div>
+<main>
+  <div class="list"><table id="tbl"><thead></thead><tbody></tbody></table>
+    <div class="empty" id="emptyList">Open an <code>rtd.yaml</code> file to begin.</div>
+  </div>
+  <div class="detail" id="detail"><div class="empty">Select a finding.</div></div>
+</main>
+<script>
+// BEGIN GENERATED CONSTANTS (from malus.constants — regenerate, do not hand-edit)
+const MALUS = {
+  "STATUSES": [
+    "open",
+    "answered",
+    "implemented",
+    "verified",
+    "withdrawn"
+  ],
+  "KINDS": [
+    "COMM",
+    "SUGG"
+  ],
+  "TYPES": [
+    "typo",
+    "editorial",
+    "technical",
+    "process"
+  ],
+  "SEVERITIES": [
+    "minor",
+    "major",
+    "critical"
+  ],
+  "DISPOSITIONS": [
+    "accepted",
+    "rejected",
+    "deferred"
+  ],
+  "ROLES": [
+    "owner",
+    "reviewer",
+    "moderator"
+  ],
+  "TRANSITIONS": {
+    "open": [
+      "answered",
+      "withdrawn"
+    ],
+    "answered": [
+      "implemented",
+      "verified"
+    ],
+    "implemented": [
+      "verified"
+    ],
+    "verified": [],
+    "withdrawn": []
+  },
+  "TERMINAL": [
+    "verified",
+    "withdrawn"
+  ]
+};
+// END GENERATED CONSTANTS
+
+const EDITABLE = ["status","reply","disposition","resolution","verified_by","verified_on"];
+const COLUMNS = [
+  ["rid","RID"],["reviewer","Reviewer"],["kind","Kind"],["type","Type"],
+  ["severity","Severity"],["status","Status"],["disposition","Disposition"]
+];
+
+let state = { model:null, fileHandle:null, fileName:"rtd.yaml", role:"owner",
+  actor:"", selected:null, sortKey:"rid", sortDir:1, dirty:false };
+
+/* ---------- YAML: targeted reader + surgical writer ---------- */
+function indentOf(s){ return s.match(/^ */)[0].length; }
+function parseScalar(raw){
+  raw = raw.trim();
+  if(raw==="" || raw==="null" || raw==="~") return null;
+  if(raw==="[]") return [];
+  if(raw==="true") return true;
+  if(raw==="false") return false;
+  if(raw[0]==='"') return unquoteDouble(raw);
+  if(raw[0]==="'") return raw.slice(1,-1).replace(/''/g,"'");
+  if(/^-?\d+$/.test(raw)) return parseInt(raw,10);
+  return raw;
+}
+function unquoteDouble(raw){
+  let s = raw.slice(1,-1), out="", i=0;
+  while(i<s.length){
+    if(s[i]==="\\"){
+      const n=s[i+1];
+      out += n==="n"?"\n":n==="t"?"\t":n==="r"?"\r":n==='"'?'"':n==="\\"?"\\":n==="/"?"/":n;
+      i+=2;
+    } else { out+=s[i]; i++; }
+  }
+  return out;
+}
+function jsonQuote(s){
+  return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"')
+    .replace(/\n/g,"\\n").replace(/\r/g,"\\r").replace(/\t/g,"\\t")+'"';
+}
+function formatValue(key,value){
+  if(value===null||value===undefined) return "null";
+  if(key==="status"||key==="disposition"||key==="verified_on") return String(value);
+  return jsonQuote(value); // reply, resolution, verified_by → free text
+}
+function parseRtd(text){
+  const lines = text.split("\n"), N=lines.length;
+  const meta={}, rids=[]; let i=0;
+  while(i<N){
+    const line=lines[i];
+    if(line.startsWith("meta:")){
+      i++;
+      while(i<N && lines[i].startsWith("  ") && indentOf(lines[i])>=2){
+        if(lines[i].startsWith("  - ")){ i++; continue; }
+        const m=lines[i].slice(2), ci=m.indexOf(":");
+        const key=m.slice(0,ci).trim(), rest=m.slice(ci+1).trim();
+        if(rest===""){
+          const arr=[]; i++;
+          while(i<N && lines[i].startsWith("  - ")){ arr.push(parseScalar(lines[i].slice(4))); i++; }
+          meta[key]=arr;
+        } else { meta[key]=parseScalar(rest); i++; }
+      }
+      continue;
+    }
+    if(line.startsWith("rids:")){
+      i++;
+      while(i<N){
+        if(lines[i].startsWith("- ")){ const [r,ni]=parseRidItem(lines,i); rids.push(r); i=ni; }
+        else if(lines[i].trim()===""){ i++; }
+        else break;
+      }
+      continue;
+    }
+    i++;
+  }
+  return {meta, rids, _lines:lines};
+}
+function parseRidItem(lines,start){
+  const rid={_line:{}, _orig:{}}, N=lines.length; let i=start;
+  { const body=lines[i].slice(2), ci=body.indexOf(":");
+    rid[body.slice(0,ci).trim()]=parseScalar(body.slice(ci+1)); rid._line[body.slice(0,ci).trim()]=i; i++; }
+  while(i<N){
+    const l=lines[i];
+    if(l.startsWith("- ")||l.trim()==="") break;
+    const ind=indentOf(l);
+    if(ind<2) break;
+    if(ind>2){ i++; continue; }
+    const m=l.slice(2), ci=m.indexOf(":");
+    const key=m.slice(0,ci).trim(), rest=m.slice(ci+1).trim();
+    if(key==="anchor"){
+      const a={}; i++;
+      while(i<N && indentOf(lines[i])===4){ const am=lines[i].slice(4),aci=am.indexOf(":");
+        a[am.slice(0,aci).trim()]=parseScalar(am.slice(aci+1)); i++; }
+      rid.anchor=a; continue;
+    }
+    if(rest===""){
+      const arr=[]; i++;
+      while(i<N && lines[i].startsWith("  - ")){ arr.push(parseScalar(lines[i].slice(4))); i++; }
+      rid[key]=arr; continue;
+    }
+    rid[key]=parseScalar(rest); rid._line[key]=i; i++;
+  }
+  for(const f of EDITABLE){ rid._orig[f] = rid[f]===undefined?null:rid[f]; if(rid[f]===undefined) rid[f]=null; }
+  return [rid,i];
+}
+function serialize(model){
+  const out=model._lines.slice();
+  for(const rid of model.rids){
+    for(const f of EDITABLE){
+      if(rid._line[f]===undefined) continue;
+      if((rid[f]??null)===(rid._orig[f]??null)) continue;
+      out[rid._line[f]] = "  "+f+": "+formatValue(f,rid[f]);
+    }
+  }
+  return out.join("\n");
+}
+
+/* ---------- transition logic (mirrors malus.models.transition) ---------- */
+function canTransition(cur,target){ return (MALUS.TRANSITIONS[cur]||[]).includes(target); }
+function attemptTransition(rid,target,role,actorName,isAI){
+  if(!canTransition(rid.status,target)) return "illegal transition "+rid.status+" → "+target;
+  if(target==="verified"){
+    if(isAI) return "an AI may never set 'verified'";
+    if(role==="owner") return "the owner may never set 'verified'; closure belongs to the reviewer";
+    if(role==="reviewer" && actorName && actorName!==rid.reviewer)
+      return "reviewer "+actorName+" may not verify a RID owned by "+rid.reviewer;
+  }
+  if(target==="withdrawn"){
+    if(role!=="reviewer" || (actorName && actorName!==rid.reviewer))
+      return "only the RID's own reviewer may withdraw it";
+  }
+  return null;
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+/* ---------- state / dirty ---------- */
+function setDirty(v){ state.dirty=v; document.body.classList.toggle("dirty",v);
+  document.getElementById("saveBtn").disabled = !state.model || !v; }
+window.addEventListener("beforeunload",e=>{ if(state.dirty){ e.preventDefault(); e.returnValue=""; }});
+
+function banner(msg,kind){ const b=document.getElementById("banner");
+  b.innerHTML = msg? '<div class="banner '+kind+'">'+msg+'</div>':''; }
+
+/* ---------- loading ---------- */
+function schemaError(model){
+  if(!model.meta || typeof model.meta.review_id!=="string") return "missing meta.review_id";
+  if(!Array.isArray(model.rids)) return "missing rids list";
+  return null;
+}
+function loadText(text,name){
+  let model; try{ model=parseRtd(text); }catch(err){ banner("parse error: "+err.message,"err"); return false; }
+  const err=schemaError(model);
+  if(err){ banner("not a valid rtd.yaml: "+err,"err"); return false; }
+  state.model=model; state.fileName=name||"rtd.yaml"; state.selected=null;
+  buildFilters(); setDirty(false); banner("loaded "+state.fileName+" — "+model.rids.length+" RID(s)","ok");
+  render();
+  return true;
+}
+window.__loadText = loadText; // test hook
+
+async function openFile(){
+  if(window.showOpenFilePicker){
+    try{
+      const [h]=await window.showOpenFilePicker({types:[{description:"YAML",accept:{"text/yaml":[".yaml",".yml"]}}]});
+      state.fileHandle=h; const f=await h.getFile(); loadText(await f.text(), f.name);
+    }catch(e){ if(e.name!=="AbortError") banner("open failed: "+e.message,"err"); }
+  } else {
+    const inp=document.createElement("input"); inp.type="file"; inp.accept=".yaml,.yml";
+    inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
+      r.onload=()=>loadText(r.result,f.name); r.readAsText(f); };
+    inp.click();
+  }
+}
+async function saveFile(){
+  if(!state.model) return;
+  const err=schemaError(state.model);
+  if(err){ banner("refusing to save: "+err,"err"); return; }
+  const text=serialize(state.model);
+  try{
+    if(state.fileHandle && state.fileHandle.createWritable){
+      const w=await state.fileHandle.createWritable(); await w.write(text); await w.close();
+    } else if(window.showSaveFilePicker){
+      const h=await window.showSaveFilePicker({suggestedName:state.fileName});
+      const w=await h.createWritable(); await w.write(text); await w.close(); state.fileHandle=h;
+    } else {
+      const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"text/yaml"}));
+      a.download=state.fileName; a.click(); URL.revokeObjectURL(a.href);
+    }
+  }catch(e){ if(e.name!=="AbortError") banner("save failed: "+e.message,"err"); return; }
+  // saved text becomes the new baseline (line indices are stable — 1 line per field)
+  state.model._lines=text.split("\n");
+  for(const rid of state.model.rids) for(const f of EDITABLE) rid._orig[f]=rid[f]??null;
+  setDirty(false); banner("saved "+state.fileName,"ok");
+}
+
+/* ---------- filters / dashboard ---------- */
+function fillSelect(id,opts,label){ const s=document.getElementById(id);
+  s.innerHTML='<option value="">'+label+'</option>'+opts.map(o=>'<option>'+o+'</option>').join(""); }
+function buildFilters(){
+  const rids=state.model.rids;
+  fillSelect("fStatus",MALUS.STATUSES,"status: all");
+  fillSelect("fReviewer",[...new Set(rids.map(r=>r.reviewer))].sort(),"reviewer: all");
+  fillSelect("fType",MALUS.TYPES,"type: all");
+  fillSelect("fSeverity",MALUS.SEVERITIES,"severity: all");
+  fillSelect("fDisposition",MALUS.DISPOSITIONS,"disposition: all");
+  const actor=document.getElementById("actorSel");
+  const names=(state.model.meta.reviewers||[]).slice();
+  actor.innerHTML='<option value="">—</option>'+names.map(n=>'<option>'+n+'</option>').join("");
+}
+function dashboard(){
+  const rids=state.model.rids, d=document.getElementById("dash");
+  const by=k=>rids.reduce((m,r)=>{const v=r[k]||"—";m[v]=(m[v]||0)+1;return m;},{});
+  const st=by("status");
+  const done=rids.filter(r=>["verified","withdrawn"].includes(r.status)).length;
+  const pct=rids.length?Math.round(100*done/rids.length):0;
+  const sv=by("severity");
+  let html=MALUS.STATUSES.map(s=>'<span class="stat">'+s+' <b>'+(st[s]||0)+'</b></span>').join("");
+  html+='<span class="stat">total <b>'+rids.length+'</b></span>';
+  html+=MALUS.SEVERITIES.map(s=>'<span class="stat sev-'+s+'">'+s+' <b>'+(sv[s]||0)+'</b></span>').join("");
+  html+='<span class="bar"><i style="width:'+pct+'%"></i></span><span class="stat">'+pct+'% closed</span>';
+  d.innerHTML=html;
+}
+
+/* ---------- table ---------- */
+function filtered(){
+  const q=document.getElementById("search").value.toLowerCase();
+  const f=id=>document.getElementById(id).value;
+  const fs=f("fStatus"),fr=f("fReviewer"),ft=f("fType"),fv=f("fSeverity"),fd=f("fDisposition");
+  let rows=state.model.rids.filter(r=>{
+    if(fs&&r.status!==fs)return false; if(fr&&r.reviewer!==fr)return false;
+    if(ft&&r.type!==ft)return false; if(fv&&r.severity!==fv)return false;
+    if(fd&&(r.disposition||"")!==fd)return false;
+    if(q&&!((r.rid+" "+(r.comment||"")+" "+(r.reply||"")).toLowerCase().includes(q)))return false;
+    return true;
+  });
+  const k=state.sortKey,dir=state.sortDir;
+  rows.sort((a,b)=>String(a[k]??"").localeCompare(String(b[k]??""))*dir);
+  return rows;
+}
+function render(){ dashboard(); renderTable(); renderDetail(); }
+function renderTable(){
+  const thead=document.querySelector("#tbl thead"), tbody=document.querySelector("#tbl tbody");
+  const empty=document.getElementById("emptyList");
+  if(!state.model){ empty.style.display="block"; thead.innerHTML=tbody.innerHTML=""; return; }
+  empty.style.display="none";
+  thead.innerHTML="<tr>"+COLUMNS.map(([k,l])=>'<th data-k="'+k+'">'+l+(state.sortKey===k?(state.sortDir>0?" ▲":" ▼"):"")+'</th>').join("")+"</tr>";
+  thead.querySelectorAll("th").forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k; if(state.sortKey===k) state.sortDir*=-1; else {state.sortKey=k;state.sortDir=1;} renderTable(); });
+  const rows=filtered();
+  tbody.innerHTML=rows.map(r=>{
+    const dup=r.master?' <span class="dup">↳ '+r.master+'</span>':(r.duplicates&&r.duplicates.length?' <span class="dup">('+r.duplicates.length+' dup)</span>':'');
+    return '<tr data-rid="'+r.rid+'"'+(state.selected===r.rid?' class="sel"':'')+'>'+
+      '<td>'+r.rid+dup+'</td><td>'+esc(r.reviewer)+'</td><td>'+r.kind+'</td>'+
+      '<td>'+(r.type||"")+'</td><td class="sev-'+(r.severity||"")+'">'+(r.severity||"")+'</td>'+
+      '<td><span class="pill s-'+r.status+'">'+r.status+'</span></td>'+
+      '<td>'+(r.disposition||"")+'</td></tr>';
+  }).join("");
+  tbody.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>{ state.selected=tr.dataset.rid; render(); });
+}
+function esc(s){ return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+/* ---------- detail ---------- */
+function findRid(id){ return state.model.rids.find(r=>r.rid===id); }
+function renderDetail(){
+  const el=document.getElementById("detail");
+  const r=state.selected&&findRid(state.selected);
+  if(!r){ el.innerHTML='<div class="empty">Select a finding.</div>'; return; }
+  const a=r.anchor||{};
+  const isOwner=state.role==="owner";
+  let h='<h2>'+r.rid+' <span class="pill s-'+r.status+'">'+r.status+'</span></h2>';
+  h+='<div class="meta">'+esc(r.reviewer)+' · '+r.kind+(r.type?' · '+r.type:'')+(r.severity?' · '+r.severity:'')+
+     ' · §'+esc(a.section||"?")+' · line '+esc(a.line_hint||"?")+'</div>';
+  h+='<div class="comment">'+esc(r.comment||"")+'</div>';
+  if(r.master) h+='<div class="meta">duplicate of <code>'+r.master+'</code></div>';
+  // owner editors
+  h+='<div class="fieldset"><label>Reply'+(isOwner?'':' (read-only)')+'</label>'+
+     '<textarea id="f_reply" '+(isOwner?'':'disabled')+'>'+esc(r.reply||"")+'</textarea></div>';
+  h+='<div class="fieldset"><label>Disposition</label><select id="f_disposition" '+(isOwner?'':'disabled')+'>'+
+     '<option value="">—</option>'+MALUS.DISPOSITIONS.map(d=>'<option'+(r.disposition===d?' selected':'')+'>'+d+'</option>').join("")+'</select></div>';
+  h+='<div class="fieldset"><label>Resolution'+(isOwner?'':' (read-only)')+'</label>'+
+     '<textarea id="f_resolution" '+(isOwner?'':'disabled')+'>'+esc(r.resolution||"")+'</textarea></div>';
+  if(r.verified_by) h+='<div class="meta">verified by '+esc(r.verified_by)+' on '+esc(r.verified_on||"")+'</div>';
+  // transitions
+  h+='<div class="actions">';
+  for(const t of (MALUS.TRANSITIONS[r.status]||[])){
+    const why=attemptTransition(r,t,state.role,state.actor,false);
+    h+='<button data-t="'+t+'"'+(why?' disabled title="'+esc(why)+'"':'')+'>→ '+t+'</button>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+  if(isOwner){
+    el.querySelector("#f_reply").oninput=e=>{ r.reply=e.target.value||null; setDirty(true); };
+    el.querySelector("#f_resolution").oninput=e=>{ r.resolution=e.target.value||null; setDirty(true); };
+  }
+  const dsel=el.querySelector("#f_disposition");
+  if(isOwner) dsel.onchange=e=>{ r.disposition=e.target.value||null; setDirty(true); dashboard(); };
+  el.querySelectorAll(".actions button[data-t]").forEach(b=>b.onclick=()=>doTransition(r,b.dataset.t));
+}
+function doTransition(r,target){
+  const why=attemptTransition(r,target,state.role,state.actor,false);
+  if(why){ banner(why,"err"); return; }
+  r.status=target;
+  if(target==="verified"){ r.verified_by=state.actor||r.reviewer; r.verified_on=todayISO(); }
+  setDirty(true); banner("","");
+  render();
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("openBtn").onclick=openFile;
+document.getElementById("saveBtn").onclick=saveFile;
+document.getElementById("roleSel").onchange=e=>{ state.role=e.target.value; renderDetail(); };
+document.getElementById("actorSel").onchange=e=>{ state.actor=e.target.value; renderDetail(); };
+["search","fStatus","fReviewer","fType","fSeverity","fDisposition"].forEach(id=>
+  document.getElementById(id).addEventListener("input",renderTable));
+
+/* ---------- self-test (invoked by the browser check) ---------- */
+const SAMPLE_RTD = [
+"meta:",
+"  review_id: SIN-SRS-R1",
+"  document: baseline.md",
+"  baseline_sha: '0000000'",
+"  created: 2026-07-03",
+"  owner: A. Boffi",
+"  reviewers:",
+"  - F. Miccoli",
+"  - R. Bianchi",
+"rids:",
+"- rid: SIN-SRS-0001",
+"  reviewer: F. Miccoli",
+"  created: 2026-07-03",
+"  anchor:",
+"    section: 3.2.1 Timeouts",
+"    quote: '...timeout...'",
+"    line_hint: 5",
+"  kind: COMM",
+"  type: technical",
+"  severity: major",
+"  status: implemented",
+"  comment: the timeout must be bounded",
+"  reply: null",
+"  disposition: accepted",
+"  resolution: null",
+"  master: null",
+"  duplicates: []",
+"  verified_by: null",
+"  verified_on: null",
+"- rid: SIN-SRS-0002",
+"  reviewer: R. Bianchi",
+"  created: 2026-07-03",
+"  anchor:",
+"    section: 3.3 Logging",
+"    quote: '...disk...'",
+"    line_hint: 9",
+"  kind: SUGG",
+"  type: null",
+"  severity: null",
+"  status: open",
+'  comment: \'"disk" -> "store"\'',
+"  reply: null",
+"  disposition: null",
+"  resolution: null",
+"  master: null",
+"  duplicates: []",
+"  verified_by: null",
+"  verified_on: null",
+"- rid: SIN-SRS-0003",
+"  reviewer: R. Bianchi",
+"  created: 2026-07-03",
+"  anchor:",
+"    section: 3.3 Logging",
+"    quote: '...signals...'",
+"    line_hint: 9",
+"  kind: COMM",
+"  type: editorial",
+"  severity: minor",
+"  status: open",
+"  comment: name the signals",
+"  reply: null",
+"  disposition: null",
+"  resolution: null",
+"  master: null",
+"  duplicates: []",
+"  verified_by: null",
+"  verified_on: null",
+""].join("\n");
+
+window.__malusSelfTest=function(){
+  const R=[]; const ck=(n,c)=>R.push({n,ok:!!c});
+  const m=parseRtd(SAMPLE_RTD);
+  ck("schema ok", schemaError(m)===null);
+  ck("parsed 3 rids", m.rids.length===3);
+  ck("parsed nested anchor", m.rids[0].anchor && m.rids[0].anchor.line_hint===5);
+  ck("parsed empty list", Array.isArray(m.rids[0].duplicates) && m.rids[0].duplicates.length===0);
+  const r1={status:"implemented",reviewer:"F. Miccoli"};
+  ck("owner cannot verify", attemptTransition(r1,"verified","owner","A. Boffi",false)!==null);
+  ck("ai cannot verify", attemptTransition(r1,"verified","reviewer","F. Miccoli",true)!==null);
+  ck("reviewer verifies own", attemptTransition(r1,"verified","reviewer","F. Miccoli",false)===null);
+  ck("reviewer not others", attemptTransition(r1,"verified","reviewer","R. Bianchi",false)!==null);
+  ck("moderator on behalf", attemptTransition(r1,"verified","moderator","Mod",false)===null);
+  ck("illegal open->verified", attemptTransition({status:"open",reviewer:"x"},"verified","reviewer","x",false)!==null);
+  ck("owner cannot withdraw", attemptTransition({status:"open",reviewer:"x"},"withdrawn","owner","o",false)!==null);
+  // minimal-diff surgical write
+  const before=m._lines.slice();
+  m.rids[0].reply="agreed"; m.rids[0].status="verified"; m.rids[0].verified_by="F. Miccoli"; m.rids[0].verified_on="2026-07-09";
+  const outText=serialize(m), out=outText.split("\n");
+  let changed=0; for(let k=0;k<Math.max(out.length,before.length);k++) if(out[k]!==before[k]) changed++;
+  ck("minimal diff (one line per edited field)", changed===4 && out.length===before.length);
+  const re=parseRtd(outText);
+  ck("round-trip reply", re.rids[0].reply==="agreed");
+  ck("round-trip status", re.rids[0].status==="verified");
+  ck("round-trip verified_by", re.rids[0].verified_by==="F. Miccoli");
+  ck("untouched rid identical", JSON.stringify(re.rids[2].comment)===JSON.stringify(m.rids[2].comment));
+  return {passed:R.filter(x=>x.ok).length, total:R.length, failed:R.filter(x=>!x.ok)};
+};
+</script>
+</body>
+</html>
