@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+ai = ["anthropic>=0.40"]  # optional: only the live AI engine needs it
 
 [project.scripts]
 malus = "malus.cli:app"
