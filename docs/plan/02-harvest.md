@@ -7,12 +7,12 @@ rule, parse comment blocks with their anchors, assign stable RID ids.
 
 ## Deliverables
 
-- [ ] `src/malus/parser.py` — comment block tokenizer/parser
-- [ ] `src/malus/harvest.py` — diff-based extraction + rtd.yaml writer
-- [ ] `malus freeze` — record baseline SHA into review meta
-- [ ] `malus copies` — generate per-reviewer copies (files or git branches)
-- [ ] `malus harvest` — working end-to-end on fixtures
-- [ ] Fixture set under `tests/fixtures/` (baseline + ≥3 reviewer copies,
+- [x] `src/malus/parser.py` — comment block tokenizer/parser
+- [x] `src/malus/harvest.py` — diff-based extraction + rtd.yaml writer
+- [x] `malus freeze` — record baseline SHA into review meta
+- [x] `malus copies` — generate per-reviewer copies (files or git branches)
+- [x] `malus harvest` — working end-to-end on fixtures
+- [x] Fixture set under `tests/fixtures/` (baseline + ≥3 reviewer copies,
       including one violating copy)
 
 ## Key behaviors
@@ -44,6 +44,31 @@ rule, parse comment blocks with their anchors, assign stable RID ids.
 
 `malus harvest` on the fixture review produces a correct, idempotent
 rtd.yaml; violating copy rejected with actionable message; suite green.
+
+## Deviations
+
+Decisions settled with Alberto Boffi 2026-07-09 (candidates for `memory/decisions/`):
+
+- **File-based reviewer copies** (deviation from D1's git-branch phrasing).
+  `copies`/`harvest` operate on `reviews/<id>/reviewers/<name>.md`; git-branch
+  mode deferred to a later step.
+- **`meta.rid_prefix`** — optional schema field; the `<PROJECT>-<DOC>` prefix is
+  `meta.rid_prefix` when set, else `review_id` minus its trailing `-<revision>`
+  segment. (Also recorded in `docs/spec/rid-schema.md`.)
+
+Implementation choices (no behavioural conflict):
+
+- **Freeze SHA** = the baseline's git blob SHA (`git hash-object`), deterministic
+  without a commit. `freeze` also bootstraps `rtd.yaml` meta when absent, since
+  `init` is still a stub.
+- **Freeze validation** = strip parsed blocks from the copy; the residue must
+  differ from `baseline.md` only in whitespace (char-level `difflib`).
+- **YAML aliasing disabled** in `to_yaml` (fix) — required for idempotence and
+  clean diffs.
+- **`{SUGG}` dedup** credits the first reviewer in document order to a single
+  RID; multi-reviewer credit is left to triage (Step 3).
+- **Anchor `quote`** = the ~120 preceding characters, whitespace-collapsed; may
+  span a heading boundary (a context hint only). Refine if needed later.
 
 ## Out of scope
 
