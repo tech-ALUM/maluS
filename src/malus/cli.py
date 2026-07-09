@@ -14,6 +14,7 @@ import typer
 
 from . import __version__
 from .harvest import freeze_review, harvest_review, init_review, make_copies
+from .triage import apply_suggs_review, triage_review
 
 app = typer.Typer(
     name="malus",
@@ -123,15 +124,41 @@ def harvest(
 
 
 @app.command("triage")
-def triage() -> None:
-    """Cluster duplicate findings under master RIDs."""
-    _stub("triage", "Step 3")
+def triage(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    auto: bool = typer.Option(False, "--auto", help="Link high-confidence duplicate groups."),
+    threshold: float = typer.Option(
+        0.6, "--threshold", help="Similarity (0-1) to propose a duplicate group."
+    ),
+) -> None:
+    """Group duplicate findings; --auto links the high-confidence ones."""
+    proposals, applied = triage_review(review, auto=auto, threshold=threshold)
+    if auto:
+        typer.echo(f"linked {applied} duplicate(s)")
+        return
+    if not proposals:
+        typer.echo("no duplicate groups proposed")
+    for proposal in proposals:
+        typer.echo(f"master {proposal.master}:")
+        for link in proposal.links:
+            typer.echo(f"  duplicate {link.duplicate} (confidence {link.confidence})")
 
 
 @app.command("apply-suggs")
-def apply_suggs() -> None:
-    """Batch-apply accepted mechanical {SUGG} replacements."""
-    _stub("apply-suggs", "Step 3")
+def apply_suggs(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show the diff, write nothing."),
+    out: Optional[Path] = typer.Option(
+        None, "--out", help="Output file (default: <review>/working.md)."
+    ),
+) -> None:
+    """Apply accepted {SUGG} replacements to a working copy of the document."""
+    diff, results = apply_suggs_review(review, dry_run=dry_run, out=out)
+    for result in results:
+        state = "applied" if result.applied else f"skipped ({result.reason})"
+        typer.echo(f"{result.rid}: {state}")
+    if dry_run:
+        typer.echo(diff, nl=False)
 
 
 @app.command("report")

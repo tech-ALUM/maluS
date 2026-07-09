@@ -1,0 +1,11 @@
+meta:
+  review_id: DLG-SPEC-R1
+  document: baseline.md
+  baseline_sha: "0000000"
+  created: 2026-07-03
+  owner: A. Boffi
+  reviewers:
+  - A. Uno
+  - B. Due
+  - C. Tre
+rids: []
