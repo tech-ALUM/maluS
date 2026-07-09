@@ -134,8 +134,13 @@ def _rid_number(rid_id: str, prefix: str) -> int | None:
     return None
 
 
+def _esc_operand(s: str) -> str:
+    """Escape a SUGG operand so ``{SUGG: <rendered>}`` re-parses to the original."""
+    return s.replace("}", "\\}").replace('"', '\\"')
+
+
 def _render_sugg(old: str, new: str) -> str:
-    return f'"{old}" -> "{new}"'
+    return f'"{_esc_operand(old)}" -> "{_esc_operand(new)}"'
 
 
 def _identity(
