@@ -21,6 +21,17 @@ def _review(tmp_path: Path) -> Path:
     return dest
 
 
+def _init_repo(path: Path) -> None:
+    for args in (
+        ["init", "-q"],
+        ["config", "user.email", "t@t"],
+        ["config", "user.name", "t"],
+        ["add", "-A"],
+        ["commit", "-q", "-m", "baseline"],
+    ):
+        subprocess.run(["git", "-C", str(path), *args], check=True, capture_output=True, text=True)
+
+
 def test_harvest_on_fixture(tmp_path: Path) -> None:
     review = _review(tmp_path)
     result = harvest_review(review)
@@ -49,12 +60,10 @@ def test_harvest_is_idempotent_on_fixture(tmp_path: Path) -> None:
 
 def test_freeze_records_baseline_sha(tmp_path: Path) -> None:
     review = _review(tmp_path)
+    _init_repo(review)
     sha = freeze_review(review)
     expected = subprocess.run(
-        ["git", "hash-object", str(review / "baseline.md")],
-        capture_output=True,
-        text=True,
-        check=True,
+        ["git", "-C", str(review), "rev-parse", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
     assert sha == expected
     assert RTD.from_yaml((review / "rtd.yaml").read_text()).meta.baseline_sha == expected

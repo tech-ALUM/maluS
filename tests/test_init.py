@@ -1,5 +1,6 @@
 """Tests for `malus init` — creating a new review instance from a source DUR."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,17 @@ def _source(tmp_path: Path) -> Path:
     path = tmp_path / "source.md"
     path.write_text(DOC, encoding="utf-8")
     return path
+
+
+def _init_repo(path: Path) -> None:
+    for args in (
+        ["init", "-q"],
+        ["config", "user.email", "t@t"],
+        ["config", "user.name", "t"],
+        ["add", "-A"],
+        ["commit", "-q", "-m", "baseline"],
+    ):
+        subprocess.run(["git", "-C", str(path), *args], check=True, capture_output=True, text=True)
 
 
 def test_init_creates_layout(tmp_path: Path) -> None:
@@ -57,6 +69,7 @@ def test_full_pipeline_init_freeze_copies_harvest(tmp_path: Path) -> None:
         reviews_root=tmp_path / "reviews",
         reviewers=["F. Miccoli"],
     )
+    _init_repo(review)  # freeze pins the baseline to a commit
     freeze_review(review)
     created = make_copies(review)
     assert len(created) == 1

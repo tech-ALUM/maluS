@@ -277,14 +277,22 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _baseline_sha(baseline_path: Path) -> str:
-    """Return the git blob SHA of the baseline (deterministic, no commit needed)."""
+def _baseline_sha(review_dir: Path) -> str:
+    """Return the git commit SHA at freeze time — the traceability anchor.
+
+    Traceability (Step 5) checks commits in ``baseline_sha..HEAD``, so the
+    baseline must be pinned to a commit, not a blob. Requires the review to be
+    inside a git repository with at least one commit.
+    """
     result = subprocess.run(
-        ["git", "hash-object", str(baseline_path)],
+        ["git", "-C", str(review_dir), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
-        check=True,
     )
+    if result.returncode != 0:
+        raise ValueError(
+            f"cannot freeze: {review_dir} is not inside a git repository with a commit"
+        )
     return result.stdout.strip()
 
 
@@ -338,7 +346,7 @@ def freeze_review(
 ) -> str:
     """Record the baseline SHA into the review meta, creating rtd.yaml if absent."""
     review_dir = Path(review_dir)
-    sha = _baseline_sha(review_dir / BASELINE_NAME)
+    sha = _baseline_sha(review_dir)
     rtd_path = review_dir / RTD_NAME
     if rtd_path.exists():
         rtd = RTD.from_yaml(_read(rtd_path))
