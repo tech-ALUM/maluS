@@ -7,12 +7,12 @@ commits to RIDs, run reviewer-side verification, and generate all reports.
 
 ## Deliverables
 
-- [ ] Transition enforcement shared by CLI and GUI (single constant source)
-- [ ] `malus verify` — verification workflow + traceability checks
-- [ ] `malus report` — validation + generated outputs:
+- [x] Transition enforcement shared by CLI and GUI (single constant source)
+- [x] `malus verify` — verification workflow + traceability checks
+- [x] `malus report` — validation + generated outputs:
       `report.md` (review minutes) and a status dashboard section
-- [ ] `malus finalize` — produce new baseline + archive the review
-- [ ] Commit↔RID traceability checker
+- [x] `malus finalize` — produce new baseline + archive the review
+- [x] Commit↔RID traceability checker
 
 ## Key behaviors
 
@@ -37,6 +37,35 @@ commits to RIDs, run reviewer-side verification, and generate all reports.
 Fixture review driven from harvest to finalize entirely via CLI+GUI with
 every guard exercised by tests (self-certification attempt fails,
 unreferenced accepted RID blocks implemented, reopen path works); suite green.
+
+## Deviations
+
+Decisions settled 2026-07-09 (candidates for `memory/decisions/`):
+
+- **Verify** uses non-interactive flags (`--check`, `--reviewer`, `--rid`,
+  `--reopen`, `--moderator`); an interactive step-through walk was deferred.
+- **Finalize** writes `final.md` (from `working.md`, else the baseline),
+  `report.md`, `carryover.yaml` (deferred findings), and a `FINALIZED` marker
+  inside the review folder; the next revision is started with `init`. "Read-only
+  archive" is a marker file, not filesystem permissions.
+
+Implementation choices / revisions:
+
+- **Freeze SHA revised** from the baseline *blob* hash (Step 2 choice) to the
+  *commit* SHA (`git rev-parse HEAD`), because traceability checks the commit
+  range `baseline_sha..HEAD`. `freeze` now requires the review to be inside a
+  git repo with a commit. This revises the Step-2 decision.
+- **Disposition gating** was added to `transition()` and mirrored in the GUI
+  (`attemptTransition`), re-verified in a browser.
+- **Traceability**: a RID is *referenced* when its id appears in a commit message
+  in `baseline_sha..HEAD`. Enforced via `verify --check` (exit 1 on anomalies),
+  which the owner runs before finalizing; because marking *implemented* is the
+  GUI's job (no git in the browser), the "before implemented" rule is a check
+  rather than a hard block at the transition.
+- **Owner identity** (`== meta.owner`) can never verify or reopen — enforced in
+  addition to the role check.
+- **Minutes** (`report.md`) are generated entirely from `rtd.yaml`; validation is
+  repo-free (traceability is the separate, git-aware check).
 
 ## Sources
 
