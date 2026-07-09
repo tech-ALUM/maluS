@@ -15,7 +15,13 @@ import typer
 
 from . import __version__
 from .harvest import freeze_review, harvest_review, init_review, make_copies
-from .lifecycle import check_traceability, pending_for_reviewer, reopen_rid, verify_rid
+from .lifecycle import (
+    check_traceability,
+    finalize_review,
+    pending_for_reviewer,
+    reopen_rid,
+    verify_rid,
+)
 from .models import RTD, TransitionError
 from .report import report_review
 from .triage import apply_suggs_review, triage_review
@@ -228,9 +234,16 @@ def verify(
 
 
 @app.command("finalize")
-def finalize() -> None:
-    """Produce the new baseline plus review minutes."""
-    _stub("finalize", "Step 5")
+def finalize(
+    review: Path = typer.Option(Path("."), "--review", help="Review directory."),
+) -> None:
+    """Finalize the review: new baseline, minutes, and deferred carry-over."""
+    errors = finalize_review(review)
+    if errors:
+        for e in errors:
+            typer.echo(f"cannot finalize: {e}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"finalized {review}: wrote final.md, report.md, carryover.yaml, FINALIZED")
 
 
 @app.command("ai")

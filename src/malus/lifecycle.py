@@ -14,8 +14,12 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
 from .constants import Disposition, Role, Status
+from .harvest import BASELINE_NAME, RTD_NAME
 from .models import RID, RTD, TransitionError, transition
+from .report import render_report, validate
 
 
 @dataclass
@@ -126,3 +130,48 @@ def reopen_rid(
     rid.verified_by = None
     rid.verified_on = None
     return rid
+
+
+_CARRYOVER_FIELDS = ("rid", "reviewer", "kind", "type", "severity", "comment", "anchor")
+
+
+def finalize_review(review_dir: Path | str) -> list[str]:
+    """Finalize a review: refuse unless every RID is verified/withdrawn and valid.
+
+    On success, writes ``final.md`` (the finalized document, from the working
+    copy), ``report.md`` (minutes), ``carryover.yaml`` (deferred findings for the
+    next cycle), and a ``FINALIZED`` marker. Returns blocking errors (empty = done).
+    """
+    review_dir = Path(review_dir)
+    rtd = RTD.from_yaml((review_dir / RTD_NAME).read_text(encoding="utf-8"))
+
+    errors: list[str] = []
+    open_rids = [
+        r.rid for r in rtd.rids if r.status not in (Status.VERIFIED, Status.WITHDRAWN)
+    ]
+    if open_rids:
+        errors.append("findings not yet verified/withdrawn: " + ", ".join(open_rids))
+    errors += validate(rtd)
+    if errors:
+        return errors
+
+    working = review_dir / "working.md"
+    source = working if working.exists() else review_dir / BASELINE_NAME
+    (review_dir / "final.md").write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    (review_dir / "report.md").write_text(render_report(rtd), encoding="utf-8")
+
+    deferred = [r for r in rtd.rids if r.disposition is Disposition.DEFERRED]
+    carryover = {
+        "source_review": rtd.meta.review_id,
+        "baseline_sha": rtd.meta.baseline_sha,
+        "deferred": [{k: r.to_dict()[k] for k in _CARRYOVER_FIELDS} for r in deferred],
+    }
+    (review_dir / "carryover.yaml").write_text(
+        yaml.safe_dump(carryover, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+    (review_dir / "FINALIZED").write_text(
+        f"Finalized {rtd.meta.review_id}: {len(rtd.rids)} findings, "
+        f"{len(deferred)} deferred to the next cycle.\n",
+        encoding="utf-8",
+    )
+    return []
