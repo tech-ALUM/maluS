@@ -278,6 +278,10 @@ function attemptTransition(rid,target,role,actorName,isAI){
     if(role!=="reviewer" || (actorName && actorName!==rid.reviewer))
       return "only the RID's own reviewer may withdraw it";
   }
+  if(target==="answered" && !rid.disposition) return "answering a RID requires a disposition";
+  if(target==="implemented" && rid.disposition!=="accepted") return "only an accepted RID may become 'implemented'";
+  if(target==="verified" && rid.status==="answered" && rid.disposition!=="rejected" && rid.disposition!=="deferred")
+    return "answered → verified is only for rejected or deferred RIDs";
   return null;
 }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
@@ -442,7 +446,7 @@ function renderDetail(){
     el.querySelector("#f_resolution").oninput=e=>{ r.resolution=e.target.value||null; setDirty(true); };
   }
   const dsel=el.querySelector("#f_disposition");
-  if(isOwner) dsel.onchange=e=>{ r.disposition=e.target.value||null; setDirty(true); dashboard(); };
+  if(isOwner) dsel.onchange=e=>{ r.disposition=e.target.value||null; setDirty(true); render(); };
   el.querySelectorAll(".actions button[data-t]").forEach(b=>b.onclick=()=>doTransition(r,b.dataset.t));
 }
 function doTransition(r,target){
@@ -548,6 +552,11 @@ window.__malusSelfTest=function(){
   ck("moderator on behalf", attemptTransition(r1,"verified","moderator","Mod",false)===null);
   ck("illegal open->verified", attemptTransition({status:"open",reviewer:"x"},"verified","reviewer","x",false)!==null);
   ck("owner cannot withdraw", attemptTransition({status:"open",reviewer:"x"},"withdrawn","owner","o",false)!==null);
+  ck("answer needs disposition", attemptTransition({status:"open",reviewer:"x"},"answered","owner","",false)!==null);
+  ck("answer with disposition ok", attemptTransition({status:"open",reviewer:"x",disposition:"accepted"},"answered","owner","",false)===null);
+  ck("only accepted implemented", attemptTransition({status:"answered",reviewer:"x",disposition:"rejected"},"implemented","owner","",false)!==null);
+  ck("rejected answered->verified ok", attemptTransition({status:"answered",reviewer:"x",disposition:"rejected"},"verified","reviewer","x",false)===null);
+  ck("accepted answered->verified blocked", attemptTransition({status:"answered",reviewer:"x",disposition:"accepted"},"verified","reviewer","x",false)!==null);
   // minimal-diff surgical write
   const before=m._lines.slice();
   m.rids[0].reply="agreed"; m.rids[0].status="verified"; m.rids[0].verified_by="F. Miccoli"; m.rids[0].verified_on="2026-07-09";
