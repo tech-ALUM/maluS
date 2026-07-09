@@ -13,7 +13,7 @@ from typing import Optional
 import typer
 
 from . import __version__
-from .harvest import freeze_review, harvest_review, make_copies
+from .harvest import freeze_review, harvest_review, init_review, make_copies
 
 app = typer.Typer(
     name="malus",
@@ -49,9 +49,30 @@ def _stub(command: str, step: str) -> None:
 
 
 @app.command("init")
-def init() -> None:
-    """Create a review instance: the reviews/<review-id>/ layout."""
-    _stub("init", "Step 2")
+def init(
+    review_id: str = typer.Argument(..., help="Review id, e.g. SIN-SRS-R1."),
+    document: Path = typer.Option(
+        ..., "--document", "-d", help="Path to the source Markdown document (DUR)."
+    ),
+    reviews_root: Path = typer.Option(
+        Path("reviews"), "--dir", help="Root folder that holds reviews."
+    ),
+    owner: Optional[str] = typer.Option(None, "--owner", help="Document owner name."),
+    reviewers: Optional[str] = typer.Option(
+        None, "--reviewers", help="Comma-separated reviewer names."
+    ),
+) -> None:
+    """Create a new review instance (baseline.md, rtd.yaml, reviewers/)."""
+    names = [r.strip() for r in reviewers.split(",") if r.strip()] if reviewers else None
+    try:
+        review_dir = init_review(
+            review_id, document, reviews_root=reviews_root, owner=owner, reviewers=names
+        )
+    except (FileExistsError, FileNotFoundError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from None
+    typer.echo(f"created review {review_dir}")
+    typer.echo(f"next: malus freeze --review {review_dir}")
 
 
 @app.command("freeze")

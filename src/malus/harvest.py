@@ -283,6 +283,47 @@ def _baseline_sha(baseline_path: Path) -> str:
     return result.stdout.strip()
 
 
+def init_review(
+    review_id: str,
+    document: Path | str,
+    *,
+    reviews_root: Path | str = "reviews",
+    owner: str | None = None,
+    reviewers: list[str] | None = None,
+    created: _dt.date | None = None,
+) -> Path:
+    """Create a new review instance from a source Markdown document.
+
+    Lays out ``<reviews_root>/<review_id>/`` with ``baseline.md`` (copied from
+    ``document``), an empty ``reviewers/`` directory, and an ``rtd.yaml`` whose
+    meta is seeded (``baseline_sha`` stays empty until ``freeze`` records it).
+    Refuses to overwrite an existing review.
+    """
+    source = Path(document)
+    review_dir = Path(reviews_root) / review_id
+    rtd_path = review_dir / RTD_NAME
+    if rtd_path.exists():
+        raise FileExistsError(f"review already exists: {rtd_path}")
+    if not source.is_file():
+        raise FileNotFoundError(f"document not found: {source}")
+    (review_dir / REVIEWERS_DIR).mkdir(parents=True, exist_ok=True)
+    (review_dir / BASELINE_NAME).write_text(
+        source.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    rtd = RTD(
+        meta=Meta(
+            review_id=review_id,
+            document=BASELINE_NAME,
+            baseline_sha="",
+            created=created or _dt.date.today(),
+            owner=owner or "",
+            reviewers=list(reviewers or []),
+        )
+    )
+    rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
+    return review_dir
+
+
 def freeze_review(
     review_dir: Path | str,
     *,
