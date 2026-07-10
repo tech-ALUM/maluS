@@ -236,6 +236,16 @@ class TransitionError(ValueError):
     """Raised when a status transition is structurally illegal or unauthorized."""
 
 
+class ClosureAuthorityError(TransitionError):
+    """A transition blocked by the closure-authority invariant (D3): the actor's
+    seat/identity may not issue this verdict.
+
+    A subclass of :class:`TransitionError`, so existing ``except TransitionError``
+    handlers are unaffected; the API layer uses it to return 403 (authority)
+    rather than 409 (illegal state).
+    """
+
+
 def transition(
     rid: RID,
     target: Status,
@@ -273,11 +283,11 @@ def transition(
 
     if target is Status.VERIFIED:
         if actor_is_ai:
-            raise TransitionError(
+            raise ClosureAuthorityError(
                 "an AI may never set 'verified' (closure-authority invariant)"
             )
         if actor_role is Role.OWNER:
-            raise TransitionError(
+            raise ClosureAuthorityError(
                 "the owner may never set 'verified'; closure belongs to the reviewer"
             )
         if (
@@ -285,7 +295,7 @@ def transition(
             and actor_name is not None
             and actor_name != rid.reviewer
         ):
-            raise TransitionError(
+            raise ClosureAuthorityError(
                 f"reviewer {actor_name!r} may not verify a RID owned by {rid.reviewer!r}"
             )
 
@@ -293,7 +303,7 @@ def transition(
         if actor_role is not Role.REVIEWER or (
             actor_name is not None and actor_name != rid.reviewer
         ):
-            raise TransitionError("only the RID's own reviewer may withdraw it")
+            raise ClosureAuthorityError("only the RID's own reviewer may withdraw it")
 
     # Disposition routing (rid-schema.md §3): a decision is required to answer;
     # accepted RIDs are implemented before verified, rejected/deferred ones are

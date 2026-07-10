@@ -17,7 +17,7 @@ import datetime as _dt
 from dataclasses import dataclass, field
 
 from .constants import Role, Status
-from .models import RID, RTD, TransitionError, transition
+from .models import RID, RTD, ClosureAuthorityError, TransitionError, transition
 
 
 @dataclass
@@ -59,7 +59,7 @@ def verify_rid(
     if not reviewer:
         raise ValueError("a reviewer name is required to verify")
     if reviewer == rtd.meta.owner:
-        raise TransitionError("the owner identity may never issue a verdict")
+        raise ClosureAuthorityError("the owner identity may never issue a verdict")
     rid = _find(rtd, rid_id)
     role = Role.MODERATOR if moderator else Role.REVIEWER
     transition(rid, Status.VERIFIED, actor_role=role, actor_name=reviewer, on=on)
@@ -81,9 +81,11 @@ def reopen_rid(
         raise ValueError("reopening a RID requires a reason")
     rid = _find(rtd, rid_id)
     if reviewer == rtd.meta.owner:
-        raise TransitionError("the owner identity may never reopen a RID")
+        raise ClosureAuthorityError("the owner identity may never reopen a RID")
     if not moderator and rid.reviewer != reviewer:
-        raise TransitionError(f"only the RID's own reviewer ({rid.reviewer!r}) may reopen it")
+        raise ClosureAuthorityError(
+            f"only the RID's own reviewer ({rid.reviewer!r}) may reopen it"
+        )
     if rid.status not in (Status.ANSWERED, Status.IMPLEMENTED, Status.VERIFIED):
         raise TransitionError(f"cannot reopen a RID in status {rid.status.value!r}")
     note = f"[reopened by {reviewer}: {reason.strip()}]"
