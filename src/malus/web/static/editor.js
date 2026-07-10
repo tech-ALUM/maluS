@@ -53,6 +53,20 @@
     });
   }
 
+  // Unsaved-changes guard.
+  var initial = ta.value;
+  var dirty = false;
+  ta.addEventListener("input", function () {
+    dirty = ta.value !== initial;
+  });
+  if (form) form.addEventListener("submit", function () { dirty = false; });
+  window.addEventListener("beforeunload", function (ev) {
+    if (dirty) {
+      ev.preventDefault();
+      ev.returnValue = "";
+    }
+  });
+
   ta.addEventListener("input", render);
   render();
 })();
