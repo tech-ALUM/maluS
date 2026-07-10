@@ -117,6 +117,52 @@ def reviews_page(request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(request, "reviews.html", {"user": user, "rows": rows})
 
 
+@web.get("/ui/reviews/new", response_class=HTMLResponse)
+def new_review_page(request: Request, session: Session = Depends(get_session)):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    return templates.TemplateResponse(request, "new_review.html", {"user": user, "error": None})
+
+
+@web.post("/ui/reviews/new")
+def new_review_submit(
+    request: Request,
+    review_id: str = Form(...),
+    baseline: str = Form(...),
+    title: str = Form(""),
+    rid_prefix: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review_id = review_id.strip()
+    if not review_id:
+        return templates.TemplateResponse(
+            request, "new_review.html", {"user": user, "error": "A review id is required."}, status_code=422
+        )
+    if ReviewRepo(session).get(review_id) is not None:
+        return templates.TemplateResponse(
+            request,
+            "new_review.html",
+            {"user": user, "error": f"A review with id {review_id!r} already exists."},
+            status_code=409,
+        )
+    # the creator becomes the owner; freeze the supplied baseline immediately
+    review = svc.create_review(
+        session,
+        review_id=review_id,
+        document_name="baseline.md",
+        owner=user.display_name,
+        reviewers=[],
+        title=title or None,
+        rid_prefix=rid_prefix or None,
+    )
+    svc.freeze_baseline(session, review, baseline, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
 @web.get("/ui/reviews/{review_id}", response_class=HTMLResponse)
 def review_page(
     review_id: str,

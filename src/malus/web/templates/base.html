@@ -22,5 +22,15 @@
   <main class="wrap">
     {% block content %}{% endblock %}
   </main>
+  <script>
+    // Let hx-boost render 4xx responses (e.g. a failed login re-rendering with
+    // its error message) instead of silently ignoring them.
+    document.body.addEventListener("htmx:beforeSwap", function (e) {
+      if (e.detail.xhr.status >= 400 && e.detail.xhr.status < 500) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
+  </script>
 </body>
 </html>

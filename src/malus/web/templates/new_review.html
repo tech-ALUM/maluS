@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}New review — maluS{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews">← Reviews</a></p>
+<section class="card">
+  <h1>New review</h1>
+  <p class="muted">You become the owner. The baseline is frozen on creation; add
+    reviewers and moderators afterwards from the review's <b>Members</b> page.</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/ui/reviews/new" class="stack">
+    <label>Review id <input name="review_id" placeholder="SIN-SRS-R1" required></label>
+    <label>Title (optional) <input name="title"></label>
+    <label>RID prefix (optional) <input name="rid_prefix" placeholder="SIN-SRS"></label>
+    <label>Baseline document (Markdown)
+      <textarea name="baseline" rows="16" spellcheck="false" required></textarea>
+    </label>
+    <button class="primary">Create &amp; freeze</button>
+  </form>
+</section>
+{% endblock %}
