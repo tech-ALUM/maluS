@@ -7,14 +7,14 @@ existing domain models onto it — before any web code is written.
 
 ## Deliverables
 
-- [ ] `docs/adr/0001-v1-web-pivot.md` — the decision to drop git, adopt a
+- [x] `docs/adr/0001-v1-web-pivot.md` — the decision to drop git, adopt a
       DB + web app, and the AI-billing constraint (see Sources)
-- [ ] `docs/adr/0002-stack.md` — FastAPI + SQLModel/SQLite(→Postgres) + Alembic
+- [x] `docs/adr/0002-stack.md` — FastAPI + SQLModel/SQLite(→Postgres) + Alembic
       + argon2 auth + MCP; rationale and rejected alternatives
-- [ ] `src/malus/db/` — SQLModel table definitions + engine/session setup
-- [ ] Alembic configured; initial migration
-- [ ] `docs/spec/data-model.md` — normative schema + how each v0 concept maps
-- [ ] Tests: models create, relationships, constraints, enum round-trips
+- [x] `src/malus/db/` — SQLModel table definitions + engine/session setup
+- [x] Alembic configured; initial migration
+- [x] `docs/spec/data-model.md` — normative schema + how each v0 concept maps
+- [x] Tests: models create, relationships, constraints, enum round-trips
 
 ## Schema (normative outline)
 
@@ -55,6 +55,34 @@ be produced from the DB and re-imported identically; suite green.
 
 Any HTTP, auth, or UI (later steps). No behavioural change to triage/lifecycle
 logic — only where its data comes from (Step 2).
+
+## Deviations
+
+Agreed with Alberto before coding; details in
+`memory/decisions/2026-07-10-v1-step-01-decisions.md`.
+
+- **Repo location.** The v1 plan lived in the planning workspace; the code repo
+  was relocated to `~/Documents/ALUM/maluS` (the plan's home) instead of copying
+  the plan into the old `~/Documents/ALUM/code/maluS`.
+- **Schema, made concrete beyond the outline (approved):**
+  - "Role membership" is a concrete `review_members` table (schema only; RBAC
+    enforcement is Step 4).
+  - `users.display_name` added — reproduces the exact `rtd.yaml` name strings for
+    a lossless round-trip; `owner`/`reviewer`/`verified_by`/`created_by` are User
+    FKs (`*_id`), rendered back to names on export.
+  - `reviews.rid_prefix` added so `meta.rid_prefix` round-trips (else derived).
+  - `meta.baseline_sha` maps to the baseline `document_versions.content_hash`;
+    for a v0 import (no content) the original SHA is preserved verbatim.
+  - `duplicates` is **not** a column — it is derived from the `master_id` inverse.
+  - Enum columns are plain `str` holding `.value` (not SQL `Enum` types); the
+    mapping layer converts. `reviews.status` uses a provisional `ReviewStatus`
+    enum (draft/active/finalized) defined in `db/`, not in the frozen
+    `constants`; the full review lifecycle is refined later.
+  - Table `users` (not `user`) to avoid the PostgreSQL reserved word.
+- **Tests** live in `tests/db/test_db_*.py` (the `db_` prefix avoids a pytest
+  module-name clash with the existing `tests/test_models.py`).
+- **`docs/usage.md`** was already showing as deleted in the working tree at the
+  start of the session; left untouched (out of Step-1 scope).
 
 ## Sources
 
