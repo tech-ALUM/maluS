@@ -19,19 +19,19 @@ billed at API rates. Therefore the default, free path is:
 
 ## Deliverables
 
-- [ ] `src/malus/mcp/` — an MCP server exposing review tools:
+- [x] `src/malus/mcp/` — an MCP server exposing review tools:
       `list_reviews`, `get_baseline`, `submit_reviewer_comments`
       (validated by the parser), `list_rids`, `propose_triage`
-- [ ] Auth: the agent authenticates as a reviewer identity (Step 4); the policy
+- [x] Auth: the agent authenticates as a reviewer identity (Step 4); the policy
       flag blocks any verify/close/disposition-confirm tool for AI principals
-- [ ] All AI-submitted content attributed (`ai_drafted` / reviewer = the agent
+- [x] All AI-submitted content attributed (`ai_drafted` / reviewer = the agent
       identity) and never advances on its own
-- [ ] `docs/usage/ai-reviewer.md` — how to connect Claude Code to maluS
+- [x] `docs/usage/ai-reviewer.md` — how to connect Claude Code to maluS
       interactively (no API key), and how to add an AI reviewer to a review
-- [ ] Optional, clearly-labeled **paid** path: a server-side engine behind a
+- [x] Optional, clearly-labeled **paid** path: a server-side engine behind a
       config flag (`MALUS_AI_ENGINE=anthropic`, off by default) for unattended
       runs — documented as billed at API rates
-- [ ] Tests: a scripted MCP client drives an AI review end-to-end against a
+- [x] Tests: a scripted MCP client drives an AI review end-to-end against a
       local stub; guardrails proven (AI cannot verify/close)
 
 ## Key behaviors
@@ -51,6 +51,27 @@ the connect-Claude-Code doc is followed successfully; suite green.
 
 AI as owner (disposition drafting) can reuse the same MCP tools later; not
 required for v1.
+
+## Deviations
+
+Details in `memory/decisions/2026-07-10-v1-step-07-decisions.md`.
+
+- **Programmatic auth = HTTP Basic** (the agent uses the AI reviewer's
+  credentials). This is the token path deferred from Step 4; Basic was chosen as
+  the simplest programmatic mechanism (a dedicated API-token table can replace it
+  later).
+- **MCP tools drive the HTTP API** (httpx) rather than embedding the DB — faithful
+  to "an MCP server over its Step-3 API". Tests use a FastAPI `TestClient` as the
+  local API stub and call the tool functions directly (the "scripted MCP client").
+- **New API endpoints** to support the agent: `POST /reviews/{id}/copies/{user}/submit`
+  (parser-validated save+harvest) and `GET /reviews/{id}/baseline`; triage
+  *proposals* (`auto=false`, read-only) are opened to any member while *applying*
+  stays moderator-only.
+- **Paid engine** (`MALUS_AI_ENGINE=anthropic`) is a documented off-by-default
+  stub that refuses unless enabled; the unattended engine itself is not
+  implemented in v1 (the free interactive path is the product).
+- **`ai_drafted`** governs AI-*owner* disposition drafting (out of scope for v1);
+  AI *reviewer* content is attributed via `reviewer = <agent identity>`.
 
 ## Sources
 

@@ -36,6 +36,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 4 — Authentication & Roles Decisions]]
 - documented_by [[v1 Step 5 — Web GUI (Dashboard & RTD) Decisions]]
 - documented_by [[v1 Step 6 — Markdown Editor & Reviewer Workflow Decisions]]
+- documented_by [[v1 Step 7 — AI Reviewer via MCP Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 
