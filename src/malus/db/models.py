@@ -51,9 +51,12 @@ class User(SQLModel, table=True):
     # Exact name string reproduced in rtd.yaml (owner / reviewer / verified_by).
     display_name: str
     email: Optional[str] = None
-    # Set at Step 4 (argon2). Null for placeholder users created during import.
+    # argon2 hash (Step 4). Null for placeholder users created during import.
     password_hash: Optional[str] = None
     is_active: bool = True
+    is_admin: bool = False  # global role: manage users; no power over review content
+    is_ai: bool = False  # AI principal: may never verify/reopen/confirm, regardless of role
+    must_change_password: bool = False  # forces a password change after admin bootstrap/create
     created: dt.datetime = Field(default_factory=_utcnow)
 
 
