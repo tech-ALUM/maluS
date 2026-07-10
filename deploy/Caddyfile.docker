@@ -1,0 +1,7 @@
+# Caddyfile for the compose `caddy` service (Step 11).
+# Domain from the MALUS_DOMAIN env var; Caddy auto-provisions HTTPS.
+# The app is reached over the compose network as `app:8000` (not published publicly).
+{$MALUS_DOMAIN:malus.example.com} {
+	encode gzip
+	reverse_proxy app:8000
+}

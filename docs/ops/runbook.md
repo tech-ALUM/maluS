@@ -5,17 +5,24 @@ reverse proxy, SQLite (WAL) by default, Postgres optional.
 
 ## Deploy (fresh host)
 
-1. Install Docker + Docker Compose and a reverse proxy (Caddy recommended).
+1. Install Docker + Docker Compose. TLS is handled by the bundled `caddy`
+   service — no separate proxy to install.
 2. Clone the repo; `cp .env.example .env` and fill in:
    - `MALUS_SECRET_KEY` — `python -c "import secrets; print(secrets.token_urlsafe(48))"`
    - `MALUS_ADMIN_USER` / `MALUS_ADMIN_PASSWORD` — the first-run admin (temporary).
-3. `docker compose up -d --build`
-   - The container runs `alembic upgrade head`, then serves on `127.0.0.1:8000`.
-   - On first run it bootstraps the admin (forced password change).
-4. Put the proxy in front for TLS: edit `deploy/Caddyfile` (hostname) and run
-   Caddy; it terminates HTTPS and proxies to `127.0.0.1:8000`.
-5. Verify: `curl -fsS https://<host>/health` → `{"status":"ok",...}`. Log in at
-   `https://<host>/ui/login` and change the admin password immediately.
+   - `MALUS_DOMAIN` — the public hostname (e.g. `malus.tuodominio.it`).
+3. Point the domain's DNS **A** record at this host; open ports **80** and **443**.
+4. `docker compose up -d --build`
+   - `app` migrates (`alembic upgrade head`) and serves on loopback; `caddy`
+     terminates HTTPS on 80/443 and proxies to `app:8000`, auto-provisioning the
+     certificate for `MALUS_DOMAIN`.
+   - First run bootstraps the admin (forced password change).
+5. Verify: `curl -fsS https://$MALUS_DOMAIN/health` → `{"status":"ok",...}`. Log in
+   at `https://$MALUS_DOMAIN/ui/login` and change the admin password immediately.
+
+*(Alternative: run Caddy natively on the host instead of the compose service —
+use `deploy/Caddyfile` (`reverse_proxy 127.0.0.1:8000`) and drop the `caddy`
+service.)*
 
 ## Upgrade
 

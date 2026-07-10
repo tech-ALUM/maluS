@@ -1,5 +1,6 @@
-# maluS v1 — app (+ optional Postgres). `docker compose up -d` brings up the app.
-# TLS is terminated by a reverse proxy in front (see deploy/Caddyfile).
+# maluS v1 — app + Caddy (TLS) (+ optional Postgres).
+# `docker compose up -d` brings up the app behind Caddy on 80/443.
+# The app is published only on loopback; Caddy reaches it over the compose network.
 services:
   app:
     build: .
@@ -10,12 +11,27 @@ services:
     volumes:
       - malus-data:/data
     ports:
-      - "127.0.0.1:8000:8000"  # bind to localhost; the proxy connects here
+      - "127.0.0.1:8000:8000"  # loopback only (local debugging); NOT public
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - app
+    environment:
+      MALUS_DOMAIN: ${MALUS_DOMAIN:-malus.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile.docker:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data      # ACME certificates (persist!)
+      - caddy-config:/config
     restart: unless-stopped
 
   # Optional Postgres. Enable with:  docker compose --profile postgres up -d
   # and set MALUS_DB_URL=postgresql+psycopg://malus:...@db:5432/malus in .env
-  # (install the driver: the app image needs the [postgres] extra — see the runbook).
+  # (install the driver: build the app image with the [postgres] extra — see the runbook).
   db:
     image: postgres:16
     profiles: ["postgres"]
@@ -30,3 +46,5 @@ services:
 volumes:
   malus-data:
   pg-data:
+  caddy-data:
+  caddy-config:
