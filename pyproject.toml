@@ -17,6 +17,8 @@ dependencies = [
     "alembic>=1.13",     # ADR 0002: schema migrations
     "fastapi>=0.110",    # ADR 0002: typed HTTP API (one contract for GUI + AI agent)
     "uvicorn>=0.29",     # ADR 0002: ASGI server for `malus serve`
+    "argon2-cffi>=23.1", # ADR 0002: password hashing
+    "itsdangerous>=2.1", # signed httponly session cookies (Starlette SessionMiddleware)
 ]
 
 [project.optional-dependencies]

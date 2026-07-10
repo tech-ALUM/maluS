@@ -1,35 +1,72 @@
 """FastAPI application factory.
 
-``create_app`` wires the engine (on ``app.state`` so tests can inject an
-in-memory one), installs the error handlers, and mounts the routes. OpenAPI is
-served at ``/openapi.json`` and Swagger UI at ``/docs`` automatically.
+Wires the engine (on ``app.state`` so tests can inject an in-memory one), signed
+httponly session cookies (SameSite=strict → CSRF-safe), the error handlers, and
+the auth + review routers. OpenAPI is at ``/openapi.json``, Swagger at ``/docs``.
+An admin is bootstrapped from ``MALUS_ADMIN_USER``/``MALUS_ADMIN_PASSWORD`` (or
+the ``bootstrap_admin`` arg) when the user table is empty.
 """
 
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from fastapi import FastAPI
 from sqlalchemy.engine import Engine
+from sqlmodel import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 import malus
 from malus.api.errors import install_error_handlers
 from malus.api.routes import router
+from malus.auth.routes import auth_router, users_router
+from malus.auth.service import bootstrap_admin as _bootstrap_admin
 from malus.db import DEFAULT_URL, create_all, make_engine
 
+# Dev fallback only — production MUST set MALUS_SECRET_KEY. No real secret is committed.
+_DEV_SECRET = "dev-insecure-secret-change-me"
 
-def create_app(engine: Engine | None = None, *, create_schema: bool = True) -> FastAPI:
+
+def create_app(
+    engine: Optional[Engine] = None,
+    *,
+    create_schema: bool = True,
+    session_secret: Optional[str] = None,
+    https_only: bool = True,
+    bootstrap_admin: Optional[tuple[str, str]] = None,
+) -> FastAPI:
     app = FastAPI(
         title="maluS API",
         version=malus.__version__,
         description=(
-            "Formal RID-based review management — one HTTP contract for the "
-            "browser GUI (Steps 5–6) and the AI agent (Step 7)."
+            "Formal RID-based review management — one authenticated HTTP contract "
+            "for the browser GUI (Steps 5–6) and the AI agent (Step 7)."
         ),
     )
     app.state.engine = engine or make_engine(os.environ.get("MALUS_DB_URL", DEFAULT_URL))
     if create_schema:
         create_all(app.state.engine)
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=session_secret or os.environ.get("MALUS_SECRET_KEY", _DEV_SECRET),
+        same_site="strict",
+        https_only=https_only,
+    )
     install_error_handlers(app)
+    app.include_router(auth_router)
+    app.include_router(users_router)
     app.include_router(router)
+
+    admin = bootstrap_admin or (
+        (os.environ["MALUS_ADMIN_USER"], os.environ["MALUS_ADMIN_PASSWORD"])
+        if os.environ.get("MALUS_ADMIN_USER") and os.environ.get("MALUS_ADMIN_PASSWORD")
+        else None
+    )
+    if admin is not None:
+        with Session(app.state.engine) as session:
+            _bootstrap_admin(session, admin[0], admin[1])
+            session.commit()
+
     return app
