@@ -31,6 +31,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - part_of [[ALUM]]
 - documented_by [[Architecture Decisions 2026-07-03]]
 - documented_by [[v1 Step 1 — Architecture & Data Model Decisions]]
+- documented_by [[v1 Step 2 — Persistence Layer Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 
