@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Create user — maluS admin{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/admin/users">← Users</a></p>
+<section class="card auth">
+  <h1>Create user</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/ui/admin/users/new" class="stack">
+    <label>Username <input name="username" required></label>
+    <label>Display name <input name="display_name" required></label>
+    <label>Temporary password <input name="password" type="text" required></label>
+    <label>Kind
+      <select name="kind">
+        <option value="regular">regular user</option>
+        <option value="admin">admin</option>
+        <option value="ai">AI reviewer (cannot verify/close)</option>
+      </select>
+    </label>
+    <p class="muted">The user must change this password at first login. Assign a
+      per-review role (owner / reviewer / moderator) from a review's members page.</p>
+    <button class="primary">Create user</button>
+  </form>
+</section>
+{% endblock %}

@@ -37,12 +37,17 @@ def admin(login):
 
 @pytest.fixture
 def mkuser(admin, login):
-    def _mk(username: str, display_name: str, password: str = "pw", **flags) -> TestClient:
+    def _mk(
+        username: str, display_name: str, password: str = "pw", onboard: bool = True, **flags
+    ) -> TestClient:
         assert admin.post(
             "/users",
             json={"username": username, "password": password, "display_name": display_name, **flags},
         ).status_code == 201
-        return login(username, password)
+        client = login(username, password)
+        if onboard:  # clear must_change_password so GUI actions aren't redirected
+            client.post("/ui/account/password", data={"current": password, "new_password": password})
+        return client
 
     return _mk
 

@@ -100,6 +100,27 @@ class ReviewRepo:
         self.s.flush()
         return member
 
+    def set_member_role(self, review: Review, user: User, role: str) -> ReviewMember:
+        """Assign a review-scoped role to a user, updating an existing membership."""
+        member = self.s.exec(
+            select(ReviewMember)
+            .where(ReviewMember.review_id == review.id)
+            .where(ReviewMember.user_id == user.id)
+        ).first()
+        if member is None:
+            return self.add_member(review, user, role)
+        member.role = role
+        self.s.add(member)
+        self.s.flush()
+        return member
+
+    def members(self, review: Review) -> list[ReviewMember]:
+        return list(
+            self.s.exec(
+                select(ReviewMember).where(ReviewMember.review_id == review.id).order_by(ReviewMember.id)
+            ).all()
+        )
+
     def set_status(self, review: Review, status: str) -> None:
         review.status = status
         self.s.add(review)

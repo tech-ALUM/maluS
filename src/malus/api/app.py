@@ -13,9 +13,11 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 import malus
@@ -26,6 +28,20 @@ from malus.auth.service import bootstrap_admin as _bootstrap_admin
 from malus.db import DEFAULT_URL, create_all, make_engine
 from malus.web import STATIC_DIR
 from malus.web import web as web_router
+from malus.web.accounts import accounts as accounts_router
+
+# GUI paths reachable while a password change is still required.
+_PW_EXEMPT = {"/ui/account/password", "/ui/logout"}
+
+
+async def _force_password_change(request, call_next):
+    """Redirect /ui pages to the password page until must_change_password clears."""
+    session = request.scope.get("session")
+    if session and session.get("must_change_password"):
+        path = request.url.path
+        if path.startswith("/ui") and path not in _PW_EXEMPT:
+            return RedirectResponse("/ui/account/password", status_code=303)
+    return await call_next(request)
 
 # Dev fallback only — production MUST set MALUS_SECRET_KEY. No real secret is committed.
 _DEV_SECRET = "dev-insecure-secret-change-me"
@@ -51,6 +67,8 @@ def create_app(
     if create_schema:
         create_all(app.state.engine)
 
+    # Added before SessionMiddleware so it runs *inside* it (session is populated).
+    app.add_middleware(BaseHTTPMiddleware, dispatch=_force_password_change)
     app.add_middleware(
         SessionMiddleware,
         secret_key=session_secret or os.environ.get("MALUS_SECRET_KEY", _DEV_SECRET),
@@ -68,6 +86,7 @@ def create_app(
     app.include_router(users_router)
     app.include_router(router)
     app.include_router(web_router)
+    app.include_router(accounts_router)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     admin = bootstrap_admin or (

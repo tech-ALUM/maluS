@@ -13,6 +13,8 @@
     {% if user %}
     <nav class="topnav">
       <span class="who">{{ user.display_name }}{% if user.is_admin %} · admin{% endif %}</span>
+      {% if user.is_admin %}<a class="topnav-link" href="/ui/admin/users">Users</a>{% endif %}
+      <a class="topnav-link" href="/ui/account/password">Account</a>
       <form method="post" action="/ui/logout" class="inline"><button class="linkbtn">Log out</button></form>
     </nav>
     {% endif %}

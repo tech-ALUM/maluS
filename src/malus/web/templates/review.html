@@ -8,6 +8,7 @@
 <p class="actions">
   {% if role == 'reviewer' %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/edit-copy">Edit my copy</a>{% endif %}
   {% if role == 'owner' %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings</a>{% endif %}
+  {% if role == 'owner' or user.is_admin %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/members">Members</a>{% endif %}
 </p>
 
 <section class="dash">

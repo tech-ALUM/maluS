@@ -34,6 +34,8 @@ h2 { font-family: var(--display); font-size: 1.1rem; margin: 1.2rem 0 .5rem; }
 .brand span { color: var(--coral); }
 .topnav { display: flex; align-items: center; gap: 1rem; }
 .who { color: #cfd2d8; font-size: .9rem; }
+.topnav-link { color: #fff; font-size: .9rem; }
+.topnav-link:hover { color: var(--coral); text-decoration: none; }
 .linkbtn { background: none; border: none; color: var(--coral); cursor: pointer; font: inherit; padding: 0; }
 .linkbtn:hover { text-decoration: underline; }
 

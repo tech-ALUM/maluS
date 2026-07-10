@@ -65,6 +65,7 @@ def login(request: Request, body: LoginIn, session: Session = Depends(get_sessio
     if user is None:
         raise HTTPException(status_code=401, detail="invalid username or password")
     request.session["user_id"] = user.id
+    request.session["must_change_password"] = user.must_change_password
     return UserOut.from_row(user)
 
 
@@ -81,6 +82,7 @@ def me(user: User = Depends(get_current_user)):
 
 @auth_router.post("/change-password", response_model=UserOut)
 def change_password(
+    request: Request,
     body: ChangePasswordIn,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -88,6 +90,7 @@ def change_password(
     if not verify_password(user.password_hash, body.old_password):
         raise HTTPException(status_code=403, detail="current password is incorrect")
     set_password(session, user, body.new_password)
+    request.session["must_change_password"] = False
     return UserOut.from_row(user)
 
 

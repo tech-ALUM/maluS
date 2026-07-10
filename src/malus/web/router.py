@@ -90,6 +90,7 @@ def login_submit(
             status_code=401,
         )
     request.session["user_id"] = user.id
+    request.session["must_change_password"] = user.must_change_password
     return RedirectResponse("/ui/reviews", 303)
 
 
