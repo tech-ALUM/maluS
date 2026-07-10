@@ -21,9 +21,9 @@ from malus.models import RID as RidDTO
 
 
 class ReviewCreate(BaseModel):
+    # The creating (authenticated) user becomes the owner; no owner field.
     review_id: str
     document_name: str = "baseline.md"
-    owner: str
     reviewers: list[str] = []
     title: Optional[str] = None
     rid_prefix: Optional[str] = None
@@ -36,6 +36,7 @@ class DocumentIn(BaseModel):
 
 class ReviewerAdd(BaseModel):
     name: str
+    role: str = "reviewer"  # reviewer | moderator (owner is the creator)
 
 
 class CopyIn(BaseModel):
@@ -63,15 +64,9 @@ class RidPatch(BaseModel):
     status: Optional[str] = None  # answered | implemented (verify/reopen have their own routes)
 
 
-class VerifyIn(BaseModel):
-    reviewer: str
-    moderator: bool = False
-
-
 class ReopenIn(BaseModel):
-    reviewer: str
+    # The reviewer/moderator is the authenticated user; only a reason is supplied.
     reason: str
-    moderator: bool = False
 
 
 class ChangeIn(BaseModel):

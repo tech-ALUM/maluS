@@ -135,7 +135,7 @@ def export(session: Session, review: Review) -> RTD:
 # --------------------------------------------------------------------------- #
 
 
-def harvest(session: Session, review: Review) -> HarvestResult:
+def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
     baseline = VersionRepo(session).baseline(review)
     if baseline is None:
         raise ValueError("cannot harvest before the baseline is frozen")
@@ -146,6 +146,7 @@ def harvest(session: Session, review: Review) -> HarvestResult:
     AuditRepo(session).log(
         action="harvest",
         target=f"review:{review.review_id_str}",
+        actor=by,
         detail={"rids": len(result.rtd.rids), "violations": len(result.violations)},
     )
     return result
@@ -158,6 +159,7 @@ def triage(
     auto: bool = False,
     threshold: float = CLUSTER_THRESHOLD,
     auto_threshold: float = AUTO_THRESHOLD,
+    by=None,
 ) -> tuple[list[ClusterProposal], int]:
     rtd = export_rtd(session, review)
     proposals = propose_clusters(rtd, threshold=threshold)
@@ -173,6 +175,7 @@ def triage(
             AuditRepo(session).log(
                 action="triage",
                 target=f"review:{review.review_id_str}",
+                actor=by,
                 detail={"applied": applied},
             )
     return proposals, applied
@@ -228,6 +231,7 @@ def update_rid(
     reply: Optional[str] = None,
     resolution: Optional[str] = None,
     disposition: Optional[Disposition] = None,
+    by=None,
 ):
     """Edit a RID's owner-side fields in place (no status transition)."""
     rtd = export_rtd(session, review)
@@ -239,7 +243,7 @@ def update_rid(
     if disposition is not None:
         rid.disposition = disposition
     sync_rtd_to_review(session, review, rtd)
-    AuditRepo(session).log(action="update_rid", target=f"rid:{rid_id}")
+    AuditRepo(session).log(action="update_rid", target=f"rid:{rid_id}", actor=by)
     return RidRepo(session).get(review, rid_id)
 
 
@@ -327,13 +331,14 @@ def link_change(
     version: DocumentVersion,
     *,
     note: Optional[str] = None,
+    by=None,
 ) -> RidChange:
     row = RidRepo(session).get(review, rid_id)
     if row is None:
         raise ValueError(f"no such RID: {rid_id}")
     change = RidRepo(session).add_change(row, version, note=note)
     AuditRepo(session).log(
-        action="link_change", target=f"rid:{rid_id}", detail={"ordinal": version.ordinal}
+        action="link_change", target=f"rid:{rid_id}", actor=by, detail={"ordinal": version.ordinal}
     )
     return change
 
