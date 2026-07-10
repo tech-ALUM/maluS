@@ -61,5 +61,20 @@ def import_cmd(
         typer.echo(f"imported {review.review_id_str} into {db}")
 
 
+@app.command("serve")
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
+    port: int = typer.Option(8000, "--port", help="Bind port."),
+    db: str = typer.Option(DEFAULT_URL, "--db", help="Database URL."),
+) -> None:
+    """Run the HTTP API server (uvicorn)."""
+    import uvicorn
+
+    from .api import create_app
+
+    typer.echo(f"serving maluS API on http://{host}:{port} (db: {db})")
+    uvicorn.run(create_app(make_engine(db)), host=host, port=port)
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
