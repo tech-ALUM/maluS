@@ -58,6 +58,12 @@ def create_app(
         https_only=https_only,
     )
     install_error_handlers(app)
+
+    @app.get("/health", tags=["ops"])
+    def health() -> dict:
+        """Liveness probe (public) for the reverse proxy / orchestrator."""
+        return {"status": "ok", "version": malus.__version__}
+
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(router)

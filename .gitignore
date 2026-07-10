@@ -12,3 +12,7 @@ build/
 *.db
 *.db-wal
 *.db-shm
+
+# runtime config & backups (never commit real secrets)
+.env
+backups/

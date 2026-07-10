@@ -71,7 +71,9 @@ def serve(
     import uvicorn
 
     from .api import create_app
+    from .logging import configure_logging
 
+    configure_logging()
     typer.echo(f"serving maluS API on http://{host}:{port} (db: {db})")
     uvicorn.run(create_app(make_engine(db)), host=host, port=port)
 

@@ -1,0 +1,32 @@
+# maluS v1 — app (+ optional Postgres). `docker compose up -d` brings up the app.
+# TLS is terminated by a reverse proxy in front (see deploy/Caddyfile).
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # SQLite lives on the persistent volume by default; override in .env for Postgres.
+      MALUS_DB_URL: ${MALUS_DB_URL:-sqlite:////data/malus.db}
+    volumes:
+      - malus-data:/data
+    ports:
+      - "127.0.0.1:8000:8000"  # bind to localhost; the proxy connects here
+    restart: unless-stopped
+
+  # Optional Postgres. Enable with:  docker compose --profile postgres up -d
+  # and set MALUS_DB_URL=postgresql+psycopg://malus:...@db:5432/malus in .env
+  # (install the driver: the app image needs the [postgres] extra — see the runbook).
+  db:
+    image: postgres:16
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-malus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-malus}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  malus-data:
+  pg-data:
