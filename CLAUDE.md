@@ -46,3 +46,9 @@ Invariant: **closure authority belongs to reviewers, never the owner.**
 - `gui/rtd.html` — RTD GUI (loads/saves `rtd.yaml` via File System Access API)
 - `tests/` — pytest suite with fixture documents under `tests/fixtures/`
 - `docs/plan/` — the plan; `memory/` — project knowledge base
+
+## Memory — Open Brain
+- Le regole generali di comportamento Open Brain sono nel mio ~/.claude/CLAUDE.md globale (cassetti, segregazione, salva solo su richiesta, delete per ID, cerca prima di scrivere). NON ripeterle qui.
+- Cassetto di questo progetto: openbrain-alum
+- Tag da usare per capture/search: ALUM + maluS
+- source dei ricordi: claude-code:maluS
