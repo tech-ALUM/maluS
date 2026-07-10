@@ -7,12 +7,12 @@ spine consumed by both the web GUI (Steps 5–6) and the AI agent (Step 7).
 
 ## Deliverables
 
-- [ ] `src/malus/api/` — FastAPI app, routers, Pydantic request/response schemas
-- [ ] Endpoints covering the full lifecycle (see below)
-- [ ] Auto-generated OpenAPI served at `/docs` and `/openapi.json`
-- [ ] Consistent error model (validation, not-found, forbidden, conflict)
-- [ ] `malus serve` command launches the app (uvicorn)
-- [ ] API tests with FastAPI TestClient for every endpoint + the full pipeline
+- [x] `src/malus/api/` — FastAPI app, routers, Pydantic request/response schemas
+- [x] Endpoints covering the full lifecycle (see below)
+- [x] Auto-generated OpenAPI served at `/docs` and `/openapi.json`
+- [x] Consistent error model (validation, not-found, forbidden, conflict)
+- [x] `malus serve` command launches the app (uvicorn)
+- [x] API tests with FastAPI TestClient for every endpoint + the full pipeline
 
 ## Endpoint map (auth added in Step 4)
 
@@ -47,6 +47,31 @@ a TestClient script; OpenAPI validates; suite green.
 ## Out of scope
 
 Login/permissions (Step 4 wraps these routes). Any HTML (Step 5).
+
+## Deviations
+
+Settled with Alberto before coding (actor mechanism + error statuses via
+AskUserQuestion); details in `memory/decisions/2026-07-10-v1-step-03-decisions.md`.
+
+- **Error model (chosen):** 403 for closure-authority violations, 409 for illegal
+  state transitions / conflicts, 404 not-found, 422 validation. To split 403 vs
+  409 cleanly, a `ClosureAuthorityError(TransitionError)` subclass was added to
+  the core (behavior identical; existing `except TransitionError` unaffected).
+- **Actor (chosen):** supplied per request body (e.g. `verify {reviewer,
+  moderator}`); the domain still enforces the closure invariant server-side.
+  Step 4 replaces the supplied value with the authenticated principal.
+- **Added `GET /reviews/{id}/traceability`** (not in the endpoint map — the plan
+  folded traceability into `verify --check`); exposed as a GET for GUI/agent.
+- **document vs freeze:** `POST /document` saves a working `DocumentVersion`;
+  `POST /freeze` snapshots the current (or inline-supplied) content as the
+  immutable baseline.
+- **RID PATCH** routes `status→answered/implemented` through `answer`/`implement`
+  (traceability-gated); `verify`/`reopen` are dedicated POSTs. Reviewer
+  `withdraw` is not exposed (absent from the plan's map; deferred).
+- **`create_all` on app startup** is a dev convenience; production migrates via
+  Alembic. `POST /reviews/import` consumes `text/plain` rtd.yaml (matches export).
+- One cosmetic warning: Starlette's TestClient deprecates plain `httpx` (suite
+  stays green).
 
 ## Sources
 
