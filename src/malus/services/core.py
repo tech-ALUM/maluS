@@ -220,6 +220,29 @@ def answer(
     return RidRepo(session).get(review, rid_id)
 
 
+def update_rid(
+    session: Session,
+    review: Review,
+    rid_id: str,
+    *,
+    reply: Optional[str] = None,
+    resolution: Optional[str] = None,
+    disposition: Optional[Disposition] = None,
+):
+    """Edit a RID's owner-side fields in place (no status transition)."""
+    rtd = export_rtd(session, review)
+    rid = _find(rtd, rid_id)
+    if reply is not None:
+        rid.reply = reply
+    if resolution is not None:
+        rid.resolution = resolution
+    if disposition is not None:
+        rid.disposition = disposition
+    sync_rtd_to_review(session, review, rtd)
+    AuditRepo(session).log(action="update_rid", target=f"rid:{rid_id}")
+    return RidRepo(session).get(review, rid_id)
+
+
 def _post_baseline_changes(session: Session, review: Review, row) -> list[RidChange]:
     baseline = VersionRepo(session).baseline(review)
     base_ordinal = baseline.ordinal if baseline else 0

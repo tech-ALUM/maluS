@@ -21,6 +21,7 @@ from malus.services.core import (
     report,
     save_version,
     triage,
+    update_rid,
     verify,
 )
 from malus.services.sync import sync_rtd_to_review
@@ -43,5 +44,6 @@ __all__ = [
     "save_version",
     "sync_rtd_to_review",
     "triage",
+    "update_rid",
     "verify",
 ]
