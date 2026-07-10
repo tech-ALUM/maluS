@@ -34,6 +34,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 2 — Persistence Layer Decisions]]
 - documented_by [[v1 Step 3 — HTTP API Decisions]]
 - documented_by [[v1 Step 4 — Authentication & Roles Decisions]]
+- documented_by [[v1 Step 5 — Web GUI (Dashboard & RTD) Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 
