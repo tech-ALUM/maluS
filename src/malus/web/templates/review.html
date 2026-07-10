@@ -5,6 +5,10 @@
 <h1>{{ review.review_id_str }} <span class="badge">{{ review.status }}</span></h1>
 <p class="muted">Owner {{ owner }} · Reviewers {{ reviewers|join(', ') or '—' }} · Your role:
   {% if role %}<span class="role role-{{ role }}">{{ role }}</span>{% else %}—{% endif %}</p>
+<p class="actions">
+  {% if role == 'reviewer' %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/edit-copy">Edit my copy</a>{% endif %}
+  {% if role == 'owner' %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings</a>{% endif %}
+</p>
 
 <section class="dash">
   <div class="metric"><b>{{ total }}</b><span>findings</span></div>

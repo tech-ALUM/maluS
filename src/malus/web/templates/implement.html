@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Implement — {{ review.review_id_str }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
+<h1>Implement accepted findings</h1>
+<p class="muted">Edit the document and tick the accepted RIDs this edit resolves. Saving creates a
+new version and links it to those RIDs (the traceability record).</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if not accepted %}<p class="muted">No accepted findings are awaiting implementation.</p>{% endif %}
+<form method="post" action="/ui/reviews/{{ review.review_id_str }}/implement" class="stack">
+  <div class="editor-grid">
+    <textarea id="editor" name="content" rows="20" spellcheck="false">{{ content }}</textarea>
+    <div id="preview" class="preview"></div>
+  </div>
+  {% if accepted %}
+  <fieldset class="rid-picker">
+    <legend>Resolves</legend>
+    {% for r in accepted %}
+    <label class="chk"><input type="checkbox" name="rids" value="{{ r.rid }}"> {{ r.rid }} — {{ (r.comment or '')|truncate(56) }}</label>
+    {% endfor %}
+  </fieldset>
+  {% endif %}
+  <button class="primary">Save version &amp; link</button>
+</form>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/editor.js" defer></script>
+{% endblock %}

@@ -24,7 +24,9 @@ from malus.api.deps import get_session
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
 from malus.db.models import User
-from malus.repo import ReviewRepo, RidRepo
+from malus.harvest import FreezeViolation, validate_insertion_only
+from malus.parser import ParseError
+from malus.repo import ReviewerCopyRepo, ReviewRepo, RidRepo, VersionRepo
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 web = APIRouter(include_in_schema=False)
@@ -268,3 +270,121 @@ def reopen_action(
     on_behalf = authz.require_verify(session, review, user, row)
     svc.reopen(session, review, rid, reviewer=user.display_name, reason=reason, moderator=on_behalf)
     return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+
+
+# --------------------------------------------------------------------------- #
+# editor: reviewer copy (Step 6) and owner implementation
+# --------------------------------------------------------------------------- #
+
+
+def _own_copy_content(session: Session, review, user: User) -> Optional[str]:
+    mine = next(
+        (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
+    )
+    return mine.content if mine else None
+
+
+@web.get("/ui/reviews/{review_id}/edit-copy", response_class=HTMLResponse)
+def edit_copy_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) != Role.REVIEWER.value:
+        raise HTTPException(status_code=403, detail="only a reviewer may edit a review copy")
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    content = _own_copy_content(session, review, user) or baseline.content
+    return templates.TemplateResponse(
+        request,
+        "edit_copy.html",
+        {"user": user, "review": review, "content": content, "baseline": baseline.content, "error": None},
+    )
+
+
+@web.post("/ui/reviews/{review_id}/edit-copy", response_class=HTMLResponse)
+def submit_copy(
+    review_id: str,
+    request: Request,
+    content: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) != Role.REVIEWER.value:
+        raise HTTPException(status_code=403, detail="only a reviewer may submit a review copy")
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    try:  # server-side freeze-rule check (authoritative)
+        validate_insertion_only(baseline.content, content)
+    except (FreezeViolation, ParseError) as exc:
+        return templates.TemplateResponse(
+            request,
+            "edit_copy.html",
+            {
+                "user": user,
+                "review": review,
+                "content": content,
+                "baseline": baseline.content,
+                "error": f"Rejected — freeze rule / parse: {exc}",
+            },
+            status_code=422,
+        )
+    svc.add_reviewer_copy(session, review, user.display_name, content)
+    svc.harvest(session, review, by=user)  # submitting a copy triggers a re-harvest
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
+@web.get("/ui/reviews/{review_id}/implement", response_class=HTMLResponse)
+def implement_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    latest = VersionRepo(session).latest(review)
+    accepted = [
+        r
+        for r in svc.export(session, review).rids
+        if r.disposition is Disposition.ACCEPTED and r.status is Status.ANSWERED
+    ]
+    return templates.TemplateResponse(
+        request,
+        "implement.html",
+        {
+            "user": user,
+            "review": review,
+            "content": latest.content if latest else "",
+            "accepted": accepted,
+            "error": None,
+        },
+    )
+
+
+@web.post("/ui/reviews/{review_id}/implement")
+def implement_submit(
+    review_id: str,
+    request: Request,
+    content: str = Form(...),
+    rids: list[str] = Form(default=[]),
+    session: Session = Depends(get_session),
+):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    version = svc.save_version(session, review, content, by=user)
+    for rid in rids:
+        if RidRepo(session).get(review, rid) is None:
+            continue
+        svc.link_change(session, review, rid, version, by=user)
+        try:  # advance accepted+answered RIDs now that a change links them
+            svc.implement(session, review, rid, by=user)
+        except ValueError:
+            pass  # not eligible to advance (wrong disposition/status) — leave as-is
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
