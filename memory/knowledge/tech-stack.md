@@ -17,7 +17,7 @@ tags:
 - [stack] GUI: gui/rtd.html single file, vanilla HTML/CSS/JS, YAML library vendored inline, File System Access API with download fallback, works from file:// with zero network #gui
 - [constraint] No third-party runtime dependencies beyond PyYAML and Typer without a recorded decision; no build step for the GUI; no CDN at runtime #dependencies
 - [constraint] GUI saves must produce minimal git diffs (no reordering/rewriting of untouched YAML) #git-friendliness
-- [tooling] Repo public on albertoboffi-ALUM GitHub, SSH alias github.com-alum; local path ~/Documents/ALUM/maluS; git identity albertoboffi-ALUM <alberto.boffi@alum-lab.com> already configured locally #repo
+- [tooling] Repo public on tech-ALUM GitHub, SSH alias github.com-alum; local path ~/Documents/ALUM/maluS; git identity albertoboffi-ALUM <alberto.boffi@alum-lab.com> already configured locally #repo
 - [tooling] Development executed by Claude Code, plan-driven (docs/plan), one step at a time; kickoff prompt in docs/plan/90-claude-code-kickoff.md #claude-code
 
 ## Relations
