@@ -7,12 +7,12 @@ closure invariant on the server.
 
 ## Deliverables
 
-- [ ] User registration/admin-create, login, logout; passwords hashed (argon2)
-- [ ] Session cookies (httponly, secure) or JWT; CSRF protection if cookies
-- [ ] Review-scoped roles: admin, owner, reviewer, moderator
-- [ ] Authorization dependency applied to all routers
-- [ ] First-run admin bootstrap (env-seeded, forced password change)
-- [ ] Tests for each permission boundary
+- [x] User registration/admin-create, login, logout; passwords hashed (argon2)
+- [x] Session cookies (httponly, secure) or JWT; CSRF protection if cookies
+- [x] Review-scoped roles: admin, owner, reviewer, moderator
+- [x] Authorization dependency applied to all routers
+- [x] First-run admin bootstrap (env-seeded, forced password change)
+- [x] Tests for each permission boundary
 
 ## Permission rules (server-enforced)
 
@@ -44,6 +44,33 @@ records actor identity for every mutation; suite green.
 ## Out of scope
 
 UI for login/user management (Step 5 renders it). SSO/OAuth (future).
+
+## Deviations
+
+Auth mechanism settled with Alberto via AskUserQuestion; details in
+`memory/decisions/2026-07-10-v1-step-04-decisions.md`.
+
+- **Auth mechanism (chosen):** signed httponly `SameSite=strict` session cookie
+  (Starlette `SessionMiddleware`). SameSite=strict is itself the CSRF protection,
+  so there is no CSRF-token dance. A bearer/API-token path for the AI agent is
+  deferred to Step 7.
+- **Role assignment:** `POST /reviews/{id}/reviewers` gained a `role` field
+  (`reviewer`|`moderator`) so the owner can seat a moderator — the endpoint map
+  had no role-assignment route. The review creator becomes the owner.
+- **Pipeline authorization:** harvest/triage require **moderator** (per the
+  rules); apply-suggs is allowed for **owner or moderator** (the plan did not
+  assign it). A review therefore needs a moderator seat to consolidate.
+- **Audit actor:** recorded for every mutation by threading `by=<current user>`
+  through the services (added a `by` parameter to harvest/triage/link_change/
+  update_rid).
+- **`must_change_password`** is surfaced (bootstrap admin + admin-created users)
+  but not hard-gated in Step 4 — the login GUI prompts for it in Step 5.
+- **Public docs:** `/openapi.json` and `/docs` stay open (documentation); every
+  review/user resource endpoint requires authentication.
+- **AI restriction** is enforced at the authz layer (`is_ai` → 403 on
+  verify/reopen); the disposition-confirm restriction is a Step-7 concern.
+- Dev fallback session secret (`dev-insecure-secret-change-me`); production must
+  set `MALUS_SECRET_KEY`. No secret is committed.
 
 ## Sources
 
