@@ -25,7 +25,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - [naming] Name maluS chosen by Alberto (2026-07-03) over candidates Alumend/Alumina/Alumark; Alumark was already taken by his GTK4 screenshot app #naming
 - [structure] Repo layout: docs/plan (one MD per step), src/malus (Python package), gui/rtd.html (single-file GUI), tests, memory (this basic-memory project) #structure
 - [plan] v0.1.0 shipped: seven development steps — foundations, harvest, triage, GUI, lifecycle, AI roles, end-to-end — see docs/plan/00-general-plan.md #plan
-- [plan] v1 (2026-07 onward) turns maluS into a self-hosted web app: a database replaces git, FastAPI + SQLModel + Alembic, browser GUI + Markdown editor, login/RBAC, and a free interactive-Claude-Code MCP reviewer — see docs/plan/v1/00-overview.md and ADRs 0001/0002 #v1
+- [plan] v1 (2026-07 onward) turns maluS into a self-hosted web app: a database replaces git, FastAPI + SQLModel + Alembic, browser GUI + Markdown editor, login/RBAC, and a free interactive-Claude-Code MCP reviewer — see docs/plan/v1/00-overview.md and ADRs 0001/0002 — released v1.0.0 on 2026-07-10 #v1
 
 ## Relations
 - part_of [[ALUM]]
@@ -38,6 +38,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 6 — Markdown Editor & Reviewer Workflow Decisions]]
 - documented_by [[v1 Step 7 — AI Reviewer via MCP Decisions]]
 - documented_by [[v1 Step 8 — Deployment & Operations Decisions]]
+- documented_by [[v1 Step 9 — E2E, Migration & Release v1.0.0 Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 
