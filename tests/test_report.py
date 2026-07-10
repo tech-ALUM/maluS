@@ -1,16 +1,10 @@
 """Tests for rtd.yaml validation and generated review minutes."""
 
 import datetime as dt
-from pathlib import Path
 
-from typer.testing import CliRunner
-
-from malus.cli import app
 from malus.constants import Disposition, Kind, Severity, Status
 from malus.models import RID, RTD, Meta
-from malus.report import render_report, report_review, validate
-
-runner = CliRunner()
+from malus.report import render_report, validate
 
 
 def _rtd(rids, owner="A. Boffi"):
@@ -81,27 +75,3 @@ def test_render_report_has_key_sections() -> None:
     text = render_report(_rtd([_verified("SIN-SRS-0001")]))
     for section in ("# Review Minutes — SIN-SRS-R1", "## Status", "## Per reviewer", "## Sources"):
         assert section in text
-
-
-def test_report_review_writes_when_clean(tmp_path: Path) -> None:
-    (tmp_path / "rtd.yaml").write_text(_rtd([_verified("SIN-SRS-0001")]).to_yaml(), encoding="utf-8")
-    assert report_review(tmp_path) == []
-    assert (tmp_path / "report.md").exists()
-
-
-def test_report_review_refuses_when_invalid(tmp_path: Path) -> None:
-    (tmp_path / "rtd.yaml").write_text(
-        _rtd([_verified("SIN-SRS-0001", by="A. Boffi")]).to_yaml(), encoding="utf-8"
-    )
-    assert report_review(tmp_path)  # non-empty errors
-    assert not (tmp_path / "report.md").exists()
-
-
-def test_cli_report_writes_and_reports_invalid(tmp_path: Path) -> None:
-    (tmp_path / "rtd.yaml").write_text(_rtd([_verified("SIN-SRS-0001")]).to_yaml(), encoding="utf-8")
-    assert runner.invoke(app, ["report", "--review", str(tmp_path)]).exit_code == 0
-    assert (tmp_path / "report.md").exists()
-    (tmp_path / "rtd.yaml").write_text(
-        _rtd([_verified("SIN-SRS-0001", by="A. Boffi")]).to_yaml(), encoding="utf-8"
-    )
-    assert runner.invoke(app, ["report", "--review", str(tmp_path)]).exit_code == 1

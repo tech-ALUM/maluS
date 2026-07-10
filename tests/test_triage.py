@@ -1,22 +1,14 @@
 """Tests for triage: duplicate clustering and mechanical suggestion apply."""
 
 import datetime as dt
-import shutil
-from pathlib import Path
 
-from typer.testing import CliRunner
-
-from malus.cli import app
 from malus.constants import CommentType, Disposition, Kind, Severity, Status
-from malus.harvest import harvest_review
 from malus.models import RID, RTD, Anchor, Meta
 from malus.triage import (
     apply_clusters,
     apply_suggs,
-    apply_suggs_review,
     parse_sugg_comment,
     propose_clusters,
-    triage_review,
 )
 
 
@@ -141,58 +133,3 @@ def test_parse_sugg_comment_roundtrips_escapes() -> None:
     old, new = parse_sugg_comment('"a \\"b\\"" -> "c \\} d"')
     assert old == 'a "b"'
     assert new == "c } d"
-
-
-# --- end-to-end on the triage fixture ---
-
-_FIXTURE = Path(__file__).parent / "fixtures" / "triage-review"
-_runner = CliRunner()
-
-
-def _harvested_review(tmp_path: Path) -> Path:
-    dest = tmp_path / "review"
-    shutil.copytree(_FIXTURE, dest)
-    harvest_review(dest)
-    return dest
-
-
-def test_triage_auto_yields_one_master_two_duplicates(tmp_path: Path) -> None:
-    review = _harvested_review(tmp_path)
-    _proposals, applied = triage_review(review, auto=True)
-    assert applied == 2
-    rtd = RTD.from_yaml((review / "rtd.yaml").read_text(encoding="utf-8"))
-    duplicates = [r for r in rtd.rids if r.master]
-    masters = [r for r in rtd.rids if r.kind is Kind.COMM and r.duplicates]
-    assert len(masters) == 1
-    assert len(masters[0].duplicates) == 2
-    assert len(duplicates) == 2
-
-
-def test_triage_without_auto_changes_nothing(tmp_path: Path) -> None:
-    review = _harvested_review(tmp_path)
-    before = (review / "rtd.yaml").read_text(encoding="utf-8")
-    proposals, applied = triage_review(review, auto=False)
-    assert applied == 0
-    assert proposals  # groups are still proposed for review
-    assert (review / "rtd.yaml").read_text(encoding="utf-8") == before
-
-
-def test_apply_suggs_dry_run_then_real(tmp_path: Path) -> None:
-    review = _harvested_review(tmp_path)
-    diff, results = apply_suggs_review(review, dry_run=True)
-    assert "stored on the device" in diff
-    assert not (review / "working.md").exists()  # dry run writes nothing
-    assert sum(r.applied for r in results) == 1
-    assert sum(not r.applied for r in results) == 1  # the stale one is flagged
-    apply_suggs_review(review, dry_run=False)
-    working = (review / "working.md").read_text(encoding="utf-8")
-    assert "stored on the device" in working
-    assert "stored locally" not in working
-
-
-def test_cli_triage_auto_and_apply_suggs(tmp_path: Path) -> None:
-    review = _harvested_review(tmp_path)
-    assert _runner.invoke(app, ["triage", "--review", str(review), "--auto"]).exit_code == 0
-    assert _runner.invoke(
-        app, ["apply-suggs", "--review", str(review), "--dry-run"]
-    ).exit_code == 0

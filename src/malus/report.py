@@ -8,10 +8,7 @@ dashboard, per-reviewer stats, dispositions, and the open/deferred register.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from .constants import Disposition, Severity, Status
-from .harvest import RTD_NAME
 from .models import RTD
 
 
@@ -97,13 +94,3 @@ def render_report(rtd: RTD) -> str:
         f"- Generated from `rtd.yaml` ({m.review_id}); baseline `{m.baseline_sha}`.",
     ]
     return "\n".join(out) + "\n"
-
-
-def report_review(review_dir: Path | str) -> list[str]:
-    """Validate the review's rtd.yaml; on success write ``report.md``. Returns errors."""
-    review_dir = Path(review_dir)
-    rtd = RTD.from_yaml((review_dir / RTD_NAME).read_text(encoding="utf-8"))
-    errors = validate(rtd)
-    if not errors:
-        (review_dir / "report.md").write_text(render_report(rtd), encoding="utf-8")
-    return errors

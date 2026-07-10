@@ -1,6 +1,7 @@
-"""Tests for the Typer CLI skeleton: every subcommand present as a stub."""
+"""CLI (v1): the version flag and the legacy v0-directory import command."""
 
-import pytest
+from pathlib import Path
+
 from typer.testing import CliRunner
 
 from malus import __version__
@@ -8,40 +9,18 @@ from malus.cli import app
 
 runner = CliRunner()
 
-# Wide terminal so rich never truncates command names in help output.
-_WIDE = {"COLUMNS": "200"}
-
-SUBCOMMANDS = [
-    "init",
-    "freeze",
-    "copies",
-    "harvest",
-    "triage",
-    "apply-suggs",
-    "report",
-    "verify",
-    "finalize",
-    "ai",
-]
+SAMPLE = Path(__file__).parent / "fixtures" / "sample-review"
 
 
-def test_root_help_lists_all_subcommands() -> None:
-    result = runner.invoke(app, ["--help"], env=_WIDE)
-    assert result.exit_code == 0
-    for name in SUBCOMMANDS:
-        assert name in result.output
-
-
-@pytest.mark.parametrize("name", SUBCOMMANDS)
-def test_each_subcommand_has_help(name: str) -> None:
-    result = runner.invoke(app, [name, "--help"], env=_WIDE)
-    assert result.exit_code == 0
-    assert name in result.output
-
-
-def test_version_option() -> None:
+def test_version_flag():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert __version__ in result.output
+    assert __version__ in result.stdout
 
 
+def test_import_seeds_the_database(tmp_path):
+    db = tmp_path / "malus.db"
+    result = runner.invoke(app, ["import", str(SAMPLE), "--db", f"sqlite:///{db}"])
+    assert result.exit_code == 0, result.stdout
+    assert "SIN-SRS-R1" in result.stdout
+    assert db.exists()

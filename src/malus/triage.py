@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import difflib
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from .constants import Disposition, Kind, Status
-from .harvest import BASELINE_NAME, RTD_NAME
 from .models import RTD
 from .parser import scan
 
@@ -147,56 +145,3 @@ def apply_suggs(text: str, rtd: RTD) -> tuple[str, list[SuggResult]]:
         out = out.replace(old, new, 1)
         results.append(SuggResult(r.rid, old, new, True))
     return out, results
-
-
-# --------------------------------------------------------------------------- #
-# review-level orchestration
-# --------------------------------------------------------------------------- #
-
-
-def triage_review(
-    review_dir: Path | str,
-    *,
-    auto: bool = False,
-    threshold: float = CLUSTER_THRESHOLD,
-    auto_threshold: float = AUTO_THRESHOLD,
-) -> tuple[list[ClusterProposal], int]:
-    """Propose duplicate groups; with ``auto`` link high-confidence ones and save."""
-    review_dir = Path(review_dir)
-    rtd_path = review_dir / RTD_NAME
-    rtd = RTD.from_yaml(rtd_path.read_text(encoding="utf-8"))
-    proposals = propose_clusters(rtd, threshold=threshold)
-    applied = 0
-    if auto:
-        confident = [
-            ClusterProposal(p.master, [l for l in p.links if l.confidence >= auto_threshold])
-            for p in proposals
-        ]
-        applied = apply_clusters(rtd, [p for p in confident if p.links])
-        rtd_path.write_text(rtd.to_yaml(), encoding="utf-8")
-    return proposals, applied
-
-
-def apply_suggs_review(
-    review_dir: Path | str,
-    *,
-    dry_run: bool = False,
-    out: Path | str | None = None,
-) -> tuple[str, list[SuggResult]]:
-    """Apply accepted suggestions to a working copy; return the diff and per-SUGG results."""
-    review_dir = Path(review_dir)
-    baseline = (review_dir / BASELINE_NAME).read_text(encoding="utf-8")
-    rtd = RTD.from_yaml((review_dir / RTD_NAME).read_text(encoding="utf-8"))
-    new_text, results = apply_suggs(baseline, rtd)
-    diff = "".join(
-        difflib.unified_diff(
-            baseline.splitlines(keepends=True),
-            new_text.splitlines(keepends=True),
-            fromfile=BASELINE_NAME,
-            tofile="working.md",
-        )
-    )
-    if not dry_run:
-        target = Path(out) if out else review_dir / "working.md"
-        target.write_text(new_text, encoding="utf-8")
-    return diff, results
