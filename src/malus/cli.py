@@ -76,5 +76,17 @@ def serve(
     uvicorn.run(create_app(make_engine(db)), host=host, port=port)
 
 
+@app.command("mcp")
+def mcp() -> None:
+    """Run the maluS MCP server (stdio) for an interactive AI reviewer.
+
+    Authenticates to a running maluS via MALUS_URL / MALUS_AI_USER /
+    MALUS_AI_PASSWORD. maluS makes no model calls (the free path).
+    """
+    from .mcp.server import run
+
+    run()
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

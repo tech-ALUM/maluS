@@ -50,7 +50,9 @@ from malus.auth.deps import get_current_user
 from malus.constants import Disposition, Role, Status
 from malus.db.models import RID, User
 from malus.db.rtd_io import import_rtd
+from malus.harvest import FreezeViolation, validate_insertion_only
 from malus.models import RTD
+from malus.parser import ParseError
 from malus.repo import ReviewerCopyRepo, ReviewRepo, RidRepo, UserRepo, VersionRepo
 from malus.triage import apply_suggs as apply_suggs_core
 
@@ -231,6 +233,49 @@ def get_copy(review_id: str, user: str, session: Session = Depends(get_session))
     return CopyOut(user=user, content=copy.content, based_on_ordinal=ordinal)
 
 
+@router.get("/reviews/{review_id}/baseline")
+def get_baseline(review_id: str, session: Session = Depends(get_session)):
+    review = _review_or_404(session, review_id)
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="no frozen baseline yet")
+    return {
+        "content": baseline.content,
+        "content_hash": baseline.content_hash,
+        "ordinal": baseline.ordinal,
+    }
+
+
+@router.post("/reviews/{review_id}/copies/{user}/submit", response_model=HarvestOut)
+def submit_copy(
+    review_id: str,
+    user: str,
+    body: CopyIn,
+    session: Session = Depends(get_session),
+    caller: User = Depends(get_current_user),
+):
+    """A reviewer (human or AI agent) submits their copy: validate (parser) →
+    save → re-harvest. Comment blocks only; tampering is rejected (422)."""
+    review = _review_or_404(session, review_id)
+    authz.require_own_copy(session, review, caller, user)
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    try:
+        validate_insertion_only(baseline.content, body.content)
+    except (FreezeViolation, ParseError) as exc:
+        raise HTTPException(status_code=422, detail=f"freeze/parse rejection: {exc}")
+    svc.add_reviewer_copy(session, review, user, body.content)
+    result = svc.harvest(session, review, by=caller)
+    return HarvestOut(
+        rids=[RidOut.from_dto(r) for r in result.rtd.rids],
+        violations=[
+            ViolationOut(reviewer=v.reviewer, message=v.message, line=v.line)
+            for v in result.violations
+        ],
+    )
+
+
 # --------------------------------------------------------------------------- #
 # pipeline: harvest, triage, apply suggestions
 # --------------------------------------------------------------------------- #
@@ -262,7 +307,9 @@ def triage(
     user: User = Depends(get_current_user),
 ):
     review = _review_or_404(session, review_id)
-    authz.require_moderator(session, review, user)
+    if body.auto:
+        authz.require_moderator(session, review, user)  # applying links is moderator-only
+    # proposing clusters (read-only) is available to any authenticated member
     proposals, applied = svc.triage(
         session,
         review,

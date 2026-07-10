@@ -25,7 +25,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27"]  # httpx backs the FastAPI TestClient
-ai = ["anthropic>=0.40"]  # optional: only the live AI engine needs it
+mcp = ["mcp>=1.2"]  # the MCP server for the interactive AI reviewer (malus mcp)
+ai = ["anthropic>=0.40"]  # optional: only the paid server-side engine needs it
 
 [project.scripts]
 malus = "malus.cli:app"
