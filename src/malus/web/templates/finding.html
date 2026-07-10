@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ r.rid }} — maluS{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
+<h1>{{ r.rid }} <span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></h1>
+
+<dl class="meta">
+  <dt>reviewer</dt><dd>{{ r.reviewer }}</dd>
+  <dt>kind</dt><dd>{{ r.kind.value }}{% if r.type %} · {{ r.type.value }}{% endif %}{% if r.severity %} · {{ r.severity.value }}{% endif %}</dd>
+  <dt>anchor</dt><dd>{{ r.anchor.section or '—' }}{% if r.anchor.line_hint %} · line {{ r.anchor.line_hint }}{% endif %}</dd>
+  {% if r.disposition %}<dt>disposition</dt><dd>{{ r.disposition.value }}</dd>{% endif %}
+  {% if r.verified_by %}<dt>verified by</dt><dd>{{ r.verified_by }} on {{ r.verified_on }}</dd>{% endif %}
+</dl>
+
+<h2>Comment</h2>
+<blockquote>{{ r.comment or '' }}</blockquote>
+{% if r.reply %}<h2>Owner reply</h2><blockquote>{{ r.reply }}</blockquote>{% endif %}
+{% if r.resolution %}<h2>Resolution</h2><blockquote>{{ r.resolution }}</blockquote>{% endif %}
+
+{% if can_dispose %}
+<section class="card">
+  <h2>Disposition <span class="role role-owner">owner</span></h2>
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/dispose" class="stack">
+    <label>Disposition
+      <select name="disposition" required>
+        {% for d in ['accepted','rejected','deferred'] %}
+        <option value="{{ d }}" {% if r.disposition and r.disposition.value==d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Reply <textarea name="reply" rows="2">{{ r.reply or '' }}</textarea></label>
+    <label>Resolution <textarea name="resolution" rows="2">{{ r.resolution or '' }}</textarea></label>
+    <button class="primary">Save disposition</button>
+  </form>
+</section>
+{% endif %}
+
+{% if can_verify %}
+<section class="card">
+  <h2>Verification <span class="role role-{{ role }}">{{ role }}</span></h2>
+  <div class="row">
+    <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/verify" class="inline">
+      <button class="primary">Verify</button>
+    </form>
+  </div>
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/reopen" class="stack">
+    <label>Reopen reason <input name="reason" required></label>
+    <button>Reopen</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

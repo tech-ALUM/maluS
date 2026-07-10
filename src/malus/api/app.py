@@ -13,6 +13,7 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,6 +24,8 @@ from malus.api.routes import router
 from malus.auth.routes import auth_router, users_router
 from malus.auth.service import bootstrap_admin as _bootstrap_admin
 from malus.db import DEFAULT_URL, create_all, make_engine
+from malus.web import STATIC_DIR
+from malus.web import web as web_router
 
 # Dev fallback only — production MUST set MALUS_SECRET_KEY. No real secret is committed.
 _DEV_SECRET = "dev-insecure-secret-change-me"
@@ -58,6 +61,8 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(router)
+    app.include_router(web_router)
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     admin = bootstrap_admin or (
         (os.environ["MALUS_ADMIN_USER"], os.environ["MALUS_ADMIN_PASSWORD"])

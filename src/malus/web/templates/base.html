@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}maluS{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+</head>
+<body hx-boost="true">
+  <header class="topbar">
+    <a class="brand" href="/ui/reviews">malu<span>S</span></a>
+    {% if user %}
+    <nav class="topnav">
+      <span class="who">{{ user.display_name }}{% if user.is_admin %} · admin{% endif %}</span>
+      <form method="post" action="/ui/logout" class="inline"><button class="linkbtn">Log out</button></form>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

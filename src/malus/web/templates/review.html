@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ review.review_id_str }} — maluS{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews">← Reviews</a></p>
+<h1>{{ review.review_id_str }} <span class="badge">{{ review.status }}</span></h1>
+<p class="muted">Owner {{ owner }} · Reviewers {{ reviewers|join(', ') or '—' }} · Your role:
+  {% if role %}<span class="role role-{{ role }}">{{ role }}</span>{% else %}—{% endif %}</p>
+
+<section class="dash">
+  <div class="metric"><b>{{ total }}</b><span>findings</span></div>
+  {% for s, n in counts_status.items() %}
+  <div class="metric"><b>{{ n }}</b><span>{{ s }}</span></div>
+  {% endfor %}
+  <div class="metric progress"><b>{{ progress }}%</b><span>closed ({{ closed }}/{{ total }})</span></div>
+</section>
+
+<form method="get" class="filters">
+  {% for field, opts in [
+      ('status', ['open','answered','implemented','verified','withdrawn']),
+      ('reviewer', reviewer_names),
+      ('type', ['typo','editorial','technical','process']),
+      ('severity', ['minor','major','critical']),
+      ('disposition', ['accepted','rejected','deferred']) ] %}
+  <select name="{{ field }}">
+    <option value="">{{ field }}: all</option>
+    {% for o in opts %}<option value="{{ o }}" {% if filters[field]==o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+  </select>
+  {% endfor %}
+  <button>Filter</button>
+</form>
+
+<table class="rtd">
+  <thead><tr>
+    <th>RID</th><th>reviewer</th><th>kind</th><th>type</th><th>sev</th>
+    <th>status</th><th>disp</th><th>comment</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rids %}
+    <tr>
+      <td><a href="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}">{{ r.rid }}</a></td>
+      <td>{{ r.reviewer }}</td>
+      <td>{{ r.kind.value }}</td>
+      <td>{{ r.type.value if r.type else '' }}</td>
+      <td>{{ r.severity.value if r.severity else '' }}</td>
+      <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></td>
+      <td>{{ r.disposition.value if r.disposition else '' }}</td>
+      <td class="cmt">{{ (r.comment or '')|truncate(64) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No findings match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

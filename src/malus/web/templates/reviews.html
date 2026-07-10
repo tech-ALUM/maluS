@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Reviews — maluS{% endblock %}
+{% block content %}
+<h1>Reviews</h1>
+{% if not rows %}
+<p class="muted">No reviews yet.</p>
+{% else %}
+<ul class="reviews">
+  {% for row in rows %}
+  <li>
+    <a class="rid-link" href="/ui/reviews/{{ row.review.review_id_str }}">{{ row.review.review_id_str }}</a>
+    <span class="badge">{{ row.review.status }}</span>
+    {% if row.role %}<span class="role role-{{ row.role }}">{{ row.role }}</span>{% endif %}
+    {% if row.review.title %}<span class="muted">— {{ row.review.title }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
