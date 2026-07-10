@@ -16,7 +16,7 @@ tags:
 
 Document review management application for Markdown documents, modeled on
 aerospace-style RID (Review Item Discrepancy) processes. Repo:
-`~/Documents/ALUM/maluS`, GitHub `albertoboffi-ALUM/maluS` (public).
+`~/Documents/ALUM/maluS`, GitHub `tech-ALUM/maluS` (public).
 
 ## Observations
 - [overview] Full review cycle on a Markdown DUR: freeze baseline → per-reviewer copies with inline comment blocks → harvest into rtd.yaml → triage/dedup → owner disposition via single-file HTML GUI → RID-referenced implementation → reviewer-side verification → finalize #process
@@ -41,6 +41,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 9 — E2E, Migration & Release v1.0.0 Decisions]]
 - documented_by [[v1 Step 10 — Account Management GUI Decisions]]
 - documented_by [[v1 Step 11 — Caddy in docker-compose Decisions]]
+- documented_by [[v1 Step 12 — GUI Review Creation + Login Feedback Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 

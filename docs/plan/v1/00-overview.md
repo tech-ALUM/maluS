@@ -68,8 +68,9 @@ suggestions), `lifecycle` (transitions, closure invariant), `report`
 | 9 | `09-e2e-and-release.md` | Multi-user E2E, v0 import, docs, tag v1.0.0 | all |
 | 10 | `10-account-gui.md` | Account-management GUI: self-service password, admin user CRUD, per-review role assignment | 4,5 |
 | 11 | `11-caddy-compose.md` | Caddy reverse proxy in docker-compose (TLS; app loopback-only) | 8 |
+| 12 | `12-gui-review-creation.md` | GUI: create+freeze a review; login error feedback | 5,10 |
 
-Steps 1–9 are v1.0.0. Steps 10–11 are post-1.0.0 hardening for self-hosting
+Steps 1–9 are v1.0.0. Steps 10–12 are post-1.0.0 hardening for self-hosting
 (added 2026-07-10). Implemented one step at a time. Kickoff prompt: `90-kickoff.md`.
 
 ## Global Definition of Done

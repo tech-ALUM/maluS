@@ -9,6 +9,8 @@
 - **Caddy in docker-compose** (Step 11): a `caddy` service terminates TLS on
   80/443 and proxies to the app (loopback-only) over the compose network;
   `MALUS_DOMAIN` for auto-HTTPS. One-command HTTPS deploy.
+- **Create a review from the GUI** (Step 12): `/ui/reviews/new` (create + freeze
+  in one step; creator = owner); login now shows an error on wrong credentials.
 
 ## v1.0.0 — 2026-07-10
 

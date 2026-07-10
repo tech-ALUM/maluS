@@ -10,10 +10,10 @@ errors clearly.
 
 ## Deliverables
 
-- [ ] "New review" GUI (`/ui/reviews/new`): create a review (creator = owner) and
+- [x] "New review" GUI (`/ui/reviews/new`): create a review (creator = owner) and
       set + freeze the baseline in one step; linked from the review list
-- [ ] Login shows an error on wrong credentials (works with `hx-boost` too)
-- [ ] Tests: create-review-from-GUI (appears in the list, baseline frozen);
+- [x] Login shows an error on wrong credentials (works with `hx-boost` too)
+- [x] Tests: create-review-from-GUI (appears in the list, baseline frozen);
       duplicate review id shows an error; login with wrong credentials shows the
       message
 
@@ -27,6 +27,20 @@ clear "invalid credentials" message; suite green.
 
 Bulk import UI (use `malus import` / the API). Editing review metadata after
 creation.
+
+## Deviations
+
+Details in `memory/decisions/2026-07-10-v1-step-12-decisions.md`.
+
+- **New review = create + freeze in one action** (`/ui/reviews/new`): the creator
+  becomes owner and the supplied baseline is frozen immediately; reviewers /
+  moderators are added afterwards from the Members page (Step 10). Any
+  authenticated user may create a review (they own it), matching the API.
+- **Login feedback under hx-boost**: the server already re-rendered the login
+  page with an error (401), but boosted forms ignore non-2xx responses; a global
+  `htmx:beforeSwap` handler now renders 4xx bodies so the message shows. The
+  no-JS path already worked (native submit renders the 401 body). Tests assert
+  the server-side error render (TestClient does not run the JS).
 
 ## Sources
 
