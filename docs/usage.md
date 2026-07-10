@@ -1,161 +1,78 @@
-# maluS — User Guide
+# maluS — User Guide (v1, web application)
 
-maluS runs a formal review of a Markdown document. The document is frozen, each
-reviewer annotates a personal copy with inline comment blocks, the comments are
-harvested into one tracking file (`rtd.yaml`), the owner decides on each finding,
-the accepted changes are implemented, and the reviewers — never the owner — close
-their findings. It works the same whether the owner or a reviewer is a person or
-an AI.
+maluS runs a formal RID-based review of a Markdown document as a self-hosted web
+app. The baseline is frozen; each reviewer comments on their own copy (comment
+blocks only); comments are harvested into RIDs; the owner dispositions them; the
+owner implements accepted ones (creating linked document versions); reviewers
+verify and close; the review is finalized. A database is the store — **no git**.
 
-Everything is plain text plus one self-contained HTML page. There is no server and
-nothing to pay for. Git provides the history.
+Deployment is covered in [ops/runbook.md](ops/runbook.md); connecting an AI
+reviewer in [usage/ai-reviewer.md](usage/ai-reviewer.md). This guide is the
+end-to-end user walkthrough for both modes.
 
-## Install
+## Roles
 
-Requires Python 3.12+ and git.
+| Role | Can | Cannot |
+|------|-----|--------|
+| **admin** | manage users | touch review content |
+| **owner** | edit/freeze the DUR, dispose RIDs, implement, finalize | **verify** |
+| **reviewer** | edit *their own* copy; verify/reopen *their own* RIDs | others' copies/RIDs |
+| **moderator** | harvest, triage, verify **on a reviewer's behalf** | — |
+| **AI principal** | comment (as a reviewer identity), propose triage | **verify / close / confirm** |
 
-```sh
-pipx install .        # or: pip install .
-malus --help
-```
+**Closure authority (the safety control):** only a reviewer — or a moderator on
+their behalf — may set a RID `verified`. The owner never can; an AI never can.
+Enforced server-side, so it holds regardless of the GUI or API.
 
-The optional live-AI engine (Step "AI roles" below) needs one extra package:
+## Human-owner mode (walkthrough)
 
-```sh
-pipx install '.[ai]'  # adds the 'anthropic' package; set ANTHROPIC_API_KEY to use it
-```
+1. **Admin** logs in (first-run bootstrap admin; change the password) and creates
+   accounts: an owner, reviewers, a moderator (Users page / `POST /users`).
+2. **Owner** creates a review, sets the document, and **freezes** the baseline;
+   then adds members with roles (reviewers + a moderator).
+3. **Reviewers** open *Edit my copy*, insert `{COMM|…}` / `{SUGG:…}` blocks
+   (baseline text stays frozen), and **submit** — which harvests server-side.
+   Tampering with baseline text is rejected by the parser.
+4. **Moderator** runs **triage** to cluster duplicates.
+5. **Owner** opens each finding and records a **disposition** (accept/reject/defer)
+   with a reply.
+6. **Owner** opens *Implement accepted findings*, edits the DUR, ticks the RIDs the
+   edit resolves, and saves — creating a new version linked to those RIDs.
+7. **Reviewers** verify their findings; the **moderator** verifies an AI reviewer's
+   findings on its behalf. Reopen with a reason if a fix is incomplete.
+8. **Owner** views the **report** (minutes) and **finalizes** once every RID is
+   verified or withdrawn.
 
-## Key words
+## AI-reviewer mode
 
-- **DUR** — the Document Under Review (a Markdown file).
-- **baseline** — the frozen copy of the DUR the review is run against.
-- **RID** — one tracked finding (id like `SIN-SRS-0001`).
-- **rtd.yaml** — the one file that holds the review: a `meta` header + the findings.
-- **disposition** — the owner's decision on a finding: accepted / rejected / deferred.
-- Three **roles** — owner, reviewer, moderator — each a person or an AI.
-- **The rule that never bends:** only a reviewer (or a moderator on their behalf)
-  may mark a finding *verified*. The owner never can, and an AI never can.
+Add an AI reviewer (an `is_ai` user) to a review, then connect Claude Code
+**interactively** to maluS's MCP server — no API key, no server-side model calls.
+The agent reads the baseline and submits comment blocks through the same
+validated endpoint a human uses; its findings are attributed to it and can never
+be verified/closed by the AI. See [usage/ai-reviewer.md](usage/ai-reviewer.md).
 
-## Comment syntax
+*(AI-owner mode — an AI drafting dispositions, marked `ai_drafted` for human
+confirmation — reuses the same tools and is planned beyond v1.)*
 
-Reviewers add only these blocks to their copy — never edit the document's text:
+## Interfaces
 
-- `{COMM|type=<t>|sev=<s>: free text}` — a discussion comment. `type` is one of
-  typo, editorial, technical, process (default editorial); `sev` is one of minor,
-  major, critical (default minor). Both are optional and order-free.
-- `{SUGG: "exact old text" -> "new text"}` — a mechanical replacement.
+- **Browser GUI** at `/ui/…` — login, review list, dashboard, RTD table, finding
+  detail, the editor.
+- **HTTP API** — the same operations, typed, documented at `/openapi.json` and
+  `/docs`. Everything the GUI and the AI agent do goes through this one contract.
+- **CLI** — `malus serve` (run the app), `malus mcp` (AI reviewer server),
+  `malus import <dir>` (load a v0 review).
 
-Write a literal `}` as `\}`; inside a `{SUGG}` write a literal `"` as `\"`.
-
-## Quickstart — run the demo review
-
-A ready-made synthetic review lives in `examples/srs-demo/`. Run it inside a git
-repository (freeze and traceability need commits).
-
-```sh
-MALUS=$(pwd)                       # run this from the maluS repository root
-mkdir /tmp/malus-demo && cd /tmp/malus-demo
-git init -q && git commit --allow-empty -m start
-
-# 1. create the review from the source document
-malus init SIN-SRS-R1 --document "$MALUS/examples/srs-demo/srs.md" \
-    --owner "A. Boffi" --reviewers "A. Rossi,B. Bianchi,C. Verdi"
-git add -A && git commit -q -m "chore: init review"
-
-REV=reviews/SIN-SRS-R1
-
-# 2. freeze the baseline (records the commit id)
-malus freeze --review $REV
-
-# 3. make one copy per reviewer, then let each reviewer annotate their copy
-malus copies --review $REV
-cp "$MALUS/examples/srs-demo/reviewers/"*.md "$REV/reviewers/"   # demo shortcut
-
-# 4. harvest the comments into rtd.yaml (a tampered copy is rejected, others proceed)
-malus harvest --review $REV
-
-# 5. group duplicate findings (one reviewer's is linked under another's)
-malus triage --review $REV --auto
-
-# 6. apply the mechanical suggestions to a working copy (preview first)
-malus apply-suggs --review $REV --dry-run
-malus apply-suggs --review $REV        # writes reviews/SIN-SRS-R1/working.md
-```
-
-### 7. Owner decides — in the GUI
-
-Double-click `gui/rtd.html` in any browser (or serve the folder to use the
-in-place file save). Open `$REV/rtd.yaml`, and for each finding write a reply,
-choose accepted / rejected / deferred, and move it to *answered* / *implemented*.
-Save — only the fields you changed are written, so the git diff stays small. The
-GUI will not let you mark a finding *verified*: that button is disabled for the
-owner.
-
-### 8. Implement, then check the link
-
-Edit the document for the accepted findings and commit, naming the RIDs in the
-message:
+## Migrating a v0 review
 
 ```sh
-git commit -am "fix(srs): bound the timeout — SIN-SRS-0001"
-malus verify --review $REV --check      # lists accepted findings with no commit yet
+malus import path/to/reviews/<review-id> --db "$MALUS_DB_URL"
 ```
 
-### 9. Reviewers close their findings
+Loads `baseline.md`, `rtd.yaml`, and `reviewers/*.md` into the database. The v0
+single-file GUI (`gui/rtd.html`) remains available as legacy.
 
-```sh
-malus verify --review $REV --reviewer "A. Rossi"                 # list their pending findings
-malus verify --review $REV --rid SIN-SRS-0001 --reviewer "A. Rossi"
-# not satisfied? send it back with a reason:
-malus verify --review $REV --rid SIN-SRS-0001 --reviewer "A. Rossi" --reopen "still unclear"
-```
+## Sources
 
-### 10. Report and finalize
-
-```sh
-malus report --review $REV      # validates rtd.yaml and writes report.md (minutes)
-malus finalize --review $REV    # requires every finding verified/withdrawn; writes
-                                # final.md, report.md, carryover.yaml, and a FINALIZED marker
-```
-
-## The two modes
-
-**Mode 1 — AI owner, human reviewers.** The AI drafts the owner's replies and
-decisions; humans still verify. The AI's drafts are marked `ai_drafted: true` and
-its findings never advance on their own:
-
-```sh
-malus ai disposition --review $REV        # drafts reply + decision for each open finding
-# a human reviews the drafts in the GUI, confirms, and only a reviewer verifies
-```
-
-**Mode 2 — human owner, AI reviewer.** The AI writes its own reviewer copy; the
-parser rejects anything that isn't valid comment blocks:
-
-```sh
-malus ai review --review $REV --reviewer claude   # writes reviewers/claude.md
-malus harvest --review $REV                        # its comments join the review
-```
-
-`malus ai triage` proposes duplicate groups the same way `triage` does. All `ai`
-commands use an offline mock engine by default; add `--engine anthropic` (and
-install the `[ai]` extra + set `ANTHROPIC_API_KEY`) to use a live model. **No AI
-command can verify or close a finding — there is none.**
-
-## Command summary
-
-| Command | What it does |
-|---|---|
-| `malus init <id> --document <f>` | create a review from a source document |
-| `malus freeze --review <dir>` | freeze the baseline (record the commit id) |
-| `malus copies --review <dir>` | make one blank copy per reviewer |
-| `malus harvest --review <dir>` | parse the copies into rtd.yaml |
-| `malus triage --review <dir> [--auto]` | group duplicate findings |
-| `malus apply-suggs --review <dir> [--dry-run]` | apply mechanical suggestions |
-| `malus verify --review <dir> [--check\|--reviewer\|--rid …]` | traceability + reviewer closure |
-| `malus report --review <dir>` | validate + write the minutes |
-| `malus finalize --review <dir>` | new baseline + minutes + carry-over |
-| `malus ai review\|disposition\|triage` | drive an AI in a seat (mock by default) |
-
-The disposition step itself is done in `gui/rtd.html` (or drafted by `malus ai
-disposition`), not by a dedicated CLI command.
+- Normative contracts: `docs/spec/comment-syntax.md`, `rid-schema.md`, `data-model.md`.
+- Architecture: `docs/adr/`. Plan: `docs/plan/v1/`.

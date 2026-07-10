@@ -1,0 +1,49 @@
+# Changelog
+
+## v1.0.0 — 2026-07-10
+
+maluS becomes a **self-hosted web application**. The reusable domain core
+(`models`, `parser`, `triage`, `lifecycle`, `report`) is unchanged; persistence
+and transport are replaced.
+
+### Added
+- **Database store** (SQLModel on SQLite/WAL, Postgres-ready) + Alembic
+  migrations; `docs/spec/data-model.md`. Freeze is an immutable `DocumentVersion`
+  (content hash); RID traceability is `RidChange` + an `AuditLog` (ADR 0001/0002).
+- **Repository + service layer** — the whole pipeline runs on the DB.
+- **HTTP API** (FastAPI, OpenAPI at `/docs`) — one typed contract for the GUI and
+  the AI agent; `malus serve`.
+- **Authentication & RBAC** — argon2 passwords, httponly `SameSite=strict`
+  session cookies, review-scoped roles (owner/reviewer/moderator + global admin),
+  first-run admin bootstrap. Closure invariant enforced server-side; every
+  mutation is attributed in the audit log.
+- **Web GUI** (server-rendered Jinja + HTMX, ALUM styling): login, review list,
+  dashboard, filterable RTD table, disposition/verify, and an in-browser Markdown
+  **editor** (reviewer commenting + owner implementation with RID-linked versions).
+- **AI reviewer via MCP** — `malus mcp` exposes review tools driven by an
+  interactive Claude Code session; **no paid Anthropic API** on the server. AI
+  principals can never verify/close/confirm (`is_ai` guardrail). Optional paid
+  server-side engine behind `MALUS_AI_ENGINE`, off by default.
+- **Deployment** — Dockerfile + docker-compose (optional Postgres), `.env.example`,
+  reverse-proxy TLS sample, backup/restore scripts, `/health`, JSON logging,
+  `docs/ops/runbook.md`.
+- **v0 import** — `malus import <dir>` loads a legacy review directory into the DB;
+  `rtd.yaml` survives as an import/export interchange format.
+- Multi-user end-to-end tests (human + AI reviewer, GUI + API + MCP, finalized).
+
+### Changed
+- `malus` CLI is now `serve` / `mcp` / `import` (the v0 file pipeline is retired).
+- Documentation rewritten for the web app (`README.md`, `docs/usage.md`).
+
+### Removed
+- **git** as store/transport (no git call anywhere in `src/`).
+- The v0 file/CLI pipeline and the v0 `--engine anthropic` reviewer path.
+
+### Legacy
+- `gui/rtd.html` (v0 single-file GUI) retained, clearly marked legacy.
+
+## v0.1.0
+
+Initial local, git-based, text-first CLI: freeze → per-reviewer copies → harvest
+`rtd.yaml` → triage → disposition (single-file `gui/rtd.html`) → verify →
+finalize. See `docs/plan/00-general-plan.md`.
