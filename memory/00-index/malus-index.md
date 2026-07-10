@@ -40,6 +40,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 8 — Deployment & Operations Decisions]]
 - documented_by [[v1 Step 9 — E2E, Migration & Release v1.0.0 Decisions]]
 - documented_by [[v1 Step 10 — Account Management GUI Decisions]]
+- documented_by [[v1 Step 11 — Caddy in docker-compose Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 

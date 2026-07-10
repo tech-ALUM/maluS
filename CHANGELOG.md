@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (post-1.0.0 hardening)
+
+- **Account-management GUI** (Step 10): self-service password change, admin user
+  CRUD (create incl. AI reviewer, deactivate/reactivate, reset password), and
+  per-review role assignment — server-side, admin-gated; forced password change
+  at first login. Closure invariant unchanged.
+- **Caddy in docker-compose** (Step 11): a `caddy` service terminates TLS on
+  80/443 and proxies to the app (loopback-only) over the compose network;
+  `MALUS_DOMAIN` for auto-HTTPS. One-command HTTPS deploy.
+
 ## v1.0.0 — 2026-07-10
 
 maluS becomes a **self-hosted web application**. The reusable domain core
