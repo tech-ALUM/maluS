@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (post-1.0.0 hardening)
+## v1.1.0 — 2026-07-10 (self-hosting hardening)
 
 - **Account-management GUI** (Step 10): self-service password change, admin user
   CRUD (create incl. AI reviewer, deactivate/reactivate, reset password), and
