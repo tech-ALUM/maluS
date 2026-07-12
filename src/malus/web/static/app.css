@@ -102,6 +102,57 @@ button.primary:hover { background: var(--coral-dark); border-color: var(--coral-
 .chk { display: block; font-size: .88rem; padding: .15rem 0; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } }
 
+/* reviewer editor — A4 rendered view + comments panel (v1.4) */
+.workbench { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.2rem; align-items: start; }
+@media (max-width: 820px) { .workbench { grid-template-columns: 1fr; } }
+.a4-sheet {
+  background: #fff; color: var(--ink);
+  width: 100%; max-width: 794px; margin: 0 auto;
+  aspect-ratio: 210 / 297;               /* A4 portrait when short; grows with content */
+  height: auto; min-height: 60vh;
+  padding: 56px 64px;
+  border: 1px solid var(--line); border-radius: 3px;
+  box-shadow: 0 2px 16px rgba(21, 24, 29, .12);
+  overflow-wrap: break-word;
+}
+.a4-sheet > :first-child { margin-top: 0; }
+.a4-sheet ::selection { background: #ffe08a; }        /* invite selection */
+
+/* inline comment markers, rendered red inside the sheet */
+.cmt { color: var(--coral-dark); font-weight: 600; cursor: pointer; border-bottom: 1px dotted var(--coral); }
+.cmt::before { content: "🖉 "; }
+.cmt-sugg { color: var(--teal); border-bottom-color: var(--teal); }
+.cmt-sugg::before { content: "✎ "; }
+.cmt.flash { border-radius: 3px; animation: cmt-flash 2.2s ease-out; }
+@keyframes cmt-flash {
+  0% { background: #ffd34d; box-shadow: 0 0 0 4px #ffd34d; }
+  70% { background: #ffe9a6; box-shadow: 0 0 0 4px #ffe9a6; }
+  100% { background: transparent; box-shadow: none; }
+}
+
+/* comments panel (Word style) */
+.comments-panel { position: sticky; top: 1rem; }
+.cp-title { margin: 0 0 .6rem; }
+.cp-card { border: 1px solid var(--line); border-left: 3px solid var(--coral); border-radius: 8px; padding: .5rem .6rem; margin-bottom: .5rem; background: var(--card); cursor: pointer; }
+.cp-card:hover { border-color: var(--coral); }
+.cp-card.active { box-shadow: 0 0 0 2px var(--coral); }
+.cp-card.sugg { border-left-color: var(--teal); }
+.cp-card .cp-body { font-size: .9rem; }
+.cp-card .cp-quote { color: var(--muted); font-size: .78rem; font-style: italic; margin: .15rem 0; }
+.cp-card .cp-meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+.cp-note { width: 100%; margin-top: .4rem; font-size: .85rem; min-height: 3.2rem; }
+.cp-note-label { font-size: .72rem; color: var(--muted); }
+.cp-del { float: right; font-size: .72rem; }
+
+/* selection → comment popover */
+.cmt-pop { position: absolute; z-index: 60; width: 290px; background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: .7rem; box-shadow: 0 6px 22px rgba(21, 24, 29, .2); }
+.cmt-pop .cmt-pop-row { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.cmt-pop label { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; color: var(--muted); flex: 1; }
+.cmt-pop textarea, .cmt-pop input { width: 100%; }
+.cmt-pop #cmt-sugg-fields { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .5rem; }
+.cmt-pop-actions { margin-bottom: 0; }
+.rev-actions { margin-top: 1rem; }
+
 /* reviewer onboarding (v1.2) */
 .cta-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;

@@ -144,6 +144,29 @@ class ReviewerCopy(SQLModel, table=True):
     based_on_version: Optional[DocumentVersion] = Relationship()
 
 
+class ReviewerNote(SQLModel, table=True):
+    """A reviewer's PRIVATE note on one of their comments (v1.4).
+
+    Never harvested, never shared: it is scoped to (review, user) and keyed by a
+    stable ``anchor_key`` (the comment's baseline character offset). Personal
+    scratch to help a reviewer track their own review.
+    """
+
+    __tablename__ = "reviewer_notes"
+    __table_args__ = (
+        UniqueConstraint("review_id", "user_id", "anchor_key", name="uq_note_review_user_anchor"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    review_id: Optional[int] = Field(default=None, foreign_key="reviews.id", nullable=False)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", nullable=False)
+    anchor_key: str
+    body: str = ""
+
+    review: Optional[Review] = Relationship()
+    user: Optional[User] = Relationship()
+
+
 class RID(SQLModel, table=True):
     """A single Review Item Discrepancy; mirrors the frozen v0 RID schema.
 

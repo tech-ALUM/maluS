@@ -21,7 +21,9 @@ def test_reviewer_editor_page_renders(mkuser, docs):
     _owner, f, _mod = _seed_frozen(mkuser, docs)
     page = f.get(f"/ui/reviews/{R}/edit-copy")
     assert page.status_code == 200
-    assert "review copy" in page.text.lower() and 'id="editor"' in page.text
+    # v1.4: rendered A4 sheet + hidden content field (no visible textarea)
+    assert "review copy" in page.text.lower()
+    assert 'id="sheet"' in page.text and 'id="content-src"' in page.text
 
 
 def test_reviewer_submits_valid_copy_and_it_harvests(mkuser, docs):

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
@@ -26,7 +26,7 @@ from malus.constants import Disposition, Role, Status
 from malus.db.models import User
 from malus.harvest import FreezeViolation, validate_insertion_only
 from malus.parser import ParseError
-from malus.repo import ReviewerCopyRepo, ReviewRepo, RidRepo, VersionRepo
+from malus.repo import ReviewerCopyRepo, ReviewerNoteRepo, ReviewRepo, RidRepo, VersionRepo
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 web = APIRouter(include_in_schema=False)
@@ -390,6 +390,42 @@ def submit_copy(
     svc.add_reviewer_copy(session, review, user.display_name, content)
     svc.harvest(session, review, by=user)  # submitting a copy triggers a re-harvest
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
+def _require_reviewer(session: Session, request: Request, review_id: str):
+    """(user, review) for a reviewer of the review, or a redirect/403."""
+    user = _current(request, session)
+    if not user:
+        return None, None, _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) != Role.REVIEWER.value:
+        raise HTTPException(status_code=403, detail="only a reviewer has private notes here")
+    return user, review, None
+
+
+@web.get("/ui/reviews/{review_id}/my-notes")
+def my_notes(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """The current reviewer's private notes for this review: {anchor_key: body}."""
+    user, review, redirect = _require_reviewer(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    return JSONResponse(ReviewerNoteRepo(session).map_for(review, user))
+
+
+@web.put("/ui/reviews/{review_id}/my-notes")
+def save_my_note(
+    review_id: str,
+    request: Request,
+    anchor_key: str = Form(...),
+    body: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Upsert one private note (empty body clears it). Scoped to the reviewer."""
+    user, review, redirect = _require_reviewer(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    ReviewerNoteRepo(session).upsert(review, user, anchor_key, body)
+    return Response(status_code=204)
 
 
 @web.get("/ui/reviews/{review_id}/implement", response_class=HTMLResponse)

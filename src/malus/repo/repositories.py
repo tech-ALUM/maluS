@@ -21,6 +21,7 @@ from malus.db.models import (
     DocumentVersion,
     Review,
     ReviewerCopy,
+    ReviewerNote,
     ReviewMember,
     ReviewStatus,
     RidChange,
@@ -241,6 +242,40 @@ class ReviewerCopyRepo:
                 .order_by(ReviewerCopy.id)
             ).all()
         )
+
+
+class ReviewerNoteRepo:
+    """A reviewer's private notes for a review, keyed by ``anchor_key`` (v1.4)."""
+
+    def __init__(self, session: Session) -> None:
+        self.s = session
+
+    def map_for(self, review: Review, user: User) -> dict[str, str]:
+        rows = self.s.exec(
+            select(ReviewerNote)
+            .where(ReviewerNote.review_id == review.id)
+            .where(ReviewerNote.user_id == user.id)
+        ).all()
+        return {n.anchor_key: n.body for n in rows}
+
+    def upsert(self, review: Review, user: User, anchor_key: str, body: str) -> None:
+        note = self.s.exec(
+            select(ReviewerNote)
+            .where(ReviewerNote.review_id == review.id)
+            .where(ReviewerNote.user_id == user.id)
+            .where(ReviewerNote.anchor_key == anchor_key)
+        ).first()
+        if not body.strip():  # an empty body clears the note
+            if note is not None:
+                self.s.delete(note)
+                self.s.flush()
+            return
+        if note is None:
+            note = ReviewerNote(review=review, user=user, anchor_key=anchor_key, body=body)
+        else:
+            note.body = body
+        self.s.add(note)
+        self.s.flush()
 
 
 class RidRepo:

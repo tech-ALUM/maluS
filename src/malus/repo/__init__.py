@@ -3,6 +3,7 @@
 from malus.repo.repositories import (
     AuditRepo,
     ReviewerCopyRepo,
+    ReviewerNoteRepo,
     ReviewRepo,
     RidRepo,
     UserRepo,
@@ -13,6 +14,7 @@ from malus.repo.repositories import (
 __all__ = [
     "AuditRepo",
     "ReviewerCopyRepo",
+    "ReviewerNoteRepo",
     "ReviewRepo",
     "RidRepo",
     "UserRepo",

@@ -3,20 +3,63 @@
 {% block content %}
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
 <h1>Your review copy</h1>
-<p class="muted">Insert comment blocks only — the baseline text is frozen. The server re-checks on submit.</p>
+<p class="muted">Select text in the sheet to add a comment. Only comments are added —
+  the baseline text is frozen; the server re-checks on submit.</p>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <p id="freeze-warning" class="error" hidden>You changed baseline text. Only {COMM} / {SUGG} block insertions are allowed.</p>
-<form method="post" action="/ui/reviews/{{ review.review_id_str }}/edit-copy" class="stack">
-  <div class="toolbar">
-    <button type="button" data-insert="comm">Insert {COMM}</button>
-    <button type="button" data-insert="sugg">Insert {SUGG}</button>
+
+<form method="post" action="/ui/reviews/{{ review.review_id_str }}/edit-copy" id="rev-form"
+      data-review="{{ review.review_id_str }}">
+  <textarea id="content-src" name="content" hidden data-baseline="{{ baseline }}">{{ content }}</textarea>
+  <div class="workbench">
+    <div id="sheet" class="a4-sheet" aria-label="Rendered document"></div>
+    <aside class="comments-panel">
+      <h2 class="cp-title">Comments <span id="cp-count" class="badge">0</span></h2>
+      <div id="cp-list"></div>
+      <p id="cp-empty" class="muted">Select text on the left to add your first comment.</p>
+    </aside>
   </div>
-  <div class="editor-grid">
-    <textarea id="editor" name="content" rows="20" spellcheck="false" data-baseline="{{ baseline }}">{{ content }}</textarea>
-    <div id="preview" class="preview"></div>
-  </div>
-  <button class="primary">Submit copy</button>
+  <div class="rev-actions"><button class="primary" type="submit">Submit copy</button></div>
 </form>
+
+<!-- selection → comment popover -->
+<div id="cmt-pop" class="cmt-pop" hidden>
+  <div class="cmt-pop-row">
+    <label>Kind
+      <select id="cmt-kind">
+        <option value="COMM">Comment</option>
+        <option value="SUGG">Suggestion</option>
+      </select>
+    </label>
+  </div>
+  <div id="cmt-comm-fields" class="cmt-pop-row">
+    <label>Type
+      <select id="cmt-type">
+        <option value="editorial">editorial</option>
+        <option value="typo">typo</option>
+        <option value="technical" selected>technical</option>
+        <option value="process">process</option>
+      </select>
+    </label>
+    <label>Severity
+      <select id="cmt-sev">
+        <option value="minor">minor</option>
+        <option value="major" selected>major</option>
+        <option value="critical">critical</option>
+      </select>
+    </label>
+  </div>
+  <textarea id="cmt-body" rows="3" placeholder="Your comment…"></textarea>
+  <div id="cmt-sugg-fields" hidden>
+    <input id="cmt-old" type="text" placeholder="old text (from selection)">
+    <input id="cmt-new" type="text" placeholder="new text">
+  </div>
+  <div class="cmt-pop-row cmt-pop-actions">
+    <button type="button" id="cmt-save" class="primary">Add</button>
+    <button type="button" id="cmt-cancel">Cancel</button>
+  </div>
+</div>
+
 <script src="/static/vendor/marked.min.js"></script>
-<script src="/static/editor.js" defer></script>
+<script src="/static/reviewer-editor.js" defer></script>
 {% endblock %}

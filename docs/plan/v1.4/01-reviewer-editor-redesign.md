@@ -12,41 +12,41 @@ unchanged.
 ## Deliverables
 
 ### Private-notes store (backend, TDD)
-- [ ] `ReviewerNote(id, review_id, user_id, anchor_key: str, body: str)` with
+- [x] `ReviewerNote(id, review_id, user_id, anchor_key: str, body: str)` with
       `UniqueConstraint(review_id, user_id, anchor_key)` in `db/models.py`.
-- [ ] An **Alembic migration** creating the table (consistent with the models).
-- [ ] Repo helpers: list a reviewer's notes for a review; upsert one by
+- [x] An **Alembic migration** creating the table (consistent with the models).
+- [x] Repo helpers: list a reviewer's notes for a review; upsert one by
       `anchor_key`; (empty body deletes it).
-- [ ] `GET /ui/reviews/{id}/my-notes` → `{anchor_key: body}` JSON for the current
+- [x] `GET /ui/reviews/{id}/my-notes` → `{anchor_key: body}` JSON for the current
       user; `PUT /ui/reviews/{id}/my-notes` (`anchor_key`, `body`) upserts one.
       Reviewer-only for that review; a user only ever sees/writes **their own**
       notes.
-- [ ] Tests: save + read back; scoping (another user cannot read/write them; a
+- [x] Tests: save + read back; scoping (another user cannot read/write them; a
       non-member is refused); empty body clears a note.
 
 ### Rendered A4 editor (frontend)
-- [ ] `edit_copy.html` rewritten: no textarea column; an **A4 sheet** (paper
+- [x] `edit_copy.html` rewritten: no textarea column; an **A4 sheet** (paper
       look, ~A4 width, centered, generous vertical space) holding the rendered
       document, plus a right **comments panel**; a hidden `content` field and the
       `Submit copy` button; the `data-baseline` is still provided.
-- [ ] `reviewer-editor.js` (new; `marked` vendored): on load, **parse** `content`
+- [x] `reviewer-editor.js` (new; `marked` vendored): on load, **parse** `content`
       into the baseline + a list of comments (kind, params, body, baseline
       offset); render the A4 by replacing each block with a **red marker span**
       before `marked` runs; build the panel.
-- [ ] **Select → comment**: selecting text in the sheet shows a floating
+- [x] **Select → comment**: selecting text in the sheet shows a floating
       "Comment" action → a small form (type/sev + body; for `{SUGG}` prefill
       `old` = selection, enter `new`). Anchor by text-match (selected string +
       occurrence index) with a containing-block fallback. Edit/delete a comment
       from its panel card or marker.
-- [ ] **Comments panel** (Word style): one card per comment (body + quoted
+- [x] **Comments panel** (Word style): one card per comment (body + quoted
       anchor). Clicking a card scrolls the sheet to the marker and **highlights
       it ~2s**. Each card has an expandable **private note** field that loads
       from / saves to `/my-notes` (debounced), keyed by the comment's
       `anchor_key`.
-- [ ] **Submit**: reconstruct the Markdown (baseline + blocks at ascending
+- [x] **Submit**: reconstruct the Markdown (baseline + blocks at ascending
       offsets) into the hidden `content`, keep the client freeze pre-check, post
       to the existing `POST /ui/reviews/{id}/edit-copy`.
-- [ ] CSS for the A4 sheet, red comment markers/highlight, and the panel (ALUM
+- [x] CSS for the A4 sheet, red comment markers/highlight, and the panel (ALUM
       palette).
 
 ## Key behaviors
@@ -78,8 +78,30 @@ harvests; server suite green; JS flows verified live.
 
 ## Deviations
 
-_None yet — recorded here and in `memory/decisions/2026-07-12-v1.4-...` as they
-arise during implementation._
+Recorded in `memory/decisions/2026-07-12-v1.4-step-01-reviewer-editor.md`.
+
+- **Two editors coexist**: the reviewer uses the new `reviewer-editor.js`; the
+  owner's *implement* editor keeps `editor.js` + `.editor-grid`/`.preview`
+  (unchanged). Only the reviewer surface was redesigned.
+- **Rendering avoids offset→DOM mapping**: comment blocks are substituted into a
+  copy of the baseline as red `<span class="cmt">` markers *before* `marked`
+  runs (marked passes inline HTML through); the marker shows the COMM body or the
+  SUGG `old→new` in red.
+- **Add path**: `selectionOffset()` maps a DOM selection to a baseline offset by
+  text-match (selected string + occurrence index counted in the rendered text
+  before the selection); a no-match falls back to end-of-baseline.
+- **`anchor_key` = the baseline offset (as a string)**; private-note cards
+  debounce-save via `PUT /my-notes`. Notes routes live in `router.py` beside
+  edit-copy (reviewer-gated), JSON on GET / 204 on PUT; new `ReviewerNoteRepo`.
+- **Migration** `f1a2b3c4d5e6` creates `reviewer_notes`; `test_db_migration`
+  asserts table-name parity with the models.
+- **JS is required** for the editor: the hidden `#content-src` (name=`content`)
+  carries the reconstructed Markdown; a no-JS submit would post baseline-only and
+  be rejected safely. Server contract unchanged.
+- **Live-verified** end-to-end in a browser: A4 render + red markers + panel,
+  card→jump+flash, private-note persistence, select-to-comment anchoring
+  (block inserted exactly after the selected phrase), submit→harvest (2 COMM
+  RIDs). The screenshot tool timed out (renderer); DOM snapshots used as proof.
 
 ## Sources
 
