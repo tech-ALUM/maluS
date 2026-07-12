@@ -11,10 +11,20 @@ from __future__ import annotations
 import datetime as dt
 from typing import Optional
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from malus.constants import Disposition, Role, Status
-from malus.db.models import DocumentVersion, Review, ReviewerCopy, ReviewStatus, RidChange
+from malus.db.models import (
+    RID,
+    AuditLog,
+    DocumentVersion,
+    Review,
+    ReviewerCopy,
+    ReviewMember,
+    ReviewStatus,
+    RidChange,
+    User,
+)
 from malus.db.rtd_io import export_rtd
 from malus.harvest import HarvestResult, build_rtd
 from malus.lifecycle import (
@@ -403,3 +413,67 @@ def finalize(
         detail={"deferred": sum(1 for r in rtd.rids if r.disposition is Disposition.DEFERRED)},
     )
     return []
+
+
+# --------------------------------------------------------------------------- #
+# account erasure (v1.3): hard-delete a user, reassigning every reference
+# --------------------------------------------------------------------------- #
+
+SENTINEL_USERNAME = "deleted-user"
+
+
+def sentinel_user(session: Session) -> User:
+    """The shared, login-less 'Deleted user' that inherits the anonymized
+    attributions of every hard-deleted account (created on first use)."""
+    ghost = session.exec(select(User).where(User.username == SENTINEL_USERNAME)).first()
+    if ghost is None:
+        ghost = User(username=SENTINEL_USERNAME, display_name="Deleted user", is_active=False)
+        session.add(ghost)
+        session.flush()
+    return ghost
+
+
+def delete_user(
+    session: Session, target: User, *, new_owners: dict[int, User], by: User
+) -> None:
+    """Hard-delete ``target``. Reviews it primary-owns are transferred to the
+    admin-chosen new owner (``new_owners`` keyed by ``Review.id``); its findings,
+    verifications, versions and audit entries are reassigned to the shared
+    sentinel; its memberships and reviewer copies are dropped; then the row is
+    removed and the erasure is audited. The caller commits."""
+    reviews = ReviewRepo(session)
+    # 1) transfer owned reviews to the chosen new owner (owner_id + owner seat)
+    for review in session.exec(select(Review).where(Review.owner_id == target.id)).all():
+        new_owner = new_owners.get(review.id)
+        if new_owner is None:
+            raise ValueError(f"no new owner supplied for review {review.review_id_str}")
+        review.owner_id = new_owner.id
+        session.add(review)
+        reviews.set_member_role(review, new_owner, Role.OWNER.value)
+    # 2) anonymize historical attributions onto the sentinel
+    ghost = sentinel_user(session)
+    for rid in session.exec(select(RID).where(RID.reviewer_id == target.id)).all():
+        rid.reviewer_id = ghost.id
+        session.add(rid)
+    for rid in session.exec(select(RID).where(RID.verified_by_id == target.id)).all():
+        rid.verified_by_id = ghost.id
+        session.add(rid)
+    for v in session.exec(
+        select(DocumentVersion).where(DocumentVersion.created_by_id == target.id)
+    ).all():
+        v.created_by_id = ghost.id
+        session.add(v)
+    for entry in session.exec(select(AuditLog).where(AuditLog.actor_id == target.id)).all():
+        entry.actor_id = ghost.id
+        session.add(entry)
+    # 3) drop the target's transient rows (memberships, raw copies)
+    for m in session.exec(select(ReviewMember).where(ReviewMember.user_id == target.id)).all():
+        session.delete(m)
+    for copy in session.exec(select(ReviewerCopy).where(ReviewerCopy.user_id == target.id)).all():
+        session.delete(copy)
+    session.flush()
+    # 4) delete the account, then record the erasure (actor is the admin, never target)
+    username = target.username
+    session.delete(target)
+    session.flush()
+    AuditRepo(session).log(action="delete_user", target=f"user:{username}", actor=by)

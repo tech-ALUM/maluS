@@ -28,6 +28,9 @@
             <input name="password" type="text" placeholder="new temp password" required>
             <button>Reset pw</button>
           </form>
+          {% if u.id != user.id %}
+          <a class="btn danger" href="/ui/admin/users/{{ u.username }}/delete">Delete</a>
+          {% endif %}
         </div>
       </td>
     </tr>

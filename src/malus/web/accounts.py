@@ -14,12 +14,13 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
+from malus import services as svc
 from malus.api import authz
 from malus.api.deps import get_session
 from malus.auth.passwords import verify_password
 from malus.auth.service import create_user, set_password
 from malus.constants import Role
-from malus.db.models import User
+from malus.db.models import Review, User
 from malus.repo import ReviewRepo
 from malus.web.router import _current, _review_or_404, templates
 
@@ -91,7 +92,9 @@ def users_page(request: Request, session: Session = Depends(get_session)):
     admin = _admin_or_redirect(request, session)
     if admin is None:
         return _LOGIN
-    users = session.exec(select(User).order_by(User.id)).all()
+    users = session.exec(
+        select(User).where(User.username != svc.SENTINEL_USERNAME).order_by(User.id)
+    ).all()
     return templates.TemplateResponse(request, "admin_users.html", {"user": admin, "users": users})
 
 
@@ -175,6 +178,60 @@ def reset_password(
     user.must_change_password = True  # force a change on next login
     session.add(user)
     session.flush()
+    return RedirectResponse("/ui/admin/users", 303)
+
+
+def _deletable_target(session: Session, admin: User, username: str) -> User:
+    """Resolve a hard-delete target, refusing self and the sentinel (409)."""
+    target = _user_or_404(session, username)
+    if target.username == svc.SENTINEL_USERNAME:
+        raise HTTPException(status_code=409, detail="the 'Deleted user' account cannot be deleted")
+    if target.id == admin.id:
+        raise HTTPException(status_code=409, detail="you cannot delete your own account")
+    return target
+
+
+@accounts.get("/ui/admin/users/{username}/delete", response_class=HTMLResponse)
+def delete_user_page(username: str, request: Request, session: Session = Depends(get_session)):
+    admin = _admin_or_redirect(request, session)
+    if admin is None:
+        return _LOGIN
+    target = _deletable_target(session, admin, username)
+    owned = session.exec(select(Review).where(Review.owner_id == target.id)).all()
+    candidates = [
+        u
+        for u in session.exec(select(User).order_by(User.display_name)).all()
+        if u.is_active and u.id != target.id and u.username != svc.SENTINEL_USERNAME
+    ]
+    return templates.TemplateResponse(
+        request,
+        "admin_user_delete.html",
+        {"user": admin, "target": target, "owned": owned, "candidates": candidates},
+    )
+
+
+@accounts.post("/ui/admin/users/{username}/delete")
+async def delete_user_submit(
+    username: str, request: Request, session: Session = Depends(get_session)
+):
+    admin = _admin_or_redirect(request, session)
+    if admin is None:
+        return _LOGIN
+    target = _deletable_target(session, admin, username)
+    owned = session.exec(select(Review).where(Review.owner_id == target.id)).all()
+    form = await request.form()
+    new_owners: dict[int, User] = {}
+    for review in owned:
+        chosen = (form.get(f"owner_for_{review.review_id_str}") or "").strip()
+        candidate = (
+            session.exec(select(User).where(User.username == chosen)).first() if chosen else None
+        )
+        if candidate is None or not candidate.is_active or candidate.id == target.id:
+            raise HTTPException(
+                status_code=422, detail=f"choose a valid new owner for {review.review_id_str}"
+            )
+        new_owners[review.id] = candidate
+    svc.delete_user(session, target, new_owners=new_owners, by=admin)
     return RedirectResponse("/ui/admin/users", 303)
 
 

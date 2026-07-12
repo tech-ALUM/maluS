@@ -116,6 +116,8 @@ button.primary:hover { background: var(--coral-dark); border-color: var(--coral-
 .member-role { padding: .2rem .4rem; font-size: .85rem; }
 button.danger { color: var(--coral-dark); border-color: var(--coral); }
 button.danger:hover { background: var(--coral); color: #fff; border-color: var(--coral); }
+.btn.danger { background: var(--coral-dark); color: #fff; }
+.btn.danger:hover { background: #c4463b; }
 .candidates-box { margin: .1rem 0 .3rem; }
 .candidates { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 7px; max-height: 12rem; overflow: auto; }
 .candidates li { border-bottom: 1px solid var(--line); }

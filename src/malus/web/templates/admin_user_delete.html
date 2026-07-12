@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ target.username }} — maluS admin{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/admin/users">← Users</a></p>
+<h1>Delete user — {{ target.display_name }} <span class="muted">@{{ target.username }}</span></h1>
+
+<p class="error">This permanently deletes the account. Their findings,
+  verifications, versions and audit entries are kept but reassigned to
+  <b>"Deleted user"</b>; their memberships and draft copies are removed. This
+  <b>cannot be undone</b> — use <b>Disable</b> instead to keep a reversible record.</p>
+
+<form method="post" action="/ui/admin/users/{{ target.username }}/delete" class="stack">
+  {% if owned %}
+  <h2>Reassign owned reviews</h2>
+  <p class="muted">Pick a new owner for each review this user currently owns.</p>
+  {% for r in owned %}
+  <label>{{ r.review_id_str }}{% if r.title %} — {{ r.title }}{% endif %}
+    <select name="owner_for_{{ r.review_id_str }}" required>
+      <option value="">— choose new owner —</option>
+      {% for c in candidates %}
+      <option value="{{ c.username }}">{{ c.display_name }} (@{{ c.username }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endfor %}
+  {% else %}
+  <p class="muted">This user owns no reviews.</p>
+  {% endif %}
+  <button class="danger" type="submit">Delete permanently</button>
+</form>
+{% endblock %}
