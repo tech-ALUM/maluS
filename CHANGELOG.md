@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1 — 2026-07-12
+
+- **Reviewer editor polish**: the A4 sheet no longer clips its white background
+  before the end of a long document (the fixed A4 aspect-ratio is dropped; the
+  page now grows with its content). The rendered document is **~50% wider** — the
+  editor breaks out of the 960px content column.
+- **App icon**: a coral **"S"** is now the browser-tab favicon and the web-app
+  manifest icon, so maluS shows a proper icon in the tab and when installed
+  (`icon.svg`, `manifest.json`, `theme-color`).
+
 ## v1.4.0 — 2026-07-12 (reviewer editor: A4 view + comments panel)
 
 - **Reviewer editor redesign**: the reviewer's copy now opens as a single
