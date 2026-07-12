@@ -1,0 +1,14 @@
+{
+  "name": "maluS",
+  "short_name": "maluS",
+  "description": "Formal Markdown document reviews — RID workflow.",
+  "start_url": "/ui/reviews",
+  "scope": "/ui/",
+  "display": "standalone",
+  "background_color": "#15181D",
+  "theme_color": "#FF6F61",
+  "icons": [
+    { "src": "/static/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/static/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}
