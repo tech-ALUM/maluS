@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.0 — 2026-07-12 (member management & reviewer onboarding)
+
+- **Reviewer account picker + member management** (Step 1): the Members page
+  assigns *existing* accounts through a searchable typeahead (by stable
+  `username`) — a typo can no longer spawn a phantom user; plus inline role
+  change and member removal. An owner-safety guard keeps the primary owner
+  (`Review.owner_id`) from being demoted/removed, so a review always has ≥1
+  owner; removing a member preserves their harvested RIDs.
+- **Reviewer onboarding & hand-off** (Step 2): after assignment a reviewer is
+  pointed straight to commenting — a prominent landing CTA on the review page, a
+  "Copy review link" control for owner/admin, and a "to comment" badge in the
+  review list that clears once the reviewer submits. No email/SMTP: the link is
+  the existing authenticated review URL.
+- **API hardening**: `POST /reviews/{id}/reviewers` now requires an existing,
+  active account and rejects an unknown/inactive name (422) instead of creating
+  a placeholder — consistent with the GUI. Bulk `create_review` and the legacy
+  `import` path are unchanged (import still materializes placeholder users from
+  `rtd.yaml` names by design).
+
 ## v1.1.0 — 2026-07-10 (self-hosting hardening)
 
 - **Account-management GUI** (Step 10): self-service password change, admin user
