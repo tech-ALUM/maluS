@@ -121,6 +121,18 @@ class ReviewRepo:
             ).all()
         )
 
+    def remove_member(self, review: Review, user: User) -> None:
+        """Drop a user's review-scoped membership. RIDs/copies they contributed
+        are left untouched (only access is revoked)."""
+        member = self.s.exec(
+            select(ReviewMember)
+            .where(ReviewMember.review_id == review.id)
+            .where(ReviewMember.user_id == user.id)
+        ).first()
+        if member is not None:
+            self.s.delete(member)
+            self.s.flush()
+
     def set_status(self, review: Review, status: str) -> None:
         review.status = status
         self.s.add(review)

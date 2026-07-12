@@ -1,0 +1,15 @@
+{# HTMX fragment: candidate accounts for the reviewer picker (Step v1.2-1). #}
+{% if candidates %}
+<ul class="candidates" role="listbox">
+  {% for c in candidates %}
+  <li>
+    <button type="button" class="candidate" data-username="{{ c.username }}"
+            onclick="malusPickCandidate(this)">
+      {{ c.display_name }} <span class="muted">@{{ c.username }}</span>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No matching accounts.</p>
+{% endif %}

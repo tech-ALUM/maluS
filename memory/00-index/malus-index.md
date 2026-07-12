@@ -26,6 +26,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - [structure] Repo layout: docs/plan (one MD per step), src/malus (Python package), gui/rtd.html (single-file GUI), tests, memory (this basic-memory project) #structure
 - [plan] v0.1.0 shipped: seven development steps — foundations, harvest, triage, GUI, lifecycle, AI roles, end-to-end — see docs/plan/00-general-plan.md #plan
 - [plan] v1 (2026-07 onward) turns maluS into a self-hosted web app: a database replaces git, FastAPI + SQLModel + Alembic, browser GUI + Markdown editor, login/RBAC, and a free interactive-Claude-Code MCP reviewer — see docs/plan/v1/00-overview.md and ADRs 0001/0002 — released v1.0.0 on 2026-07-10 #v1
+- [plan] v1.2 (2026-07-11 design) — member management + reviewer onboarding: a searchable account picker (assign by username, no more phantom users), inline role change + member removal with a primary-owner guard, and a reviewer hand-off (shareable link + landing CTA + "to comment" cue). Step 1 (member management) shipped 2026-07-12; see docs/plan/v1.2/ #v1.2
 
 ## Relations
 - part_of [[ALUM]]
@@ -42,6 +43,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1 Step 10 — Account Management GUI Decisions]]
 - documented_by [[v1 Step 11 — Caddy in docker-compose Decisions]]
 - documented_by [[v1 Step 12 — GUI Review Creation + Login Feedback Decisions]]
+- documented_by [[v1.2 Step 1 — Member Management (picker, roles, removal) Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 

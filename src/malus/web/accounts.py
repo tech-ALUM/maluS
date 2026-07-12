@@ -20,7 +20,7 @@ from malus.auth.passwords import verify_password
 from malus.auth.service import create_user, set_password
 from malus.constants import Role
 from malus.db.models import User
-from malus.repo import ReviewRepo, UserRepo
+from malus.repo import ReviewRepo
 from malus.web.router import _current, _review_or_404, templates
 
 accounts = APIRouter(include_in_schema=False)
@@ -187,6 +187,13 @@ def _can_manage_members(session: Session, review, user: User) -> bool:
     return user.is_admin or authz.review_role(session, review, user) == Role.OWNER.value
 
 
+def _is_primary_owner(review, account: User) -> bool:
+    """The user carried by ``Review.owner_id`` — the owner that drives
+    disposition attribution and must never be demoted/removed (a review always
+    keeps at least this owner; ownership transfer is a separate, future action)."""
+    return review.owner_id is not None and review.owner_id == account.id
+
+
 @accounts.get("/ui/reviews/{review_id}/members", response_class=HTMLResponse)
 def members_page(review_id: str, request: Request, session: Session = Depends(get_session)):
     user = _current(request, session)
@@ -205,7 +212,7 @@ def members_page(review_id: str, request: Request, session: Session = Depends(ge
 def members_submit(
     review_id: str,
     request: Request,
-    name: str = Form(...),
+    username: str = Form(...),
     role: str = Form(...),
     session: Session = Depends(get_session),
 ):
@@ -217,6 +224,60 @@ def members_submit(
         raise HTTPException(status_code=403, detail="only the owner or an admin may manage members")
     if role not in _ROLE_VALUES:
         raise HTTPException(status_code=422, detail="role must be owner, reviewer, or moderator")
-    account = UserRepo(session).get_or_create(name)
+    # Assign an EXISTING account by its stable username (no get_or_create: a typo
+    # must never spawn a phantom user). Account creation stays in the admin area.
+    account = session.exec(select(User).where(User.username == username)).first()
+    if account is None or not account.is_active:
+        raise HTTPException(status_code=422, detail=f"unknown or inactive account: {username!r}")
+    if _is_primary_owner(review, account) and role != Role.OWNER.value:
+        raise HTTPException(
+            status_code=409, detail="the primary owner cannot be demoted; transfer ownership first"
+        )
     ReviewRepo(session).set_member_role(review, account, role)
+    return RedirectResponse(f"/ui/reviews/{review_id}/members", 303)
+
+
+@accounts.get("/ui/reviews/{review_id}/members/search", response_class=HTMLResponse)
+def members_search(
+    review_id: str, request: Request, q: str = "", session: Session = Depends(get_session)
+):
+    """HTMX typeahead: existing **active** accounts not already on the review,
+    matched case-insensitively on username / display name."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_manage_members(session, review, user):
+        raise HTTPException(status_code=403, detail="only the owner or an admin may manage members")
+    member_ids = {m.user_id for m in ReviewRepo(session).members(review)}
+    needle = q.strip().lower()
+    everyone = session.exec(select(User).order_by(User.display_name)).all()
+    candidates = [
+        u
+        for u in everyone
+        if u.is_active
+        and u.id not in member_ids
+        and (not needle or needle in u.username.lower() or needle in u.display_name.lower())
+    ][:20]
+    return templates.TemplateResponse(
+        request, "members_candidates.html", {"candidates": candidates}
+    )
+
+
+@accounts.post("/ui/reviews/{review_id}/members/{username}/remove")
+def member_remove(
+    review_id: str, username: str, request: Request, session: Session = Depends(get_session)
+):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_manage_members(session, review, user):
+        raise HTTPException(status_code=403, detail="only the owner or an admin may manage members")
+    account = _user_or_404(session, username)
+    if _is_primary_owner(review, account):
+        raise HTTPException(
+            status_code=409, detail="the primary owner cannot be removed; transfer ownership first"
+        )
+    ReviewRepo(session).remove_member(review, account)
     return RedirectResponse(f"/ui/reviews/{review_id}/members", 303)

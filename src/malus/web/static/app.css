@@ -102,6 +102,17 @@ button.primary:hover { background: var(--coral-dark); border-color: var(--coral-
 .chk { display: block; font-size: .88rem; padding: .15rem 0; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } }
 
+/* member picker (v1.2) */
+.member-role { padding: .2rem .4rem; font-size: .85rem; }
+button.danger { color: var(--coral-dark); border-color: var(--coral); }
+button.danger:hover { background: var(--coral); color: #fff; border-color: var(--coral); }
+.candidates-box { margin: .1rem 0 .3rem; }
+.candidates { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 7px; max-height: 12rem; overflow: auto; }
+.candidates li { border-bottom: 1px solid var(--line); }
+.candidates li:last-child { border-bottom: none; }
+button.candidate { display: block; width: 100%; text-align: left; border: none; border-radius: 0; background: #fff; }
+button.candidate:hover { background: var(--paper); border-color: transparent; }
+
 dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .2rem .8rem; font-size: .9rem; }
 dl.meta dt { color: var(--muted); }
 blockquote { margin: .3rem 0; padding: .6rem .9rem; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 7px 7px 0; }

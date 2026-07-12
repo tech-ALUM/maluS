@@ -5,20 +5,53 @@
 <h1>Members — {{ review.review_id_str }}</h1>
 
 <table class="rtd">
-  <thead><tr><th>member</th><th>role</th></tr></thead>
+  <thead><tr><th>member</th><th>role</th><th></th></tr></thead>
   <tbody>
   {% for m in members %}
-    <tr><td>{{ m.user.display_name }}</td><td><span class="role role-{{ m.role }}">{{ m.role }}</span></td></tr>
+    <tr>
+      <td>{{ m.user.display_name }} <span class="muted">@{{ m.user.username }}</span></td>
+      <td>
+        {% if m.user_id == review.owner_id %}
+          <span class="role role-owner">owner</span> <span class="muted">· primary</span>
+        {% else %}
+          <form method="post" action="/ui/reviews/{{ review.review_id_str }}/members" class="inline">
+            <input type="hidden" name="username" value="{{ m.user.username }}">
+            <select name="role" class="member-role" onchange="this.form.requestSubmit()">
+              {% for r in ['reviewer', 'moderator', 'owner'] %}
+              <option value="{{ r }}"{% if m.role == r %} selected{% endif %}>{{ r }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        {% endif %}
+      </td>
+      <td>
+        {% if m.user_id != review.owner_id %}
+        <form method="post" action="/ui/reviews/{{ review.review_id_str }}/members/{{ m.user.username }}/remove" class="inline">
+          <button type="submit" class="danger">Remove</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
   {% else %}
-    <tr><td colspan="2" class="muted">No members yet.</td></tr>
+    <tr><td colspan="3" class="muted">No members yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 
-<section class="card">
-  <h2>Assign a role</h2>
+<section class="card picker">
+  <h2>Add a reviewer</h2>
+  <label>Search accounts
+    <input type="text" id="member-search" autocomplete="off" name="q"
+           placeholder="type a name or username…"
+           hx-get="/ui/reviews/{{ review.review_id_str }}/members/search"
+           hx-trigger="keyup changed delay:200ms, focus"
+           hx-target="#candidates"
+           onkeydown="if (event.key === 'Enter') event.preventDefault();">
+  </label>
+  <div id="candidates" class="candidates-box"></div>
   <form method="post" action="/ui/reviews/{{ review.review_id_str }}/members" class="stack">
-    <label>User (display name) <input name="name" required></label>
+    <input type="hidden" name="username" id="member-username">
+    <p id="member-chosen" class="muted">No account selected.</p>
     <label>Role
       <select name="role">
         <option value="reviewer">reviewer</option>
@@ -26,9 +59,19 @@
         <option value="owner">owner</option>
       </select>
     </label>
-    <p class="muted">Add an AI-reviewer account here as a <b>reviewer</b>; its
-      <code>is_ai</code> flag forbids verify/close regardless of role.</p>
-    <button class="primary">Assign</button>
+    <p class="muted">Accounts are created by an admin in
+      <a href="/ui/admin/users">Users</a>; add an AI-reviewer account here as a
+      <b>reviewer</b> (its <code>is_ai</code> flag forbids verify/close).</p>
+    <button class="primary" type="submit">Assign</button>
   </form>
 </section>
+
+<script>
+  function malusPickCandidate(btn) {
+    document.getElementById("member-username").value = btn.dataset.username;
+    document.getElementById("member-chosen").textContent = "Selected: " + btn.textContent.trim();
+    document.getElementById("candidates").innerHTML = "";
+    document.getElementById("member-search").value = "";
+  }
+</script>
 {% endblock %}

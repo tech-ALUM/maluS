@@ -9,27 +9,27 @@ ownerless.
 
 ## Deliverables
 
-- [ ] **Account search endpoint** (`GET /ui/accounts/search?q=`) returning an
+- [x] **Account search endpoint** (`GET /ui/accounts/search?q=`) returning an
       HTML fragment of matching **active** accounts (case-insensitive match on
       `display_name` / `username`), owner/admin-gated; consumed by an HTMX
       typeahead on the Members page. Accounts already assigned to the review are
       **excluded** from results — an existing member's role is changed inline in
       the member list, not via the picker.
-- [ ] **Add-member submits a `username`** (stable identity), not a free-text
+- [x] **Add-member submits a `username`** (stable identity), not a free-text
       display name; the server resolves it to an existing user and **rejects an
       unknown or inactive username (422)**. `get_or_create` is removed from this
       path — no more phantom users.
-- [ ] **Inline role change** on each member row (owner / reviewer / moderator),
+- [x] **Inline role change** on each member row (owner / reviewer / moderator),
       reusing `ReviewRepo.set_member_role`.
-- [ ] **Remove member** action + a new `ReviewRepo.remove_member`
+- [x] **Remove member** action + a new `ReviewRepo.remove_member`
       (`POST /ui/reviews/{id}/members/{username}/remove`; POST for no-JS
       friendliness, HTMX-enhanced).
-- [ ] **Owner-safety guard (server-side, 409):** the primary owner
+- [x] **Owner-safety guard (server-side, 409):** the primary owner
       (`Review.owner_id`) cannot be demoted or removed; any demotion/removal that
       would leave **zero** `ReviewMember(role="owner")` rows is refused. Removing
       a member does **not** delete their RIDs or reviewer copy — access is
       revoked; the data persists, still attributed to them.
-- [ ] **Tests:** search returns only active accounts; assign by username;
+- [x] **Tests:** search returns only active accounts; assign by username;
       unknown/inactive username rejected (no placeholder created); inline role
       change persists; remove works; primary-owner demote/remove refused (409); a
       removed reviewer's harvested RIDs still exist afterwards.
@@ -63,8 +63,27 @@ demoted/removed; a removed member's contributed RIDs remain; suite green.
 
 ## Deviations
 
-_None yet — recorded here and in `memory/decisions/2026-07-11-...` as they
-arise during implementation._
+Recorded in `memory/decisions/2026-07-12-v1.2-step-01-member-management.md`.
+
+- **Candidate-search route is review-scoped** — `GET /ui/reviews/{id}/members/search?q=`
+  (fragment), not the global `/ui/accounts/search` named in the deliverables.
+  Review scope is required to gate by *this* review's owner/admin and to exclude
+  *this* review's existing members; same requirement, better-placed route.
+- **Assign rejects with 422** for an unknown/inactive username (defense in
+  depth; the picker only ever offers valid active non-members).
+- **Inline role change reuses `POST /ui/reviews/{id}/members`** (username + role
+  upsert via `set_member_role`) through an auto-submitting `<select>`
+  (`requestSubmit()`) — no new endpoint.
+- **Owner-safety guard = protect the primary owner** (`Review.owner_id`): it can
+  be neither demoted nor removed (409). Because the primary owner is always an
+  owner, this alone guarantees ≥1 owner, so the general "would leave zero owners"
+  check is subsumed. Ownership **transfer** stays out of scope.
+- **API `POST /reviews/{id}/reviewers` is unchanged** (still `name` +
+  `get_or_create`): v1.2's scope is the GUI Members page. The JSON API contract
+  (used by tests and the AI agent) is untouched; phantom-user prevention applies
+  to the GUI path that Alberto uses.
+- **Candidate list capped at 20** results (a typeahead; the user narrows by
+  typing) — a UI cap, not a coverage limit.
 
 ## Sources
 

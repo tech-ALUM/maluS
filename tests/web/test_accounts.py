@@ -91,9 +91,9 @@ def test_per_review_role_assignment_from_gui(mkuser):
     reviewer = _onboard(mkuser("rev", "R. Ev"), "pw")
     owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
 
-    # owner assigns a moderator via the members GUI
+    # owner assigns a moderator via the members GUI (by stable username)
     assert owner.post(
-        f"/ui/reviews/{R}/members", data={"name": "M. Mod", "role": "moderator"}, follow_redirects=False
+        f"/ui/reviews/{R}/members", data={"username": "mod", "role": "moderator"}, follow_redirects=False
     ).status_code == 303
     page = owner.get(f"/ui/reviews/{R}/members")
     assert page.status_code == 200 and "M. Mod" in page.text and "moderator" in page.text
