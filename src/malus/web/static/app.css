@@ -102,6 +102,16 @@ button.primary:hover { background: var(--coral-dark); border-color: var(--coral-
 .chk { display: block; font-size: .88rem; padding: .15rem 0; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } }
 
+/* reviewer onboarding (v1.2) */
+.cta-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  background: #fff5f3; border: 1px solid var(--coral); border-radius: 10px;
+  padding: .8rem 1rem; margin: .6rem 0 1rem;
+}
+.badge-todo { background: var(--coral); }
+.btn.secondary { background: #fff; color: var(--teal); border: 1px solid var(--teal); }
+.btn.secondary:hover { background: var(--paper); }
+
 /* member picker (v1.2) */
 .member-role { padding: .2rem .4rem; font-size: .85rem; }
 button.danger { color: var(--coral-dark); border-color: var(--coral); }

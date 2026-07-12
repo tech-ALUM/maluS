@@ -12,6 +12,7 @@
     <a class="rid-link" href="/ui/reviews/{{ row.review.review_id_str }}">{{ row.review.review_id_str }}</a>
     <span class="badge">{{ row.review.status }}</span>
     {% if row.role %}<span class="role role-{{ row.role }}">{{ row.role }}</span>{% endif %}
+    {% if row.to_comment %}<span class="badge badge-todo">to comment</span>{% endif %}
     {% if row.review.title %}<span class="muted">— {{ row.review.title }}</span>{% endif %}
   </li>
   {% endfor %}

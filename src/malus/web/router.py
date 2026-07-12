@@ -110,10 +110,16 @@ def reviews_page(request: Request, session: Session = Depends(get_session)):
     user = _current(request, session)
     if not user:
         return _LOGIN
-    rows = [
-        {"review": r, "role": authz.review_role(session, r, user)}
-        for r in ReviewRepo(session).list()
-    ]
+    rows = []
+    for r in ReviewRepo(session).list():
+        role = authz.review_role(session, r, user)
+        to_comment = False
+        if role == Role.REVIEWER.value:  # flag reviews awaiting *my* comment
+            mine = next(
+                (c for c in ReviewerCopyRepo(session).list(r) if c.user_id == user.id), None
+            )
+            to_comment = mine is None or mine.submitted_at is None
+        rows.append({"review": r, "role": role, "to_comment": to_comment})
     return templates.TemplateResponse(request, "reviews.html", {"user": user, "rows": rows})
 
 
