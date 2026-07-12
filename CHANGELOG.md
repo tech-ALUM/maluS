@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.0 — 2026-07-12 (admin hard-delete of users)
+
+- **Admin hard-delete of a user account** from the GUI
+  (`/ui/admin/users/{username}/delete`): a confirmation step transfers each
+  review the user primary-owns to an admin-chosen **new owner**, reassigns their
+  findings, verifications, document versions and audit entries to a shared
+  **"Deleted user"** sentinel (records preserved, identity erased), removes their
+  memberships and draft copies, then deletes the account. Guards: admin-only;
+  you cannot delete yourself or the sentinel (409); an owned review without a
+  valid new owner is refused (422). **Deactivate** remains the reversible soft
+  option. No schema change / no migration.
+
 ## v1.2.0 — 2026-07-12 (member management & reviewer onboarding)
 
 - **Reviewer account picker + member management** (Step 1): the Members page
