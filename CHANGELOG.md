@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.2 — 2026-07-12
+
+- **Fix (packaging)**: the app icon and web-app manifest were missing from a
+  non-editable install (the Docker image), so a deployed instance served the
+  `<link rel="icon">` but 404'd on `/static/icon.svg` — no favicon. The
+  setuptools `package-data` for `malus.web` only matched `*.css`/`*.js`; the new
+  `icon.svg`/`manifest.json` were excluded. Broadened to `static/*` +
+  `static/vendor/*` so all static assets ship. **Rebuild the image**
+  (`docker compose up -d --build`) to pick it up.
+
 ## v1.4.1 — 2026-07-12
 
 - **Reviewer editor polish**: the A4 sheet no longer clips its white background
