@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.4.0 — 2026-07-12 (reviewer editor: A4 view + comments panel)
+
+- **Reviewer editor redesign**: the reviewer's copy now opens as a single
+  **rendered A4 sheet** (no more raw two-column split). Comments render **in
+  red** inline; a **Word-style comments panel** lists them and, on click,
+  scrolls to the marker and highlights it briefly. Comments are added by
+  **selecting text** in the sheet. Each comment carries a **private per-reviewer
+  note** (new `ReviewerNote` store + migration; `GET/PUT /ui/reviews/{id}/my-notes`,
+  reviewer-scoped, never harvested or shared). The Markdown copy is reconstructed
+  on submit and posted to the unchanged edit-copy endpoint (same freeze
+  validation + harvest); the owner's implement editor is untouched. No new
+  runtime dependency.
+
 ## v1.3.0 — 2026-07-12 (admin hard-delete of users)
 
 - **Admin hard-delete of a user account** from the GUI
