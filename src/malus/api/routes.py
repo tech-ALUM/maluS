@@ -191,7 +191,11 @@ def add_reviewer(
     authz.require_owner(session, review, user)
     if body.role not in (Role.REVIEWER.value, Role.MODERATOR.value):
         raise HTTPException(status_code=422, detail="role must be 'reviewer' or 'moderator'")
-    account = UserRepo(session).get_or_create(body.name)
+    # Assign an EXISTING account (match by display name); never get_or_create —
+    # a name with no account must not spawn a phantom user (mirrors the GUI picker).
+    account = UserRepo(session).by_display_name(body.name)
+    if account is None or not account.is_active:
+        raise HTTPException(status_code=422, detail=f"unknown or inactive account: {body.name!r}")
     if not any(m.user_id == account.id for m in review.members):
         ReviewRepo(session).add_member(review, account, body.role)
         session.flush()

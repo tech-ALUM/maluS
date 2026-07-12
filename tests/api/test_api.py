@@ -21,6 +21,15 @@ def test_openapi_is_served(client: TestClient):
     assert client.get("/docs").status_code == 200
 
 
+def test_add_reviewer_rejects_unknown_account(app, mkuser):
+    owner = mkuser("owner", "A. Boffi")
+    owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
+    # a display name with no matching account is rejected — no implicit user creation
+    resp = owner.post(f"/reviews/{R}/reviewers", json={"name": "Ghost Person", "role": "reviewer"})
+    assert resp.status_code == 422
+    assert owner.get(f"/reviews/{R}/reviewers").json() == []  # nothing was added
+
+
 def test_full_pipeline_over_http(app, mkuser, docs):
     owner = mkuser("owner", "A. Boffi")
     f = mkuser("fmiccoli", "F. Miccoli")
