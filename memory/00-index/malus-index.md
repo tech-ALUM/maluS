@@ -29,6 +29,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - [plan] v1.2 (2026-07-11 design) — member management + reviewer onboarding: a searchable account picker (assign by username, no more phantom users), inline role change + member removal with a primary-owner guard, and a reviewer hand-off (shareable link + landing CTA + "to comment" cue). Steps 1 (member management) and 2 (reviewer onboarding) shipped 2026-07-12; see docs/plan/v1.2/ #v1.2
 - [plan] v1.3 (2026-07-12) — admin hard-delete of a user account from the GUI: transfer owned reviews to an admin-chosen new owner, anonymize findings/verifications/versions/audit to a shared "Deleted user" sentinel, drop memberships/copies, then delete; deactivate stays the reversible option. Shipped 2026-07-12; see docs/plan/v1.3/ #v1.3
 - [plan] v1.4 (2026-07-12) — reviewer editor redesign: single rendered A4 view (no split), comments in red, Word-style comments panel with click-to-jump+highlight and per-reviewer private notes (new ReviewerNote store + migration), add-comment by selecting rendered text. Underlying copy model unchanged (reconstructed on submit). Shipped 2026-07-12; see docs/plan/v1.4/ #v1.4
+- [plan] v1.5 (2026-07-12) — delete a whole review from the GUI: owner (or admin) only, behind a confirm page; a transactional delete_review service cascades the review's children (RidChange, RID, ReviewerCopy, ReviewerNote, ReviewMember, DocumentVersion, Document) then the Review; audit entries kept. Shipped 2026-07-12; see docs/plan/v1.5/ #v1.5
 
 ## Relations
 - part_of [[ALUM]]
@@ -49,6 +50,7 @@ aerospace-style RID (Review Item Discrepancy) processes. Repo:
 - documented_by [[v1.2 Step 2 — Reviewer Onboarding & Hand-off Decisions]]
 - documented_by [[v1.3 Step 1 — Admin Hard-Delete of a User Decisions]]
 - documented_by [[v1.4 Step 1 — Reviewer Editor Redesign (A4 + comments panel) Decisions]]
+- documented_by [[v1.5 Step 1 — Delete a Review from the GUI Decisions]]
 - specified_by [[Comment Syntax Spec]]
 - specified_by [[RID Schema and Lifecycle]]
 

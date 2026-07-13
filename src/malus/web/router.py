@@ -428,6 +428,42 @@ def save_my_note(
     return Response(status_code=204)
 
 
+def _can_delete_review(session: Session, review, user: User) -> bool:
+    return user.is_admin or authz.review_role(session, review, user) == Role.OWNER.value
+
+
+@web.get("/ui/reviews/{review_id}/delete", response_class=HTMLResponse)
+def delete_review_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_delete_review(session, review, user):
+        raise HTTPException(status_code=403, detail="only the owner or an admin may delete a review")
+    return templates.TemplateResponse(
+        request,
+        "review_delete.html",
+        {
+            "user": user,
+            "review": review,
+            "findings": len(RidRepo(session).list(review)),
+            "members": ReviewRepo(session).members(review),
+        },
+    )
+
+
+@web.post("/ui/reviews/{review_id}/delete")
+def delete_review_submit(review_id: str, request: Request, session: Session = Depends(get_session)):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_delete_review(session, review, user):
+        raise HTTPException(status_code=403, detail="only the owner or an admin may delete a review")
+    svc.delete_review(session, review, by=user)
+    return RedirectResponse("/ui/reviews", 303)
+
+
 @web.get("/ui/reviews/{review_id}/implement", response_class=HTMLResponse)
 def implement_page(review_id: str, request: Request, session: Session = Depends(get_session)):
     user = _current(request, session)

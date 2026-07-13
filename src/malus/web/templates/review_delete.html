@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ review.review_id_str }} — maluS{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
+<h1>Delete review — {{ review.review_id_str }}</h1>
+
+<p class="error">This permanently deletes the <b>whole review</b> and
+  <b>cannot be undone</b>: the document and all its versions,
+  <b>{{ findings }}</b> finding(s), every reviewer's copy and private notes, and
+  all memberships.</p>
+
+{% if members %}
+<p class="muted">Members:
+  {% for m in members %}{{ m.user.display_name }} ({{ m.role }}){% if not loop.last %}, {% endif %}{% endfor %}
+</p>
+{% endif %}
+
+<form method="post" action="/ui/reviews/{{ review.review_id_str }}/delete" class="stack">
+  <div class="row">
+    <button class="danger" type="submit">Delete permanently</button>
+    <a class="btn" href="/ui/reviews/{{ review.review_id_str }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

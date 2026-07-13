@@ -15,6 +15,7 @@
   {% if role == 'owner' %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings</a>{% endif %}
   {% if role == 'owner' or user.is_admin %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/members">Members</a>{% endif %}
   {% if role == 'owner' or user.is_admin %}<button type="button" class="btn secondary" id="copy-link" data-path="/ui/reviews/{{ review.review_id_str }}" onclick="malusCopyLink(this)">Copy review link</button>{% endif %}
+  {% if role == 'owner' or user.is_admin %}<a class="btn danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>{% endif %}
 </p>
 
 <section class="dash">

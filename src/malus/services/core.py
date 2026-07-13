@@ -17,9 +17,11 @@ from malus.constants import Disposition, Role, Status
 from malus.db.models import (
     RID,
     AuditLog,
+    Document,
     DocumentVersion,
     Review,
     ReviewerCopy,
+    ReviewerNote,
     ReviewMember,
     ReviewStatus,
     RidChange,
@@ -477,3 +479,41 @@ def delete_user(
     session.delete(target)
     session.flush()
     AuditRepo(session).log(action="delete_user", target=f"user:{username}", actor=by)
+
+
+def delete_review(session: Session, review: Review, *, by: User) -> None:
+    """Hard-delete a review and ALL its data (transactional). Children are removed
+    in FK-safe order, then the Review; a ``delete_review`` audit entry is written.
+    ``AuditLog`` rows are kept (they reference the review by string, not FK). The
+    caller commits."""
+    rids = session.exec(select(RID).where(RID.review_id == review.id)).all()
+    rid_ids = [r.id for r in rids]
+    if rid_ids:  # RidChange (child of RID + DocumentVersion)
+        for ch in session.exec(select(RidChange).where(RidChange.rid_id.in_(rid_ids))).all():
+            session.delete(ch)
+    for r in rids:  # clear the master_id self-reference before deleting the RIDs
+        r.master_id = None
+        session.add(r)
+    session.flush()
+    for r in rids:
+        session.delete(r)
+    for copy in session.exec(select(ReviewerCopy).where(ReviewerCopy.review_id == review.id)).all():
+        session.delete(copy)
+    for note in session.exec(select(ReviewerNote).where(ReviewerNote.review_id == review.id)).all():
+        session.delete(note)
+    for member in session.exec(select(ReviewMember).where(ReviewMember.review_id == review.id)).all():
+        session.delete(member)
+    docs = session.exec(select(Document).where(Document.review_id == review.id)).all()
+    doc_ids = [d.id for d in docs]
+    if doc_ids:
+        for v in session.exec(
+            select(DocumentVersion).where(DocumentVersion.document_id.in_(doc_ids))
+        ).all():
+            session.delete(v)
+    for d in docs:
+        session.delete(d)
+    session.flush()
+    review_str = review.review_id_str
+    session.delete(review)
+    session.flush()
+    AuditRepo(session).log(action="delete_review", target=f"review:{review_str}", actor=by)

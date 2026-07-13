@@ -8,22 +8,22 @@ cannot.
 
 ## Deliverables
 
-- [ ] **`delete_review` service** (transactional, in `services/core.py`): remove
+- [x] **`delete_review` service** (transactional, in `services/core.py`): remove
       the review's children in FK-safe order — `RidChange`, then `RID` (nulling
       the `master_id` self-reference first), `ReviewerCopy`, `ReviewerNote`,
       `ReviewMember`, `DocumentVersion`, `Document` — then the `Review`; write a
       `delete_review` audit entry (actor = the acting owner/admin). Exported via
       `malus.services`.
-- [ ] **Confirm page** `GET /ui/reviews/{id}/delete` (owner-or-admin): shows what
+- [x] **Confirm page** `GET /ui/reviews/{id}/delete` (owner-or-admin): shows what
       will be permanently removed (findings count, reviewers, document + versions,
       copies + private notes) and a **"Delete permanently"** button.
-- [ ] **Execute** `POST /ui/reviews/{id}/delete`: runs `delete_review`, redirects
+- [x] **Execute** `POST /ui/reviews/{id}/delete`: runs `delete_review`, redirects
       to the review list.
-- [ ] **"Delete review"** control on the review dashboard, shown only to the
+- [x] **"Delete review"** control on the review dashboard, shown only to the
       owner or an admin (danger-styled).
-- [ ] **Guards (server-side)**: owner-or-admin only — reviewer/moderator get 403
+- [x] **Guards (server-side)**: owner-or-admin only — reviewer/moderator get 403
       on both the confirm page and the execute route.
-- [ ] **Tests**: service removes every dependent row (RID, RidChange,
+- [x] **Tests**: service removes every dependent row (RID, RidChange,
       ReviewerCopy, ReviewerNote, ReviewMember, Document, DocumentVersion) and the
       Review; GUI owner delete → review 404 + gone from the list; admin can
       delete; reviewer/moderator → 403 and no delete control; a `delete_review`
@@ -52,8 +52,21 @@ refused (403) and never sees the control; suite green.
 
 ## Deviations
 
-_None yet — recorded here and in `memory/decisions/2026-07-12-v1.5-...` as they
-arise during implementation._
+Recorded in `memory/decisions/2026-07-12-v1.5-step-01-delete-review.md`.
+
+- **`delete_review`** lives in `services/core.py` (exported via `malus.services`),
+  mirroring `delete_user`: nulls `RID.master_id` before deleting the RIDs, deletes
+  `RidChange → RID`, `ReviewerCopy`, `ReviewerNote`, `ReviewMember`,
+  `DocumentVersion → Document`, then the `Review`; writes a `delete_review` audit
+  entry. `AuditLog` rows are kept.
+- **Routes** in `router.py`: `_can_delete_review` (owner or admin); a confirm page
+  `GET …/delete` (`review_delete.html`, shows finding count + members) and a
+  `POST …/delete`; a danger **"Delete review"** button on the dashboard for
+  owner/admin only.
+- **Test naming**: the service test is `tests/db/test_delete_review_service.py`
+  (the GUI test is `tests/web/test_delete_review.py`) — pytest rejects two test
+  modules with the same basename when the test dirs have no `__init__.py`.
+- No schema change / no migration.
 
 ## Sources
 
