@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.5.0 — 2026-07-12 (delete a review)
+
+- **Delete a review from the GUI**: the primary owner (or a global admin) can
+  permanently delete a whole review from the dashboard, behind a confirmation
+  page. A transactional `delete_review` cascades the review's children
+  (`RidChange`, `RID`, `ReviewerCopy`, `ReviewerNote`, `ReviewMember`,
+  `DocumentVersion`, `Document`) then the `Review`, and writes a `delete_review`
+  audit entry (audit rows are kept). Reviewers and moderators are refused (403)
+  and never see the control. Irreversible; no schema change.
+
 ## v1.4.2 — 2026-07-12
 
 - **Fix (packaging)**: the app icon and web-app manifest were missing from a
