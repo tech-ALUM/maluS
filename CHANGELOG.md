@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.1 — 2026-07-15 (harden the AI-owner guard)
+
+- **Fix (AI guardrail)**: an AI co-owner could still mutate review content —
+  `freeze`, `set-document`, `create-change`, `apply-suggs` were only behind
+  `require_owner`, so only the finding transitions (answer/implement/finalize)
+  were guarded. The `is_ai` commit guard now also covers `freeze_baseline`,
+  `save_version` and `apply_suggestions`, so an AI co-owner can **only** draft a
+  disposition. Human owners are unaffected (the guard is `is_ai`-specific). Found
+  by a post-release self-review; no schema change.
+
 ## v1.7.0 — 2026-07-15 (reviewer draft-save + AI co-owner drafted dispositions)
 
 Ships two feature sets developed back-to-back (planned as v1.6 and v1.7); cut as
