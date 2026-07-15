@@ -118,3 +118,22 @@ def test_dashboard_flags_ai_proposals(mkuser, docs):
     ai.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"disposition": "accepted"})
     page = owner.get(f"/ui/reviews/{R}").text
     assert "AI proposals" in page  # dashboard tile counting pending proposals
+
+
+# --- an AI co-owner may only DRAFT; it never mutates review CONTENT --------- #
+
+
+def test_ai_owner_cannot_mutate_the_document(mkuser, docs):
+    _owner, ai, _f = _seed(mkuser, docs)
+    # every content commit is reserved to a human owner (same guard as answer/finalize)
+    assert ai.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]}).status_code == 403
+    assert ai.post(f"/reviews/{R}/document", json={"content": "hacked baseline"}).status_code == 403
+    assert ai.post(f"/reviews/{R}/changes", json={"content": "x", "rids": []}).status_code == 403
+    assert ai.post(f"/reviews/{R}/apply-suggs", json={"dry_run": False}).status_code == 403
+
+
+def test_human_owner_still_mutates_the_document(mkuser, docs):
+    # regression: the guard is is_ai-specific — a human owner still edits the document
+    owner, _ai, _f = _seed(mkuser, docs)
+    r = owner.post(f"/reviews/{R}/document", json={"content": docs["baseline"] + "\nextra\n"})
+    assert r.status_code == 200

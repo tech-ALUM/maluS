@@ -72,7 +72,9 @@ def _forbid_ai_commit(by) -> None:
     invariant — only a human owner confirms."""
     if by is not None and getattr(by, "is_ai", False):
         raise ClosureAuthorityError(
-            "AI principals may only draft a disposition; a human owner must confirm it"
+            "AI principals may only draft a disposition; every committing owner "
+            "action (freeze, document edits, apply-suggs, answer/implement/finalize) "
+            "is reserved to a human owner"
         )
 
 
@@ -112,6 +114,7 @@ def create_review(
 def freeze_baseline(
     session: Session, review: Review, content: str, *, by=None
 ) -> DocumentVersion:
+    _forbid_ai_commit(by)
     version = VersionRepo(session).freeze(review, content, by=by)
     AuditRepo(session).log(
         action="freeze",
@@ -146,6 +149,7 @@ def save_version(
     session: Session, review: Review, content: str, *, by=None, is_final: bool = False
 ) -> DocumentVersion:
     """Record an owner-edited document version (an implementation edit)."""
+    _forbid_ai_commit(by)
     version = VersionRepo(session).add_version(review, content, by=by, is_final=is_final)
     AuditRepo(session).log(
         action="save_version",
@@ -214,6 +218,7 @@ def triage(
 def apply_suggestions(
     session: Session, review: Review, *, by=None
 ) -> tuple[DocumentVersion, list[SuggResult]]:
+    _forbid_ai_commit(by)
     baseline = VersionRepo(session).baseline(review)
     rtd = export_rtd(session, review)
     new_text, results = apply_suggs(baseline.content, rtd)
