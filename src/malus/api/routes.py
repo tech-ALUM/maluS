@@ -390,6 +390,8 @@ def patch_rid(
 ):
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)  # reply/disposition/resolution + answer/implement
+    if body.status is not None:  # a status transition is a COMMIT — an AI may only draft
+        authz.forbid_ai_commit(user)
     _require_rid(session, review, rid)
     disposition = _disposition(body.disposition)
 
@@ -495,6 +497,7 @@ def finalize(
 ):
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)
+    authz.forbid_ai_commit(user)
     errors = svc.finalize(session, review, final_content=body.content if body else None, by=user)
     return FinalizeOut(errors=errors, finalized=not errors, status=review.status)
 

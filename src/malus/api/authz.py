@@ -42,6 +42,14 @@ def require_owner(session: Session, review: Review, user: User) -> None:
         _forbid("owner role required for this action")
 
 
+def forbid_ai_commit(user: User) -> None:
+    """An AI principal may DRAFT but never COMMIT an owner decision (v1.7):
+    answer/implement/finalize. Drafting (``update_rid``, no transition) stays
+    allowed. The services enforce the same rule (defense-in-depth)."""
+    if user.is_ai:
+        _forbid("AI principals may only draft a disposition; a human owner must confirm it")
+
+
 def require_moderator(session: Session, review: Review, user: User) -> None:
     if review_role(session, review, user) != Role.MODERATOR.value:
         _forbid("moderator role required (harvest/triage)")

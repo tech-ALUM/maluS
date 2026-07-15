@@ -36,7 +36,7 @@ from malus.lifecycle import (
     verify_rid,
 )
 from malus.models import RID as RidDTO
-from malus.models import RTD, transition
+from malus.models import RTD, ClosureAuthorityError, transition
 from malus.report import render_report, validate
 from malus.repo import (
     AuditRepo,
@@ -63,6 +63,17 @@ def _find(rtd: RTD, rid_id: str) -> RidDTO:
         if rid.rid == rid_id:
             return rid
     raise ValueError(f"no such RID: {rid_id}")
+
+
+def _forbid_ai_commit(by) -> None:
+    """An AI principal may DRAFT but never COMMIT an owner decision (v1.7):
+    answer / implement / finalize. Drafting (``update_rid``, no transition) stays
+    allowed. Raises :class:`ClosureAuthorityError` (→ 403), mirroring the closure
+    invariant — only a human owner confirms."""
+    if by is not None and getattr(by, "is_ai", False):
+        raise ClosureAuthorityError(
+            "AI principals may only draft a disposition; a human owner must confirm it"
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -230,6 +241,7 @@ def answer(
     reply: Optional[str] = None,
     by=None,
 ):
+    _forbid_ai_commit(by)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     rid.disposition = disposition
@@ -261,8 +273,25 @@ def update_rid(
         rid.resolution = resolution
     if disposition is not None:
         rid.disposition = disposition
+    if by is not None and getattr(by, "is_ai", False):
+        rid.ai_drafted = True  # v1.7: an AI-written disposition is a draft awaiting human confirm
     sync_rtd_to_review(session, review, rtd)
     AuditRepo(session).log(action="update_rid", target=f"rid:{rid_id}", actor=by)
+    return RidRepo(session).get(review, rid_id)
+
+
+def discard_disposition_draft(session: Session, review: Review, rid_id: str, *, by=None):
+    """Discard an AI-drafted proposal, clearing it back to a plain OPEN finding
+    (v1.7). The RID keeps its identity; only the drafted owner-fields and the
+    ``ai_drafted`` flag are cleared."""
+    rtd = export_rtd(session, review)
+    rid = _find(rtd, rid_id)
+    rid.disposition = None
+    rid.reply = None
+    rid.resolution = None
+    rid.ai_drafted = False
+    sync_rtd_to_review(session, review, rtd)
+    AuditRepo(session).log(action="discard_draft", target=f"rid:{rid_id}", actor=by)
     return RidRepo(session).get(review, rid_id)
 
 
@@ -282,6 +311,7 @@ def implement(session: Session, review: Review, rid_id: str, *, by=None):
     Traceability gate (the DB analogue of the commit-reference rule): requires at
     least one ``RidChange`` linking the RID to a version newer than the baseline.
     """
+    _forbid_ai_commit(by)
     row = RidRepo(session).get(review, rid_id)
     if row is None:
         raise ValueError(f"no such RID: {rid_id}")
@@ -398,6 +428,7 @@ def report(session: Session, review: Review) -> tuple[list[str], str]:
 def finalize(
     session: Session, review: Review, *, final_content: Optional[str] = None, by=None
 ) -> list[str]:
+    _forbid_ai_commit(by)
     rtd = export_rtd(session, review)
     errors: list[str] = []
     open_rids = [

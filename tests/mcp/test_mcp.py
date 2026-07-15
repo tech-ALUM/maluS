@@ -66,6 +66,42 @@ def test_ai_tampering_rejected_by_parser(mkuser, basic_client, docs):
     assert r.status_code == 422  # rejected by the parser, no side channel
 
 
+def test_ai_owner_drafts_disposition_via_tool(mkuser, basic_client, docs, app):
+    # v1.7: an AI CO-OWNER drafts a disposition via the tool — a DRAFT only.
+    owner = mkuser("owner", "A. Boffi")
+    mkuser("aibot", "AI Bot", is_ai=True)
+    f = mkuser("fmiccoli", "F. Miccoli")
+    owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
+    owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
+    owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
+
+    # make AI Bot a co-owner (seed the role directly; the assignment UI is elsewhere)
+    from sqlmodel import Session
+
+    from malus.repo import ReviewRepo, UserRepo
+
+    with Session(app.state.engine) as s:
+        review = ReviewRepo(s).get(R)
+        ReviewRepo(s).set_member_role(review, UserRepo(s).by_display_name("AI Bot"), "owner")
+        s.commit()
+
+    # a human reviewer submits → one OPEN harvested RID
+    f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["ai_copy"]})
+
+    ai = basic_client("aibot", "pw")
+    rid = tools.list_rids(ai, R)[0]["rid"]
+    out = tools.submit_disposition(ai, R, rid, "accepted", reply="bounded per our chat")
+    assert out["status"] == "open"  # a proposal, not committed
+    assert out["ai_drafted"] is True
+    assert out["disposition"] == "accepted" and out["reply"] == "bounded per our chat"
+
+
+def test_disposition_tool_cannot_commit(mkuser, basic_client, docs):
+    # the tool only ever drafts — there is no commit path exposed, and no verify/close tool
+    assert "submit_disposition" in tools.TOOL_NAMES
+    assert not any("verify" in n or "close" in n for n in tools.TOOL_NAMES)
+
+
 def test_mcp_server_builds_with_expected_tools(mkuser, basic_client, docs):
     pytest.importorskip("mcp")
     _seed(mkuser, docs)

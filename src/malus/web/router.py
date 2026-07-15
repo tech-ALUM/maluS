@@ -220,6 +220,7 @@ def review_page(
         submissions.append({"name": m.user.display_name, "state": state})
     subm_total = len(submissions)
     subm_done = sum(1 for s in submissions if s["state"] == "submitted")
+    ai_proposals = sum(1 for r in rtd.rids if r.ai_drafted and r.status is Status.OPEN)
 
     return templates.TemplateResponse(
         request,
@@ -241,6 +242,7 @@ def review_page(
             "subm_done": subm_done,
             "subm_total": subm_total,
             "all_submitted": subm_total > 0 and subm_done == subm_total,
+            "ai_proposals": ai_proposals,
         },
     )
 
@@ -263,8 +265,9 @@ def finding_page(review_id: str, rid: str, request: Request, session: Session = 
             "review": review,
             "r": dto,
             "role": role,
-            "can_dispose": role == Role.OWNER.value,
+            "can_dispose": role == Role.OWNER.value and not user.is_ai,
             "can_verify": _can_verify(role, user, dto.reviewer),
+            "ai_proposal": dto.ai_drafted and dto.status is Status.OPEN,
         },
     )
 
@@ -339,6 +342,23 @@ def reopen_action(
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     on_behalf = authz.require_verify(session, review, user, row)
     svc.reopen(session, review, rid, reviewer=user.display_name, reason=reason, moderator=on_behalf)
+    return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/rids/{rid}/discard-draft")
+def discard_draft(review_id: str, rid: str, request: Request, session: Session = Depends(get_session)):
+    """Discard an AI-drafted proposal back to a plain OPEN finding (v1.7).
+    Owner-only; an AI principal (which only ever drafts) is refused."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    if user.is_ai:
+        raise HTTPException(status_code=403, detail="AI principals cannot confirm or discard drafts")
+    if RidRepo(session).get(review, rid) is None:
+        raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
+    svc.discard_disposition_draft(session, review, rid, by=user)
     return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
 
 

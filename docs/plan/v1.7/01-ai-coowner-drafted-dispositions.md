@@ -11,21 +11,21 @@ finding-advancing owner decision.
 
 ### The `is_ai` commit guard (safety core)
 
-- [ ] **authz**: an `is_ai` principal is refused (403) on the committing owner
+- [x] **authz**: an `is_ai` principal is refused (403) on the committing owner
       transitions — `answer` (status → `ANSWERED`), `implement`, `finalize` —
       while still allowed to write disposition fields without a transition
       (`update_rid`). Add to `src/malus/api/authz.py` and enforce at
       `patch_rid` / `finalize` in `src/malus/api/routes.py`.
-- [ ] **services (defense-in-depth)**: `answer`, `implement`, `finalize` in
+- [x] **services (defense-in-depth)**: `answer`, `implement`, `finalize` in
       `services/core.py` reject an `is_ai` actor (`by.is_ai`), mirroring how the
       services already enforce the closure invariant themselves.
 
 ### Drafting
 
-- [ ] **`ai_drafted` auto-set**: when disposition fields are written by an
+- [x] **`ai_drafted` auto-set**: when disposition fields are written by an
       `is_ai` actor via `update_rid` (no transition), set `ai_drafted=True`;
       a human write leaves the existing value (provenance is kept on confirm).
-- [ ] **MCP tool** `submit_disposition(client, review_id, rid, disposition,
+- [x] **MCP tool** `submit_disposition(client, review_id, rid, disposition,
       reply, resolution)` in `src/malus/mcp/tools.py` (added to `TOOL_NAMES`):
       does `PATCH /reviews/{id}/rids/{rid}` with the fields and **no `status`** →
       draft. Update the module docstring (it currently states there is *no*
@@ -33,28 +33,28 @@ finding-advancing owner decision.
 
 ### GUI (human owner confirm / discard)
 
-- [ ] **`finding.html`**: when a RID is `OPEN` and `ai_drafted`, show an "AI
+- [x] **`finding.html`**: when a RID is `OPEN` and `ai_drafted`, show an "AI
       proposal" banner with the proposed disposition/reply/resolution pre-filled
       into the existing dispose form; a **Confirm** button commits `answer`, a
       **Discard** button clears the draft (`ai_drafted=False`, fields cleared) →
       `OPEN`. Shown only to a human owner (`can_dispose and not user.is_ai`).
-- [ ] **Discard route** `POST /ui/reviews/{id}/rids/{rid}/discard-draft`
+- [x] **Discard route** `POST /ui/reviews/{id}/rids/{rid}/discard-draft`
       (human owner): clears the drafted fields; 403 for non-owner / AI.
-- [ ] **Surfacing**: an "AI" badge on `ai_drafted` rows in the RTD table
+- [x] **Surfacing**: an "AI" badge on `ai_drafted` rows in the RTD table
       (`review.html`) and a dashboard tile "N AI proposals to confirm".
 
 ### Tests
 
-- [ ] AI co-owner: `PATCH` with fields only → RID stays `OPEN`, `ai_drafted=True`
+- [x] AI co-owner: `PATCH` with fields only → RID stays `OPEN`, `ai_drafted=True`
       (draft); `PATCH status=answered` and `status=implemented` → 403; `finalize`
       → 403; the `answer` / `implement` / `finalize` services raise on an `is_ai`
       actor.
-- [ ] Human owner: confirms an AI proposal → `ANSWERED`, disposition persisted,
+- [x] Human owner: confirms an AI proposal → `ANSWERED`, disposition persisted,
       attributed to the human owner, `ai_drafted` retained; discards → clean
       `OPEN` with `ai_drafted=False`.
-- [ ] MCP: `submit_disposition` writes a draft end-to-end (TestClient); a human
+- [x] MCP: `submit_disposition` writes a draft end-to-end (TestClient); a human
       then confirms it.
-- [ ] Regression: the existing invariant — AI may never verify/reopen — stays
+- [x] Regression: the existing invariant — AI may never verify/reopen — stays
       green; assigning the owner role to an AI account is accepted.
 
 ## Key behaviors
@@ -86,8 +86,28 @@ transition in both authz and services; suite green; no migration.
 
 ## Deviations
 
-_None yet — agreed deviations are recorded here during implementation; the
-settled decision goes to `memory/decisions/2026-07-15-v1.7-ai-coowner-draft.md`._
+Recorded in `memory/decisions/2026-07-15-v1.7-ai-coowner-draft.md`.
+
+- **The commit guard is centralized in the services** (`answer` / `implement` /
+  `finalize` raise `ClosureAuthorityError` → 403 when the actor `is_ai`), so it
+  holds for every caller (API + GUI). The API/GUI additionally call
+  `authz.forbid_ai_commit` at the boundary (patch_rid's status branch, the
+  finalize route, the discard route) for an explicit early 403.
+- **Draft** = `OPEN` + `ai_drafted` + drafted fields; `ai_drafted` is auto-set in
+  `update_rid` when `by.is_ai`. **Confirm** = the existing dispose → `answer`
+  (provenance `ai_drafted` retained). **Discard** = a new
+  `discard_disposition_draft` service + `POST …/discard-draft` (owner-only; an AI
+  principal is refused).
+- **MCP** `submit_disposition` (PATCH fields, no status) added to `TOOL_NAMES` and
+  `build_server`; the module docstring now says the disposition tool only drafts.
+- **GUI**: finding-page AI-proposal banner + Confirm/Discard shown only to a human
+  owner (`can_dispose = owner and not is_ai`); RTD-row "AI" badge + dashboard
+  "AI proposals" tile.
+- **No live-browser step**: v1.7 adds no novel client-side behavior — Confirm
+  reuses the proven single-button dispose form and Discard is another
+  single-button form (the v1.6 hx-boost bug was specific to two submit buttons).
+  Fully covered by pytest (rendered markup + behavior). No schema change / no
+  migration (`ai_drafted` already existed). Full suite green (246).
 
 ## Sources
 

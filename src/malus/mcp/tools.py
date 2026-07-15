@@ -4,10 +4,12 @@ These are the review tools an interactive AI agent (Claude Code) invokes. Each
 calls the Step-3 API with the caller's credentials; maluS makes **no** server-side
 model calls, so the free/interactive path incurs no model billing.
 
-There is deliberately **no** verify / close / disposition tool: AI principals may
-never advance a finding (also enforced server-side by the ``is_ai`` guardrail).
-AI-submitted content enters only through the same validated endpoints a human
-uses — invalid comment blocks are rejected by the parser.
+There is deliberately **no** verify / close tool, and the disposition tool only
+**drafts** (never commits): AI principals may never advance a finding — the
+``is_ai`` guardrail refuses answer/implement/finalize server-side, and a human
+owner must confirm any AI-drafted disposition (v1.7). AI-submitted content enters
+only through the same validated endpoints a human uses — invalid comment blocks
+are rejected by the parser.
 
 ``client`` is any object with ``get``/``post`` returning an httpx-style response
 (an ``httpx.Client`` in production; a FastAPI ``TestClient`` in tests).
@@ -21,6 +23,7 @@ TOOL_NAMES = [
     "list_rids",
     "submit_reviewer_comments",
     "propose_triage",
+    "submit_disposition",
 ]
 
 
@@ -53,5 +56,22 @@ def submit_reviewer_comments(client, review_id: str, reviewer: str, content: str
 
 def propose_triage(client, review_id: str) -> dict:
     r = client.post(f"/reviews/{review_id}/triage", json={"auto": False})
+    r.raise_for_status()
+    return r.json()
+
+
+def submit_disposition(
+    client, review_id: str, rid: str, disposition: str, reply: str = "", resolution: str = ""
+) -> dict:
+    """Draft an owner disposition for a RID (AI co-owner path, v1.7). DRAFT ONLY:
+    it PATCHes the disposition fields WITHOUT a status transition, so the RID stays
+    OPEN and is marked ``ai_drafted`` — a human owner must confirm it. The server
+    refuses any committing transition from an AI principal (403)."""
+    payload: dict = {"disposition": disposition}
+    if reply:
+        payload["reply"] = reply
+    if resolution:
+        payload["resolution"] = resolution
+    r = client.patch(f"/reviews/{review_id}/rids/{rid}", json=payload)
     r.raise_for_status()
     return r.json()

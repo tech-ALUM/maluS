@@ -205,3 +205,9 @@ blockquote { margin: .3rem 0; padding: .6rem .9rem; background: var(--card); bor
 .flash { background: #eef8f0; border: 1px solid #57b877; color: #1f7a3d; border-radius: 8px; padding: .5rem .8rem; font-size: .9rem; }
 button.secondary { background: #fff; color: var(--teal); border-color: var(--teal); }
 button.secondary:hover { background: var(--paper); }
+
+/* v1.7: AI co-owner drafted-disposition markers */
+.ai-badge { background: var(--teal); }
+.ai-metric b { color: var(--teal); }
+.ai-proposal { background: #eef6f7; border-color: var(--teal); color: var(--teal); }
+.discard-form { margin-top: .5rem; }

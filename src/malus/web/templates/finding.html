@@ -19,7 +19,10 @@
 
 {% if can_dispose %}
 <section class="card">
-  <h2>Disposition <span class="role role-owner">owner</span></h2>
+  <h2>Disposition <span class="role role-owner">owner</span>{% if ai_proposal %} <span class="badge ai-badge">AI proposal</span>{% endif %}</h2>
+  {% if ai_proposal %}
+  <p class="flash ai-proposal">🤖 An AI co-owner drafted this. Review it, then <b>Confirm disposition</b> to commit — or <b>Discard AI draft</b>. Nothing is committed until you confirm.</p>
+  {% endif %}
   <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/dispose" class="stack">
     <label>Disposition
       <select name="disposition" required>
@@ -30,8 +33,13 @@
     </label>
     <label>Reply <textarea name="reply" rows="2">{{ r.reply or '' }}</textarea></label>
     <label>Resolution <textarea name="resolution" rows="2">{{ r.resolution or '' }}</textarea></label>
-    <button class="primary">Save disposition</button>
+    <button class="primary">{% if ai_proposal %}Confirm disposition{% else %}Save disposition{% endif %}</button>
   </form>
+  {% if ai_proposal %}
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/discard-draft" class="inline discard-form">
+    <button class="danger">Discard AI draft</button>
+  </form>
+  {% endif %}
 </section>
 {% endif %}
 

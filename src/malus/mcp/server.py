@@ -61,6 +61,15 @@ def build_server(client=None):
         """Propose duplicate clusters (read-only; does not apply them)."""
         return tools.propose_triage(client, review_id)
 
+    @server.tool()
+    def submit_disposition(
+        review_id: str, rid: str, disposition: str, reply: str = "", resolution: str = ""
+    ) -> dict:
+        """Draft an owner disposition for a RID (co-owner path). DRAFT ONLY — it
+        does not commit: the RID stays open and marked ai_drafted, and a human
+        owner must confirm it. disposition is accepted | rejected | deferred."""
+        return tools.submit_disposition(client, review_id, rid, disposition, reply, resolution)
+
     return server
 
 

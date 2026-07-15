@@ -26,6 +26,7 @@
   <div class="metric"><b>{{ n }}</b><span>{{ s }}</span></div>
   {% endfor %}
   <div class="metric progress"><b>{{ progress }}%</b><span>closed ({{ closed }}/{{ total }})</span></div>
+  {% if ai_proposals %}<div class="metric ai-metric"><b>{{ ai_proposals }}</b><span>AI proposals</span></div>{% endif %}
 </section>
 
 <form method="get" class="filters">
@@ -51,7 +52,7 @@
   <tbody>
   {% for r in rids %}
     <tr>
-      <td><a href="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}">{{ r.rid }}</a></td>
+      <td><a href="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}">{{ r.rid }}</a>{% if r.ai_drafted and r.status.value == 'open' %} <span class="badge ai-badge">AI</span>{% endif %}</td>
       <td>{{ r.reviewer }}</td>
       <td>{{ r.kind.value }}</td>
       <td>{{ r.type.value if r.type else '' }}</td>
