@@ -18,6 +18,8 @@
   {% if role == 'owner' or user.is_admin %}<a class="btn danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>{% endif %}
 </p>
 
+<div class="rtd-layout">
+<div class="rtd-main">
 <section class="dash">
   <div class="metric"><b>{{ total }}</b><span>findings</span></div>
   {% for s, n in counts_status.items() %}
@@ -63,6 +65,30 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
+
+<aside class="subm-panel" aria-label="Reviewer submissions">
+  <h2 class="cp-title">Submissions <span class="badge">{{ subm_done }}/{{ subm_total }} submitted</span></h2>
+  <ul class="subm-list">
+    {% for s in submissions %}
+    <li class="subm-item">
+      <span class="subm-name">{{ s.name }}</span>
+      <span class="subm-state subm-{{ s.state|replace(' ', '-') }}">{{ s.state }}</span>
+    </li>
+    {% else %}
+    <li class="muted">No reviewers assigned yet.</li>
+    {% endfor %}
+  </ul>
+  {% if subm_total %}
+    {% if all_submitted %}
+    <p class="subm-note ok">All reviewers have submitted — you can proceed with disposition.</p>
+    {% else %}
+    <p class="subm-note wait">Waiting for {{ subm_total - subm_done }} reviewer{{ '' if (subm_total - subm_done) == 1 else 's' }}.</p>
+    {% endif %}
+  {% endif %}
+</aside>
+</div>
+
 <script>
   function malusCopyLink(btn) {
     const url = new URL(btn.dataset.path, location.origin).href;

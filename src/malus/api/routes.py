@@ -217,7 +217,9 @@ def put_copy(
 ):
     review = _review_or_404(session, review_id)
     authz.require_own_copy(session, review, caller, user)
-    copy = svc.add_reviewer_copy(session, review, user, body.content)
+    # PUT saves a DRAFT (not submitted); the pipeline harvests separately, and
+    # POST .../submit is the "I'm done" path that marks the copy submitted.
+    copy = svc.add_reviewer_copy(session, review, user, body.content, submitted=False)
     ordinal = copy.based_on_version.ordinal if copy.based_on_version else None
     return CopyOut(user=user, content=copy.content, based_on_ordinal=ordinal)
 
@@ -269,7 +271,7 @@ def submit_copy(
         validate_insertion_only(baseline.content, body.content)
     except (FreezeViolation, ParseError) as exc:
         raise HTTPException(status_code=422, detail=f"freeze/parse rejection: {exc}")
-    svc.add_reviewer_copy(session, review, user, body.content)
+    svc.add_reviewer_copy(session, review, user, body.content, submitted=True)
     result = svc.harvest(session, review, by=caller)
     return HarvestOut(
         rids=[RidOut.from_dto(r) for r in result.rtd.rids],

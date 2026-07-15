@@ -230,7 +230,7 @@ class ReviewerCopyRepo:
         copy.content = content
         if based_on is not None:
             copy.based_on_version = based_on
-        copy.submitted_at = submitted_at or _utcnow()
+        copy.submitted_at = submitted_at
         self.s.flush()
         return copy
 

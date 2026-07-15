@@ -214,3 +214,49 @@ def test_report_renders_minutes(session: Session):
     errors, md = svc.report(session, review)
     assert errors == []
     assert "Review Minutes — SIN-SRS-R1" in md
+
+
+# --------------------------------------------------------------------------- #
+# v1.6: reviewer copy Save (draft) vs Submit — the `submitted` flag
+# --------------------------------------------------------------------------- #
+
+
+def _copy_of(session: Session, review, display_name: str):
+    from malus.repo import ReviewerCopyRepo, UserRepo
+
+    user = UserRepo(session).by_display_name(display_name)
+    return next(
+        (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
+    )
+
+
+def test_add_reviewer_copy_draft_leaves_submitted_at_null(session: Session):
+    review = _seed(session)
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)
+    session.commit()
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is None
+
+
+def test_add_reviewer_copy_submitted_sets_timestamp(session: Session):
+    review = _seed(session)
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=True)
+    session.commit()
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
+
+
+def test_add_reviewer_copy_defaults_to_submitted(session: Session):
+    # existing callers (legacy import, API submit) rely on the default marking submitted
+    review = _seed(session)
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F)
+    session.commit()
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
+
+
+def test_save_draft_after_submit_reverts_to_draft(session: Session):
+    review = _seed(session)
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=True)
+    session.commit()
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)
+    session.commit()
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is None

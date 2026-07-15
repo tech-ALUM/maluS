@@ -208,6 +208,19 @@ def review_page(
     counts_status = {s.value: sum(1 for r in rtd.rids if r.status is s) for s in Status}
     closed = counts_status[Status.VERIFIED.value] + counts_status[Status.WITHDRAWN.value]
     total = len(rtd.rids)
+
+    # v1.6: reviewer submission panel (soft indicator — blocks nothing)
+    copies_by_uid = {c.user_id: c for c in ReviewerCopyRepo(session).list(review)}
+    submissions = []
+    for m in ReviewRepo(session).members(review):
+        if m.role != Role.REVIEWER.value:
+            continue
+        copy = copies_by_uid.get(m.user_id)
+        state = "submitted" if (copy and copy.submitted_at) else ("draft" if copy else "not started")
+        submissions.append({"name": m.user.display_name, "state": state})
+    subm_total = len(submissions)
+    subm_done = sum(1 for s in submissions if s["state"] == "submitted")
+
     return templates.TemplateResponse(
         request,
         "review.html",
@@ -224,6 +237,10 @@ def review_page(
             "progress": round(100 * closed / total) if total else 0,
             "filters": filters,
             "reviewer_names": rtd.meta.reviewers,
+            "submissions": submissions,
+            "subm_done": subm_done,
+            "subm_total": subm_total,
+            "all_submitted": subm_total > 0 and subm_done == subm_total,
         },
     )
 
@@ -330,15 +347,20 @@ def reopen_action(
 # --------------------------------------------------------------------------- #
 
 
-def _own_copy_content(session: Session, review, user: User) -> Optional[str]:
-    mine = next(
+def _own_copy(session: Session, review, user: User):
+    """The current user's reviewer-copy row for this review, or None."""
+    return next(
         (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
     )
-    return mine.content if mine else None
 
 
 @web.get("/ui/reviews/{review_id}/edit-copy", response_class=HTMLResponse)
-def edit_copy_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+def edit_copy_page(
+    review_id: str,
+    request: Request,
+    saved: bool = False,
+    session: Session = Depends(get_session),
+):
     user = _current(request, session)
     if not user:
         return _LOGIN
@@ -348,11 +370,20 @@ def edit_copy_page(review_id: str, request: Request, session: Session = Depends(
     baseline = VersionRepo(session).baseline(review)
     if baseline is None:
         raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
-    content = _own_copy_content(session, review, user) or baseline.content
+    mine = _own_copy(session, review, user)
+    content = (mine.content if mine else None) or baseline.content
     return templates.TemplateResponse(
         request,
         "edit_copy.html",
-        {"user": user, "review": review, "content": content, "baseline": baseline.content, "error": None},
+        {
+            "user": user,
+            "review": review,
+            "content": content,
+            "baseline": baseline.content,
+            "error": None,
+            "saved": saved,
+            "copy": mine,
+        },
     )
 
 
@@ -361,6 +392,7 @@ def submit_copy(
     review_id: str,
     request: Request,
     content: str = Form(...),
+    action: str = Form("submit"),
     session: Session = Depends(get_session),
 ):
     user = _current(request, session)
@@ -368,11 +400,11 @@ def submit_copy(
         return _LOGIN
     review = _review_or_404(session, review_id)
     if authz.review_role(session, review, user) != Role.REVIEWER.value:
-        raise HTTPException(status_code=403, detail="only a reviewer may submit a review copy")
+        raise HTTPException(status_code=403, detail="only a reviewer may edit a review copy")
     baseline = VersionRepo(session).baseline(review)
     if baseline is None:
         raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
-    try:  # server-side freeze-rule check (authoritative)
+    try:  # server-side freeze-rule check (authoritative) — for Save and Submit
         validate_insertion_only(baseline.content, content)
     except (FreezeViolation, ParseError) as exc:
         return templates.TemplateResponse(
@@ -387,9 +419,12 @@ def submit_copy(
             },
             status_code=422,
         )
-    svc.add_reviewer_copy(session, review, user.display_name, content)
-    svc.harvest(session, review, by=user)  # submitting a copy triggers a re-harvest
-    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+    submit = action == "submit"
+    svc.add_reviewer_copy(session, review, user.display_name, content, submitted=submit)
+    svc.harvest(session, review, by=user)  # Save or Submit re-harvests → comments show in the table
+    if submit:
+        return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/edit-copy?saved=1", 303)
 
 
 def _require_reviewer(session: Session, request: Request, review_id: str):

@@ -118,10 +118,17 @@ def add_reviewer_copy(
     content: str,
     *,
     based_on: Optional[DocumentVersion] = None,
+    submitted: bool = True,
 ) -> ReviewerCopy:
+    """Persist a reviewer's copy. ``submitted=True`` (default) marks it submitted
+    (``submitted_at = now``); ``submitted=False`` saves it as a draft
+    (``submitted_at = None``) so a reviewer can keep editing across sessions."""
     user = UserRepo(session).get_or_create(reviewer_name)
     base = based_on or VersionRepo(session).baseline(review)
-    return ReviewerCopyRepo(session).upsert(review, user, content, based_on=base)
+    submitted_at = dt.datetime.now(dt.timezone.utc) if submitted else None
+    return ReviewerCopyRepo(session).upsert(
+        review, user, content, based_on=base, submitted_at=submitted_at
+    )
 
 
 def save_version(

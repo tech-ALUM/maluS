@@ -4,12 +4,17 @@
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
 <h1>Your review copy</h1>
 <p class="muted">Select text in the sheet to add a comment. Only comments are added —
-  the baseline text is frozen; the server re-checks on submit.</p>
+  the baseline text is frozen; the server re-checks on save and submit.</p>
+<p class="muted copy-state">Status:
+  {% if copy and copy.submitted_at %}<b>Submitted</b>
+  {%- elif copy %}<b>Draft</b> — saved, not yet submitted
+  {%- else %}<b>Not saved yet</b>{% endif %}</p>
+{% if saved %}<p class="flash">Saved ✓ — your comments are now in the RTD table. Keep commenting, or Submit when done.</p>{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <p id="freeze-warning" class="error" hidden>You changed baseline text. Only {COMM} / {SUGG} block insertions are allowed.</p>
 
 <form method="post" action="/ui/reviews/{{ review.review_id_str }}/edit-copy" id="rev-form"
-      data-review="{{ review.review_id_str }}">
+      hx-boost="false" data-review="{{ review.review_id_str }}">
   <textarea id="content-src" name="content" hidden data-baseline="{{ baseline }}">{{ content }}</textarea>
   <div class="workbench">
     <div id="sheet" class="a4-sheet" aria-label="Rendered document"></div>
@@ -19,7 +24,10 @@
       <p id="cp-empty" class="muted">Select text on the left to add your first comment.</p>
     </aside>
   </div>
-  <div class="rev-actions"><button class="primary" type="submit">Submit copy</button></div>
+  <div class="rev-actions">
+    <button type="submit" name="action" value="save" class="secondary">Save draft</button>
+    <button type="submit" name="action" value="submit" class="primary">Submit copy</button>
+  </div>
 </form>
 
 <!-- selection → comment popover -->

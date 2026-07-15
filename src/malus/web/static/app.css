@@ -183,3 +183,25 @@ button.candidate:hover { background: var(--paper); border-color: transparent; }
 dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .2rem .8rem; font-size: .9rem; }
 dl.meta dt { color: var(--muted); }
 blockquote { margin: .3rem 0; padding: .6rem .9rem; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 7px 7px 0; }
+
+/* v1.6: dashboard reviewer-submission panel + editor Save (draft) state ------ */
+.rtd-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 1.4rem; align-items: start; }
+.rtd-main { min-width: 0; }
+.subm-panel { position: sticky; top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; }
+.subm-list { list-style: none; margin: .5rem 0 0; padding: 0; }
+.subm-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .38rem 0; border-bottom: 1px solid var(--line); }
+.subm-item:last-child { border-bottom: none; }
+.subm-name { font-size: .9rem; }
+.subm-state { font-family: var(--mono); font-size: .72rem; padding: .1rem .4rem; border-radius: 5px; border: 1px solid var(--line); white-space: nowrap; }
+.subm-submitted { color: #1f7a3d; border-color: #57b877; background: #eef8f0; }
+.subm-draft { color: #7a5c00; border-color: #d8b74a; }
+.subm-not-started { color: var(--muted); }
+.subm-note { font-size: .82rem; margin: .8rem 0 0; }
+.subm-note.wait { color: #7a5c00; }
+.subm-note.ok { color: #1f7a3d; font-weight: 600; }
+@media (max-width: 900px) { .rtd-layout { grid-template-columns: 1fr; } .subm-panel { position: static; } }
+
+.copy-state b { font-family: var(--mono); text-transform: uppercase; font-size: .8rem; letter-spacing: .3px; }
+.flash { background: #eef8f0; border: 1px solid #57b877; color: #1f7a3d; border-radius: 8px; padding: .5rem .8rem; font-size: .9rem; }
+button.secondary { background: #fff; color: var(--teal); border-color: var(--teal); }
+button.secondary:hover { background: var(--paper); }

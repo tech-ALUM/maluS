@@ -11,22 +11,22 @@ with each reviewer's state and a soft "all submitted" notice that blocks nothing
 
 ### Save vs Submit
 
-- [ ] **Repo**: `ReviewerCopyRepo.upsert` stops forcing `submitted_at` to now —
+- [x] **Repo**: `ReviewerCopyRepo.upsert` stops forcing `submitted_at` to now —
       it sets `submitted_at` to exactly the value passed (default `None`), so a
       draft can be persisted with `submitted_at = NULL`
       (`src/malus/repo/repositories.py:233`).
-- [ ] **Service**: `add_reviewer_copy(..., submitted: bool = True)` computes
+- [x] **Service**: `add_reviewer_copy(..., submitted: bool = True)` computes
       `submitted_at = now if submitted else None`. Default `True` preserves every
       existing caller (legacy import, API `put_copy`/`submit_copy`, tests).
-- [ ] **GUI route** `POST /ui/reviews/{id}/edit-copy` gains `action: str =
+- [x] **GUI route** `POST /ui/reviews/{id}/edit-copy` gains `action: str =
       Form("submit")`; validates the freeze rule for **both** actions; persists
       with `submitted=(action == "submit")`; harvests in both cases. Redirects:
       Submit → dashboard; Save → back to the editor with a `?saved=1` flash.
-- [ ] **Editor** `edit_copy.html`: two `type="submit"` buttons in the one form,
+- [x] **Editor** `edit_copy.html`: two `type="submit"` buttons in the one form,
       `name="action"` with values `save` (secondary) and `submit` (primary); a
       status line showing the copy state (Not saved / Draft, saved &lt;when&gt; /
       Submitted &lt;when&gt;) and a "Saved ✓" flash after a Save. Works with JS off.
-- [ ] **API parity**: `PUT /reviews/{id}/copies/{user}` saves a **draft**
+- [x] **API parity**: `PUT /reviews/{id}/copies/{user}` saves a **draft**
       (`add_reviewer_copy(..., submitted=False)`); `POST
       /reviews/{id}/copies/{user}/submit` marks **submitted** (`submitted=True`,
       explicit). Mirrors the GUI Save/Submit split at the `submitted_at` level.
@@ -36,31 +36,31 @@ with each reviewer's state and a soft "all submitted" notice that blocks nothing
 
 ### Dashboard submission panel (soft indicator)
 
-- [ ] **`review_page`** builds `reviewer_status`: the roster of members with the
+- [x] **`review_page`** builds `reviewer_status`: the roster of members with the
       **reviewer** role (via `ReviewRepo.members`), each mapped to `not_started`
       (no `ReviewerCopy`) / `draft` (`submitted_at` NULL) / `submitted`
       (`submitted_at` set), plus `submitted`/`total` counts and `all_submitted`.
-- [ ] **`review.html`**: a right-hand `<aside>` (two-column layout like the
+- [x] **`review.html`**: a right-hand `<aside>` (two-column layout like the
       editor `.workbench`; stacks under on mobile) listing each reviewer with a
       state pill and a header "Reviewers — N/M submitted"; a soft notice —
       "Waiting for N reviewer(s)." while pending, or "All reviewers have
       submitted — you can proceed with disposition." when complete. **No block.**
-- [ ] **CSS** in `app.css` for the panel + the three state pills, following the
+- [x] **CSS** in `app.css` for the panel + the three state pills, following the
       existing `.st` / `.role` / `.badge` conventions.
 
 ### Tests
 
-- [ ] Service: `add_reviewer_copy(submitted=False)` → `submitted_at is None`;
+- [x] Service: `add_reviewer_copy(submitted=False)` → `submitted_at is None`;
       `submitted=True` → timestamp; a Save after a Submit reverts the copy to
       draft (`submitted_at` back to `None`).
-- [ ] Route: `action=save` → copy saved as draft + harvest ran (RID visible via
+- [x] Route: `action=save` → copy saved as draft + harvest ran (RID visible via
       export) + redirect to the editor; `action=submit` → `submitted_at` set +
       redirect to dashboard; a Save that edits baseline text → 422.
-- [ ] Dashboard: the panel renders the correct state per reviewer and an accurate
+- [x] Dashboard: the panel renders the correct state per reviewer and an accurate
       N/M count; the "all submitted" notice shows only when all reviewers are
       submitted; nothing is blocked (owner disposition still reachable regardless
       of submission state).
-- [ ] API: `PUT /copies/{user}` leaves `submitted_at` NULL (draft); `POST
+- [x] API: `PUT /copies/{user}` leaves `submitted_at` NULL (draft); `POST
       /copies/{user}/submit` sets it; the full-pipeline test (PUT → harvest)
       still passes unchanged.
 
@@ -94,8 +94,25 @@ migration.
 
 ## Deviations
 
-_None yet — agreed deviations are recorded here during implementation; the
-settled decision goes to `memory/decisions/2026-07-15-v1.6-save-draft.md`._
+Recorded in `memory/decisions/2026-07-15-v1.6-save-draft.md`.
+
+- **`ReviewerCopyRepo.upsert`** no longer forces `submitted_at = now`; it stores
+  the value passed. The draft/submit policy lives in
+  `add_reviewer_copy(..., submitted: bool = True)` (default keeps existing
+  callers submitting).
+- **The GUI editor form opts out of `hx-boost`** (`hx-boost="false"`). Found by
+  live browser verification: under hx-boost (htmx 2.0.3) the submit button's
+  `action` value is dropped, so "Save draft" fell back to the default and wrongly
+  submitted. A native submit includes the clicked button's value (and still works
+  with JS off). Guarded by `test_editor_form_opts_out_of_hx_boost`.
+- **API parity**: `PUT /copies/{user}` saves a draft (`submitted=False`);
+  `POST /copies/{user}/submit` submits (`submitted=True`). PUT keeps its
+  no-harvest contract, so the pipeline (`test_full_pipeline_over_http`) is
+  unchanged.
+- Tests: `tests/db/test_services.py` (draft flag), `tests/api/test_draft_submit.py`
+  (PUT vs submit), `tests/web/test_editor.py` (Save/Submit + hx-boost guard),
+  `tests/web/test_submission_panel.py` (panel states/notice/soft-gate). No schema
+  change / no migration. Full suite green (234).
 
 ## Sources
 
