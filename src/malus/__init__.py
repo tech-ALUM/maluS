@@ -5,4 +5,4 @@ MCP AI reviewer). See ``docs/plan/v1/`` for the plan, ``docs/spec/`` for the
 normative contracts, and ``docs/ops/runbook.md`` for deployment.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.7.0"

@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.7.0 — 2026-07-15 (reviewer draft-save + AI co-owner drafted dispositions)
+
+Ships two feature sets developed back-to-back (planned as v1.6 and v1.7); cut as
+one release since both were merged before the release was tagged.
+
+- **Reviewer draft-save + submission panel** (v1.6): the reviewer copy now has a
+  **Save draft** action (persist + harvest, *not* submitted) alongside
+  **Submit**, so reviewers comment incrementally across sessions and see their
+  comments in the RTD table immediately; reopening the editor shows prior
+  comments. The dashboard gains a **reviewer-submission panel** — each reviewer
+  shown as not-started / draft / submitted, an N/M count, and a soft "all
+  submitted" notice that blocks nothing (the owner decides when to proceed). API
+  parity: `PUT /reviews/{id}/copies/{user}` saves a draft, `POST …/submit`
+  submits. The editor form opts out of `hx-boost` so the clicked button's action
+  reaches the server (htmx 2.x drops a submit button's value). No schema change.
+- **AI co-owner drafted dispositions, human-confirmed** (v1.7): an AI account can
+  hold the **owner role** as a co-owner and **draft** dispositions — over the API
+  or the new `submit_disposition` MCP tool — where a draft is a still-`OPEN` RID
+  marked `ai_drafted`. A **human owner confirms** it in the GUI (the existing
+  dispose form, pre-filled) or **discards** it. The `is_ai` guard refuses every
+  committing owner transition (`answer` / `implement` / `finalize` → 403) in the
+  services and at the API boundary; verify/close stay reviewer-side, so the
+  closure invariant is untouched. GUI: an "AI proposal" banner + Confirm/Discard,
+  an RTD "AI" badge, and a dashboard "AI proposals" tile. No new role or status,
+  no schema change.
+
 ## v1.5.0 — 2026-07-12 (delete a review)
 
 - **Delete a review from the GUI**: the primary owner (or a global admin) can
