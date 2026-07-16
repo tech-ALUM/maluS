@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.10.0 — 2026-07-16 (admin superuser)
+
+- **A global admin now has full authority on every review** — without being a
+  member — including dispose, verify/reopen, implement, finalize, freeze,
+  apply-suggestions, manage members, delete the review, delete any comment, and
+  **re-open a reviewer's submission** (a new control that un-submits a copy so the
+  reviewer can edit and resubmit). The closure rule is widened accordingly
+  (reviewers + moderators + admin; never the owner). The `is_ai` guard stays
+  absolute — an AI principal never closes or commits, admin or not. No schema
+  change.
+
 ## v1.9.0 — 2026-07-16 (ALUM brand refresh)
 
 - **GUI refreshed to the ALUM brand** — a cohesive visual pass with every
