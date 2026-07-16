@@ -52,6 +52,8 @@ def _review_or_404(session: Session, review_id: str):
 def _can_verify(role: Optional[str], user: User, reviewer_name: str) -> bool:
     if user.is_ai:
         return False
+    if user.is_admin:  # global admin superuser (v1.10)
+        return True
     if role == Role.MODERATOR.value:
         return True
     return role == Role.REVIEWER.value and reviewer_name == user.display_name
@@ -265,7 +267,7 @@ def finding_page(review_id: str, rid: str, request: Request, session: Session = 
             "review": review,
             "r": dto,
             "role": role,
-            "can_dispose": role == Role.OWNER.value and not user.is_ai,
+            "can_dispose": (role == Role.OWNER.value or user.is_admin) and not user.is_ai,
             "can_verify": _can_verify(role, user, dto.reviewer),
             "ai_proposal": dto.ai_drafted and dto.status is Status.OPEN,
         },
@@ -374,11 +376,30 @@ def retract_comment(review_id: str, rid: str, request: Request, session: Session
     if row is None:
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     role = authz.review_role(session, review, user)
-    if role != Role.REVIEWER.value or row.reviewer_id != user.id:
+    if user.is_admin:
+        pass  # global superuser: retract any comment, any status (v1.10)
+    elif role != Role.REVIEWER.value or row.reviewer_id != user.id:
         raise HTTPException(status_code=403, detail="you may only retract your own comment")
-    if row.status != Status.OPEN.value:
+    elif row.status != Status.OPEN.value:
         raise HTTPException(status_code=409, detail="only an open comment can be retracted")
     svc.retract_comment(session, review, rid, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/reopen-submission/{reviewer}")
+def reopen_submission(review_id: str, reviewer: str, request: Request, session: Session = Depends(get_session)):
+    """Admin superuser: un-submit a reviewer's copy (submitted_at → None) so they
+    can edit and resubmit (v1.10)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="only an admin may re-open a submission")
+    try:
+        svc.reopen_submission(session, review, reviewer, by=user)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 

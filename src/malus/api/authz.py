@@ -6,7 +6,8 @@ The permission matrix (v1 Step 4):
   finalize. Never verify/reopen.
 - **reviewer** — edit only their own copy; verify/reopen only their own RIDs.
 - **moderator** — harvest/triage; verify/reopen on a reviewer's behalf.
-- **admin** — user management only (no power over review content).
+- **admin** — global superuser: full authority on every review (v1.10), plus
+  user management. Still bound by the ``is_ai`` limit (AI never closes/commits).
 - **AI principals** (``is_ai``) — never verify/reopen, regardless of role.
 
 These checks run *in front of* the services, which still enforce the closure
@@ -38,6 +39,8 @@ def _forbid(message: str) -> None:
 
 
 def require_owner(session: Session, review: Review, user: User) -> None:
+    if user.is_admin:  # global admin superuser (v1.10)
+        return
     if review_role(session, review, user) != Role.OWNER.value:
         _forbid("owner role required for this action")
 
@@ -51,11 +54,15 @@ def forbid_ai_commit(user: User) -> None:
 
 
 def require_moderator(session: Session, review: Review, user: User) -> None:
+    if user.is_admin:  # global admin superuser (v1.10)
+        return
     if review_role(session, review, user) != Role.MODERATOR.value:
         _forbid("moderator role required (harvest/triage)")
 
 
 def require_owner_or_moderator(session: Session, review: Review, user: User) -> None:
+    if user.is_admin:  # global admin superuser (v1.10)
+        return
     if review_role(session, review, user) not in (Role.OWNER.value, Role.MODERATOR.value):
         _forbid("owner or moderator role required")
 
@@ -70,6 +77,8 @@ def require_verify(session: Session, review: Review, user: User, rid: RID) -> bo
     """Authorize verify/reopen; returns True if acting as moderator (on behalf)."""
     if user.is_ai:
         _forbid("AI principals may never verify or reopen a RID")
+    if user.is_admin:  # global admin superuser: closure on any RID (v1.10)
+        return True
     role = review_role(session, review, user)
     if role == Role.MODERATOR.value:
         return True

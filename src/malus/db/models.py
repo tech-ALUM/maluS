@@ -54,7 +54,7 @@ class User(SQLModel, table=True):
     # argon2 hash (Step 4). Null for placeholder users created during import.
     password_hash: Optional[str] = None
     is_active: bool = True
-    is_admin: bool = False  # global role: manage users; no power over review content
+    is_admin: bool = False  # global superuser: full authority on every review (v1.10) + user mgmt
     is_ai: bool = False  # AI principal: may never verify/reopen/confirm, regardless of role
     must_change_password: bool = False  # forces a password change after admin bootstrap/create
     created: dt.datetime = Field(default_factory=_utcnow)

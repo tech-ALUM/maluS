@@ -260,6 +260,29 @@ def retract_comment(session: Session, review: Review, rid_id: str, *, by=None):
     AuditRepo(session).log(action="retract_comment", target=f"rid:{rid_id}", actor=by)
 
 
+def reopen_submission(session: Session, review: Review, reviewer_name: str, *, by=None):
+    """Un-submit a reviewer's copy (``submitted_at`` → None) so they can edit and
+    resubmit — an admin superuser action (v1.10)."""
+    user = UserRepo(session).by_display_name(reviewer_name)
+    if user is None:
+        raise ValueError(f"unknown reviewer: {reviewer_name}")
+    copy = next(
+        (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
+    )
+    if copy is None:
+        raise ValueError(f"no copy for {reviewer_name}")
+    copy.submitted_at = None
+    session.add(copy)
+    session.flush()
+    AuditRepo(session).log(
+        action="reopen_submission",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={"reviewer": reviewer_name},
+    )
+    return copy
+
+
 def triage(
     session: Session,
     review: Review,
