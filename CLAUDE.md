@@ -13,7 +13,10 @@ Document, the canonical `rtd.yaml`), **RID** (one tracked finding),
 **disposition** (owner decision: accepted/rejected/deferred).
 
 Three roles — owner, reviewer, moderator — each fillable by a human or an AI.
-Invariant: **closure authority belongs to reviewers, never the owner.**
+Invariant: **closure authority belongs to reviewers — plus a moderator or a
+global admin acting on their behalf — never the owner, and never an AI
+principal** (the `is_ai` guard is absolute; a global admin is a superuser over
+every review, incl. closure, since v1.10).
 
 ## How to work in this repo
 
@@ -24,9 +27,9 @@ Invariant: **closure authority belongs to reviewers, never the owner.**
 - Update the checkboxes in the step file as you complete deliverables.
   Record agreed deviations under a `## Deviations` heading in that step file.
 - If a spec is ambiguous, ask before deviating. Never silently change
-  a decision recorded in `memory/decisions/`.
-- Design rationale and specs live in `memory/` (basic-memory project
-  `malus`). Treat `memory/decisions/` as authoritative.
+  a decision recorded in `docs/adr/`.
+- Design rationale/ADRs live in `docs/adr/` + `docs/spec/` (authoritative); the
+  distilled history is in Open Brain (openbrain-alum, tag maluS).
 
 ## Conventions
 
@@ -45,7 +48,7 @@ Invariant: **closure authority belongs to reviewers, never the owner.**
 - `src/malus/` — package; CLI entry point `malus`
 - `gui/rtd.html` — RTD GUI (loads/saves `rtd.yaml` via File System Access API)
 - `tests/` — pytest suite with fixture documents under `tests/fixtures/`
-- `docs/plan/` — the plan; `memory/` — project knowledge base
+- `docs/plan/` — the plan; `docs/adr/` + `docs/spec/` — decisions & specs
 
 ## Memory — Open Brain
 - Le regole generali di comportamento Open Brain sono nel mio ~/.claude/CLAUDE.md globale (cassetti, segregazione, salva solo su richiesta, delete per ID, cerca prima di scrivere). NON ripeterle qui.
