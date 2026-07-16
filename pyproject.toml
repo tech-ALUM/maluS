@@ -37,7 +37,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "malus.prompts" = ["*.md"]
-"malus.web" = ["templates/*.html", "static/*", "static/vendor/*"]
+"malus.web" = ["templates/*.html", "static/*", "static/vendor/*", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
