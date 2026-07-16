@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.0 — 2026-07-16 (reviewer comment retraction + submissions panel placement)
+
+- **Retract a comment**: a reviewer can remove their own comment — from the
+  editor (delete the block and save) or via a new **"✕ delete"** control in the
+  RTD table (their own `open` comments only) — and it disappears. A *pristine*
+  comment (the owner never engaged) is **hard-deleted**; one already disposed is
+  kept as `withdrawn` (its trace can't be erased). The pure harvest core is
+  unchanged (still withdraws); a DB-layer purge of pristine-`withdrawn` rows runs
+  after each harvest. No schema change.
+- **Submissions panel** moved to a **full-width band at the top** of the
+  dashboard (was a right-hand column); reviewers shown as a wrapping row of
+  status chips.
+
 ## v1.7.1 — 2026-07-15 (harden the AI-owner guard)
 
 - **Fix (AI guardrail)**: an AI co-owner could still mutate review content —
