@@ -13,7 +13,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from malus.constants import Disposition, Role, Status
+from malus.constants import Disposition, Kind, Role, Status
 from malus.db.models import (
     RID,
     AuditLog,
@@ -29,6 +29,7 @@ from malus.db.models import (
 )
 from malus.db.rtd_io import export_rtd
 from malus.harvest import HarvestResult, build_rtd
+from malus.parser import scan
 from malus.lifecycle import (
     TraceabilityReport,
     pending_for_reviewer,
@@ -76,6 +77,26 @@ def _forbid_ai_commit(by) -> None:
             "action (freeze, document edits, apply-suggs, answer/implement/finalize) "
             "is reserved to a human owner"
         )
+
+
+def _sugg_repr(old: str, new: str) -> str:
+    """Render a SUGG's operands exactly as harvest stores them in ``comment``
+    (mirrors ``harvest._render_sugg``), so a parsed block can be matched to its RID."""
+    esc = lambda s: s.replace("}", "\\}").replace('"', '\\"')  # noqa: E731
+    return f'"{esc(old)}" -> "{esc(new)}"'
+
+
+def _block_matches(block, dto) -> bool:
+    """True if a parsed copy block is the source of RID ``dto`` (same identity)."""
+    if block.kind is not dto.kind:
+        return False
+    if block.kind is Kind.COMM:
+        return (
+            block.text == dto.comment
+            and block.comment_type == dto.type
+            and block.severity == dto.severity
+        )
+    return _sugg_repr(block.old, block.new) == dto.comment
 
 
 # --------------------------------------------------------------------------- #
@@ -169,6 +190,31 @@ def export(session: Session, review: Review) -> RTD:
 # --------------------------------------------------------------------------- #
 
 
+def _purge_retracted(session: Session, review: Review) -> None:
+    """Hard-delete ``withdrawn`` RID rows that are *pristine* — retracted before
+    the owner ever engaged (no disposition/reply/resolution, not verified, no
+    linked change, not part of a cluster). A withdrawn RID that carries owner
+    history is kept (its trace cannot be erased). The pure ``build_rtd`` core still
+    only withdraws; this DB cleanup is what makes a retracted comment disappear."""
+    rows = RidRepo(session).list(review)
+    masters = {r.master_id for r in rows if r.master_id is not None}
+    for row in rows:
+        if row.status != Status.WITHDRAWN.value:
+            continue
+        pristine = (
+            not row.disposition
+            and not row.reply
+            and not row.resolution
+            and row.verified_by_id is None
+            and row.master_id is None
+            and row.id not in masters
+            and not RidRepo(session).changes_for(row)
+        )
+        if pristine:
+            session.delete(row)
+    session.flush()
+
+
 def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
     baseline = VersionRepo(session).baseline(review)
     if baseline is None:
@@ -177,6 +223,7 @@ def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
     copies = {c.user.display_name: c.content for c in ReviewerCopyRepo(session).list(review)}
     result = build_rtd(baseline.content, existing.meta, copies, existing=existing)
     sync_rtd_to_review(session, review, result.rtd)
+    _purge_retracted(session, review)
     AuditRepo(session).log(
         action="harvest",
         target=f"review:{review.review_id_str}",
@@ -184,6 +231,33 @@ def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
         detail={"rids": len(result.rtd.rids), "violations": len(result.violations)},
     )
     return result
+
+
+def retract_comment(session: Session, review: Review, rid_id: str, *, by=None):
+    """Retract a reviewer's own comment: remove its block from their copy, then
+    re-harvest (→ withdraw → purge if pristine). Ownership and OPEN status are
+    enforced by the caller (the route)."""
+    row = RidRepo(session).get(review, rid_id)
+    if row is None:
+        raise ValueError(f"no such RID: {rid_id}")
+    copy = next(
+        (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == row.reviewer_id),
+        None,
+    )
+    if copy is not None:
+        dto = _find(export_rtd(session, review), rid_id)
+        target = next((b for b in scan(copy.content) if _block_matches(b, dto)), None)
+        if target is not None:
+            new_content = copy.content[: target.start] + copy.content[target.end :]
+            add_reviewer_copy(
+                session,
+                review,
+                row.reviewer.display_name,
+                new_content,
+                submitted=copy.submitted_at is not None,
+            )
+    harvest(session, review, by=by)
+    AuditRepo(session).log(action="retract_comment", target=f"rid:{rid_id}", actor=by)
 
 
 def triage(

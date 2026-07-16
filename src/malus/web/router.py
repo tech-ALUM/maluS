@@ -362,6 +362,26 @@ def discard_draft(review_id: str, rid: str, request: Request, session: Session =
     return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
 
 
+@web.post("/ui/reviews/{review_id}/rids/{rid}/retract")
+def retract_comment(review_id: str, rid: str, request: Request, session: Session = Depends(get_session)):
+    """A reviewer retracts their OWN comment: it is removed from their copy and,
+    if pristine (never disposed), hard-deleted. Reviewer-only, own, OPEN only."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    row = RidRepo(session).get(review, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
+    role = authz.review_role(session, review, user)
+    if role != Role.REVIEWER.value or row.reviewer_id != user.id:
+        raise HTTPException(status_code=403, detail="you may only retract your own comment")
+    if row.status != Status.OPEN.value:
+        raise HTTPException(status_code=409, detail="only an open comment can be retracted")
+    svc.retract_comment(session, review, rid, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
 # --------------------------------------------------------------------------- #
 # editor: reviewer copy (Step 6) and owner implementation
 # --------------------------------------------------------------------------- #

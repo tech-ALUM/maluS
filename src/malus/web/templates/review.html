@@ -18,8 +18,27 @@
   {% if role == 'owner' or user.is_admin %}<a class="btn danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>{% endif %}
 </p>
 
-<div class="rtd-layout">
-<div class="rtd-main">
+<aside class="subm-panel" aria-label="Reviewer submissions">
+  <h2 class="cp-title">Submissions <span class="badge">{{ subm_done }}/{{ subm_total }} submitted</span></h2>
+  <ul class="subm-list">
+    {% for s in submissions %}
+    <li class="subm-item">
+      <span class="subm-name">{{ s.name }}</span>
+      <span class="subm-state subm-{{ s.state|replace(' ', '-') }}">{{ s.state }}</span>
+    </li>
+    {% else %}
+    <li class="muted">No reviewers assigned yet.</li>
+    {% endfor %}
+  </ul>
+  {% if subm_total %}
+    {% if all_submitted %}
+    <p class="subm-note ok">All reviewers have submitted — you can proceed with disposition.</p>
+    {% else %}
+    <p class="subm-note wait">Waiting for {{ subm_total - subm_done }} reviewer{{ '' if (subm_total - subm_done) == 1 else 's' }}.</p>
+    {% endif %}
+  {% endif %}
+</aside>
+
 <section class="dash">
   <div class="metric"><b>{{ total }}</b><span>findings</span></div>
   {% for s, n in counts_status.items() %}
@@ -59,36 +78,13 @@
       <td>{{ r.severity.value if r.severity else '' }}</td>
       <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></td>
       <td>{{ r.disposition.value if r.disposition else '' }}</td>
-      <td class="cmt">{{ (r.comment or '')|truncate(64) }}</td>
+      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if role == 'reviewer' and r.reviewer == user.display_name and r.status.value == 'open' %} <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Delete your comment {{ r.rid }}? This cannot be undone.')"><button class="linkbtn retract-btn" title="Delete my comment">✕ delete</button></form>{% endif %}</td>
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">No findings match.</td></tr>
   {% endfor %}
   </tbody>
 </table>
-</div>
-
-<aside class="subm-panel" aria-label="Reviewer submissions">
-  <h2 class="cp-title">Submissions <span class="badge">{{ subm_done }}/{{ subm_total }} submitted</span></h2>
-  <ul class="subm-list">
-    {% for s in submissions %}
-    <li class="subm-item">
-      <span class="subm-name">{{ s.name }}</span>
-      <span class="subm-state subm-{{ s.state|replace(' ', '-') }}">{{ s.state }}</span>
-    </li>
-    {% else %}
-    <li class="muted">No reviewers assigned yet.</li>
-    {% endfor %}
-  </ul>
-  {% if subm_total %}
-    {% if all_submitted %}
-    <p class="subm-note ok">All reviewers have submitted — you can proceed with disposition.</p>
-    {% else %}
-    <p class="subm-note wait">Waiting for {{ subm_total - subm_done }} reviewer{{ '' if (subm_total - subm_done) == 1 else 's' }}.</p>
-    {% endif %}
-  {% endif %}
-</aside>
-</div>
 
 <script>
   function malusCopyLink(btn) {
