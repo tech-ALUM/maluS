@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.9.0 — 2026-07-16 (ALUM brand refresh)
+
+- **GUI refreshed to the ALUM brand** — a cohesive visual pass with every
+  function unchanged. The three brand fonts (Space Grotesk, Inter, JetBrains
+  Mono) are now **vendored and served locally** (no runtime CDN), so the app
+  renders in the real brand type instead of system fallbacks; colour tokens are
+  aligned to the locked ALUM palette (plus soft tints, radius, shadow); the
+  topbar carries the **ALUM mark** and a coral rule; tables, buttons, cards, and
+  callouts are refined to the brand. Applied in the shared stylesheet + shell, so
+  it lands on every page. No schema change.
+
 ## v1.8.0 — 2026-07-16 (reviewer comment retraction + submissions panel placement)
 
 - **Retract a comment**: a reviewer can remove their own comment — from the
