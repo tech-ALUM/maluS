@@ -33,8 +33,10 @@ every review, incl. closure, since v1.10).
 
 ## Conventions
 
-- Python 3.12+, PyYAML, Typer. GUI: single-file vanilla HTML/JS in
-  `gui/rtd.html` (no build step, no CDN at runtime — vendor libraries inline).
+- Python 3.12+, PyYAML, Typer, FastAPI/SQLModel (ADR 0002). GUI: server-side
+  Jinja + vanilla JS (`src/malus/web/`), no build step, no CDN at runtime —
+  front-end libraries are vendored (htmx, marked, DOMPurify — ADR 0003).
+  `gui/rtd.html` is the legacy v0 single-file GUI.
 - Tests: pytest in `tests/`, run with `python -m pytest -q`. Every step's
   DoD requires a green suite.
 - Commits: Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
@@ -45,8 +47,9 @@ every review, incl. closure, since v1.10).
 
 ## Layout
 
-- `src/malus/` — package; CLI entry point `malus`
-- `gui/rtd.html` — RTD GUI (loads/saves `rtd.yaml` via File System Access API)
+- `src/malus/` — package; CLI entry point `malus`; web GUI under
+  `src/malus/web/` (templates + static, unified document viewer since v2)
+- `gui/rtd.html` — legacy v0 RTD GUI (kept for reference)
 - `tests/` — pytest suite with fixture documents under `tests/fixtures/`
 - `docs/plan/` — the plan; `docs/adr/` + `docs/spec/` — decisions & specs
 

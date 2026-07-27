@@ -26,16 +26,16 @@ verification pass.
 
 ## Deliverables
 
-- [ ] `docs/brand/logo-prompt.md` written (English prompt, ALUM palette
+- [x] `docs/brand/logo-prompt.md` written (English prompt, ALUM palette
       hex, mark + lockup variants, light/ink backgrounds, 24 px legibility,
       SVG-friendly).
-- [ ] ADR 0003 committed.
-- [ ] Spec/README/CHANGELOG/CLAUDE.md updated; version bumped to 2.0.0.
-- [ ] Full `python -m pytest -q` green from a clean checkout state.
-- [ ] Final browser pass across the whole flow (login → create review →
+- [x] ADR 0003 committed.
+- [x] Spec/README/CHANGELOG/CLAUDE.md updated; version bumped to 2.0.0.
+- [x] Full `python -m pytest -q` green from a clean checkout state.
+- [x] Final browser pass across the whole flow (login → create review →
       comment as two reviewers → transfer ownership → dispose inline →
       implement → verify → focus links) on the dev preview.
-- [ ] Commit `chore(release): v2.0.0` and tag `v2.0.0`.
+- [x] Commit `chore(release): v2.0.0` and tag `v2.0.0`.
 
 ## Definition of Done
 

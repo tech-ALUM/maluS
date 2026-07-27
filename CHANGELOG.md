@@ -1,5 +1,49 @@
 # Changelog
 
+## v2.0.0 — 2026-07-27 (unified document viewer, ownership transfer, app shell)
+
+- **Save draft / Submit are fast now.** The freeze validation and the
+  offset mapping ran a character-level `difflib.SequenceMatcher` over the
+  whole document — once as a pre-check plus twice per reviewer copy on every
+  save (measured: **40.8 s for a single pass on a 60 KB document**). Replaced
+  by a linear two-pointer alignment with identical acceptance semantics
+  (proven by equivalence tests against a difflib oracle): validate + map on a
+  **300 KB** document now takes **93 ms**.
+- **Unified document viewer** at `/ui/reviews/{id}/document` — one page for
+  every role. The baseline renders fully (GFM tables, fences, lists —
+  Obsidian-like; marked v12 + newly vendored **DOMPurify 3.2.7**, ADR 0003)
+  with **everyone's comments as markers colored per reviewer** (deterministic
+  palette + legend, shared with the RTD table chips). Markers are injected as
+  invisible text sentinels before parsing, so a comment inside a table or
+  code fence no longer breaks rendering. Reviewers keep their selection
+  popover, private notes, and Save/Submit workflow (server contract
+  unchanged); the **owner dispositions inline** from each comment card (AI
+  proposals with confirm/discard included); verify/reopen/retract appear per
+  capability. The old `edit-copy` editor is deleted; its URL redirects.
+- **Finding = focus mode, dual panel always** — `/document?focus=<RID>`
+  scrolls to the anchor, expands the card (full detail + disposition form)
+  and dims other markers. The standalone finding page is deleted;
+  `/rids/{rid}` redirects, dashboard rows deep-link, and every action
+  redirects back to focus. A comment is never shown without the document.
+- **Ownership is visible and transferable** — owner chip in the reviews list
+  and dashboard header; a *Transfer ownership* section in Members (current
+  owner or admin) with the transferrer choosing the ex-owner's fate:
+  **removed** or **demoted to reviewer** (never auto-moderator). Human-only
+  target, audit-logged. Closure invariant unchanged.
+- **ALUM app-shell redesign** — sidebar navigation (workspace + per-review
+  context), organic components (radii, layered shadows, micro-transitions
+  with `prefers-reduced-motion` support), card-based review list, filter
+  toolbar, sticky-header RTD table, SVG progress ring, branded login. Light
+  theme, vendored fonts, still no build step and no CDN.
+- **`anchor.offset`** (optional, additive) persisted at harvest inside
+  `anchor_json` and exported in `rtd.yaml` — pre-v2 files and rows
+  round-trip unchanged. **No schema migration in the whole release.**
+- Brand deliverable: `docs/brand/logo-prompt.md` — a ready-to-paste prompt
+  to generate the maluS product logo.
+- Breaking (UI only): `/ui/reviews/{id}/edit-copy` (GET) and
+  `/ui/reviews/{id}/rids/{rid}` now redirect to the viewer; the HTTP API is
+  unchanged.
+
 ## v1.10.0 — 2026-07-16 (admin superuser)
 
 - **A global admin now has full authority on every review** — without being a

@@ -16,7 +16,11 @@ interactively to maluS's MCP server (no paid Anthropic API on the server).
    never editing the baseline text (the *freeze rule*, enforced by the parser).
 3. **Harvest** extracts all comments into RIDs (one tracked finding each).
 4. **Triage** clusters duplicates and batch-applies mechanical suggestions.
-5. The **owner** dispositions each RID (accept / reject / defer) in the GUI.
+5. The **owner** dispositions each RID (accept / reject / defer) — from the
+   dashboard or **inline in the document viewer** (v2): one shared page where
+   everyone sees the rendered document with all comments colored per
+   reviewer, and every finding always opens **beside the document** it
+   refers to.
 6. Accepted RIDs are **implemented** in the in-browser editor, creating a new
    document version linked to the RIDs it resolves (the traceability record —
    no git needed).
@@ -41,7 +45,9 @@ profile change. Full operations guide: **[docs/ops/runbook.md](docs/ops/runbook.
 
 ## Use
 
-- Web GUI: log in, open a review, disposition/verify, edit in the browser.
+- Web GUI: log in, open a review, comment/disposition/verify in the unified
+  document viewer, implement in the browser. Ownership is transferable from
+  the Members page (owner or admin).
 - HTTP API: the same operations, typed, at `/docs` (OpenAPI). `malus serve` runs it.
 - AI reviewer (free, interactive): **[docs/usage/ai-reviewer.md](docs/usage/ai-reviewer.md)**.
 - Full walkthrough (human and AI modes): **[docs/usage.md](docs/usage.md)**.
