@@ -131,7 +131,7 @@ def _anchor(baseline: str, offset: int) -> Anchor:
         if match:
             section = match.group(1)
     quote = " ".join(before[-120:].split()) or None
-    return Anchor(section=section, quote=quote, line_hint=line_hint)
+    return Anchor(section=section, quote=quote, line_hint=line_hint, offset=offset)
 
 
 # --------------------------------------------------------------------------- #

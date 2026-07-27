@@ -30,6 +30,7 @@ rids:
       section: "3.2.1"
       quote: "…the timeout shall be configurable…"
       line_hint: 142
+      offset: 4207                       # v2, optional: baseline char offset
     kind: COMM                           # COMM | SUGG
     type: technical                      # typo | editorial | technical | process (null for SUGG)
     severity: major                      # minor | major | critical (null for SUGG)
@@ -64,7 +65,7 @@ rids:
 | `rid` | str | Stable ID `<PROJECT>-<DOC>-<NNNN>` (see §2). |
 | `reviewer` | str | Author of the finding. For a de-duplicated `SUGG`, the primary reviewer; co-authors listed in `duplicates`. |
 | `created` | date | Date the finding was first harvested. |
-| `anchor` | map | `{section, quote, line_hint}` — location context (see comment-syntax §5). Any member may be null. |
+| `anchor` | map | `{section, quote, line_hint, offset}` — location context (see comment-syntax §5). Any member may be null. `offset` (v2, **optional and additive**) is the finding's baseline **character offset**, filled at harvest and used by the document viewer to place markers; it is omitted from exports when unset, so pre-v2 files round-trip unchanged. |
 | `kind` | enum | `COMM` or `SUGG`. |
 | `type` | enum \| null | `typo` \| `editorial` \| `technical` \| `process` for a `COMM`; `null` for a `SUGG`. |
 | `severity` | enum \| null | `minor` \| `major` \| `critical` for a `COMM`; `null` for a `SUGG`. |

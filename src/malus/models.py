@@ -67,14 +67,28 @@ def _to_enum(enum_cls: type[_E], value: Any) -> _E | None:
 
 @dataclass
 class Anchor:
-    """Location context for a finding (comment-syntax.md §5)."""
+    """Location context for a finding (comment-syntax.md §5).
+
+    ``offset`` (v2) is the baseline **character offset** of the finding —
+    the coordinate the document viewer uses to place its marker. Additive
+    and optional: omitted from exports when unset, so pre-v2 ``rtd.yaml``
+    files and DB rows round-trip unchanged (``None`` on import).
+    """
 
     section: str | None = None
     quote: str | None = None
     line_hint: int | None = None
+    offset: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"section": self.section, "quote": self.quote, "line_hint": self.line_hint}
+        data: dict[str, Any] = {
+            "section": self.section,
+            "quote": self.quote,
+            "line_hint": self.line_hint,
+        }
+        if self.offset is not None:
+            data["offset"] = self.offset
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> Anchor:
@@ -83,6 +97,7 @@ class Anchor:
             section=data.get("section"),
             quote=data.get("quote"),
             line_hint=data.get("line_hint"),
+            offset=data.get("offset"),
         )
 
 
