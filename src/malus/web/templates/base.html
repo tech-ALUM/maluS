@@ -28,8 +28,8 @@
       {% if review is defined and review %}
       <span class="nav-label nav-review" title="{{ review.review_id_str }}">{{ review.review_id_str }}</span>
       <a class="nav-link{% if nav_active == 'dashboard' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}">Dashboard</a>
-      {% if role is defined and role == 'reviewer' %}
-      <a class="nav-link{% if nav_active == 'document' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}/edit-copy">Document</a>
+      {% if (role is defined and role) or user.is_admin %}
+      <a class="nav-link{% if nav_active == 'document' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}/document">Document</a>
       {% endif %}
       {% if (role is defined and role == 'owner') or user.is_admin %}
       <a class="nav-link{% if nav_active == 'members' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}/members">Members</a>

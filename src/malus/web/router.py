@@ -415,37 +415,97 @@ def _own_copy(session: Session, review, user: User):
     )
 
 
-@web.get("/ui/reviews/{review_id}/edit-copy", response_class=HTMLResponse)
-def edit_copy_page(
+def _document_context(
+    session: Session,
+    request: Request,
+    user: User,
+    review,
+    *,
+    saved: bool = False,
+    error: Optional[str] = None,
+    my_copy_override: Optional[str] = None,
+) -> dict:
+    """Template context for the unified document viewer (v2 step 4).
+
+    Any review member (or a global admin) may open it; capabilities are
+    per-role flags the JS mirrors — the server keeps enforcing them on every
+    mutation endpoint regardless."""
+    role = authz.review_role(session, review, user)
+    if role is None and not user.is_admin:
+        raise HTTPException(status_code=403, detail="only review members may open the document")
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    rtd = svc.export(session, review)
+    is_reviewer = role == Role.REVIEWER.value
+    mine = _own_copy(session, review, user) if is_reviewer else None
+    my_copy = None
+    if is_reviewer:
+        my_copy = my_copy_override or (mine.content if mine and mine.content else None) or baseline.content
+    rids = []
+    for r in rtd.rids:
+        if r.status is Status.WITHDRAWN:
+            continue  # no longer present in any copy — dashboard still lists it
+        rids.append(
+            {
+                "rid": r.rid,
+                "reviewer": r.reviewer,
+                "kind": r.kind.value,
+                "type": r.type.value if r.type else None,
+                "severity": r.severity.value if r.severity else None,
+                "status": r.status.value,
+                "disposition": r.disposition.value if r.disposition else None,
+                "comment": r.comment or "",
+                "reply": r.reply or None,
+                "resolution": r.resolution or None,
+                "aiDrafted": bool(r.ai_drafted),
+                "aiProposal": bool(r.ai_drafted and r.status is Status.OPEN),
+                "offset": r.anchor.offset,
+                "lineHint": r.anchor.line_hint,
+                "section": r.anchor.section,
+                "canVerify": _can_verify(role, user, r.reviewer),
+                "canRetract": user.is_admin
+                or (is_reviewer and r.reviewer == user.display_name and r.status is Status.OPEN),
+                "mine": r.reviewer == user.display_name,
+            }
+        )
+    data = {
+        "reviewId": review.review_id_str,
+        "role": role,
+        "isAdmin": user.is_admin,
+        "isReviewer": is_reviewer,
+        "canDispose": (role == Role.OWNER.value or user.is_admin) and not user.is_ai,
+        "me": user.display_name,
+        "baseline": baseline.content,
+        "myCopy": my_copy,
+        "mySubmitted": bool(mine and mine.submitted_at) if is_reviewer else False,
+        "reviewers": rtd.meta.reviewers,
+        "rids": rids,
+        "saved": bool(saved),
+    }
+    return {"user": user, "review": review, "role": role, "data": data, "error": error}
+
+
+@web.get("/ui/reviews/{review_id}/document", response_class=HTMLResponse)
+def document_page(
     review_id: str,
     request: Request,
     saved: bool = False,
     session: Session = Depends(get_session),
 ):
+    """The unified document viewer: every role, one page (v2 step 4)."""
     user = _current(request, session)
     if not user:
         return _LOGIN
     review = _review_or_404(session, review_id)
-    if authz.review_role(session, review, user) != Role.REVIEWER.value:
-        raise HTTPException(status_code=403, detail="only a reviewer may edit a review copy")
-    baseline = VersionRepo(session).baseline(review)
-    if baseline is None:
-        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
-    mine = _own_copy(session, review, user)
-    content = (mine.content if mine else None) or baseline.content
-    return templates.TemplateResponse(
-        request,
-        "edit_copy.html",
-        {
-            "user": user,
-            "review": review,
-            "content": content,
-            "baseline": baseline.content,
-            "error": None,
-            "saved": saved,
-            "copy": mine,
-        },
-    )
+    ctx = _document_context(session, request, user, review, saved=saved)
+    return templates.TemplateResponse(request, "document.html", ctx)
+
+
+@web.get("/ui/reviews/{review_id}/edit-copy")
+def edit_copy_redirect(review_id: str):
+    """The v1.4 reviewer editor is superseded by the unified viewer (v2)."""
+    return RedirectResponse(f"/ui/reviews/{review_id}/document", 303)
 
 
 @web.post("/ui/reviews/{review_id}/edit-copy", response_class=HTMLResponse)
@@ -468,24 +528,21 @@ def submit_copy(
     try:  # server-side freeze-rule check (authoritative) — for Save and Submit
         validate_insertion_only(baseline.content, content)
     except (FreezeViolation, ParseError) as exc:
-        return templates.TemplateResponse(
+        ctx = _document_context(
+            session,
             request,
-            "edit_copy.html",
-            {
-                "user": user,
-                "review": review,
-                "content": content,
-                "baseline": baseline.content,
-                "error": f"Rejected — freeze rule / parse: {exc}",
-            },
-            status_code=422,
+            user,
+            review,
+            error=f"Rejected — freeze rule / parse: {exc}",
+            my_copy_override=content,  # keep what they typed
         )
+        return templates.TemplateResponse(request, "document.html", ctx, status_code=422)
     submit = action == "submit"
     svc.add_reviewer_copy(session, review, user.display_name, content, submitted=submit)
     svc.harvest(session, review, by=user)  # Save or Submit re-harvests → comments show in the table
     if submit:
         return RedirectResponse(f"/ui/reviews/{review_id}", 303)
-    return RedirectResponse(f"/ui/reviews/{review_id}/edit-copy?saved=1", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?saved=1", 303)
 
 
 def _require_reviewer(session: Session, request: Request, review_id: str):

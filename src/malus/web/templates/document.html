@@ -1,36 +1,44 @@
 {% extends "base.html" %}
 {% set nav_active = 'document' %}
-{% block title %}Edit copy — {{ review.review_id_str }}{% endblock %}
+{% block title %}Document — {{ review.review_id_str }}{% endblock %}
 {% block content %}
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
-<h1>Your review copy</h1>
-<p class="muted">Select text in the sheet to add a comment. Only comments are added —
-  the baseline text is frozen; the server re-checks on save and submit.</p>
-<p class="muted copy-state">Status:
-  {% if copy and copy.submitted_at %}<b>Submitted</b>
-  {%- elif copy %}<b>Draft</b> — saved, not yet submitted
-  {%- else %}<b>Not saved yet</b>{% endif %}</p>
-{% if saved %}<p class="flash">Saved ✓ — your comments are now in the RTD table. Keep commenting, or Submit when done.</p>{% endif %}
+<h1>Document <span class="badge">{{ review.status }}</span></h1>
+{% if data.isReviewer %}
+<p class="muted">Select text in the document to add a comment — only comments are added;
+  the baseline text is frozen and the server re-checks on save and submit.</p>
+<p class="muted copy-state">Your copy:
+  {% if data.mySubmitted %}<b>Submitted</b> — you can still edit and resubmit
+  {%- elif data.saved %}<b>Draft</b> — saved, not yet submitted
+  {%- else %}<b>Draft</b>{% endif %}</p>
+{% else %}
+<p class="muted">Everyone's comments, colored per reviewer. Click a marker or a card to jump.</p>
+{% endif %}
+{% if data.saved %}<p class="flash">Saved ✓ — your comments are in the RTD table. Keep commenting, or Submit when done.</p>{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <p id="freeze-warning" class="error" hidden>You changed baseline text. Only {COMM} / {SUGG} block insertions are allowed.</p>
 
 <form method="post" action="/ui/reviews/{{ review.review_id_str }}/edit-copy" id="rev-form"
       hx-boost="false" data-review="{{ review.review_id_str }}">
-  <textarea id="content-src" name="content" hidden data-baseline="{{ baseline }}">{{ content }}</textarea>
+  <textarea id="content-src" name="content" hidden></textarea>
   <div class="workbench">
-    <div id="sheet" class="a4-sheet" aria-label="Rendered document"></div>
+    <div id="sheet" class="a4-sheet doc-sheet" aria-label="Rendered document"></div>
     <aside class="comments-panel">
+      <div id="legend" class="legend" aria-label="Reviewer colors"></div>
       <h2 class="cp-title">Comments <span id="cp-count" class="badge">0</span></h2>
       <div id="cp-list"></div>
-      <p id="cp-empty" class="muted">Select text on the left to add your first comment.</p>
+      <p id="cp-empty" class="muted">No comments yet.</p>
     </aside>
   </div>
+  {% if data.isReviewer %}
   <div class="rev-actions">
     <button type="submit" name="action" value="save" class="secondary">Save draft</button>
     <button type="submit" name="action" value="submit" class="primary">Submit copy</button>
   </div>
+  {% endif %}
 </form>
 
+{% if data.isReviewer %}
 <!-- selection → comment popover -->
 <div id="cmt-pop" class="cmt-pop" hidden>
   <div class="cmt-pop-row">
@@ -68,7 +76,10 @@
     <button type="button" id="cmt-cancel">Cancel</button>
   </div>
 </div>
+{% endif %}
 
+<script type="application/json" id="viewer-data">{{ data | tojson }}</script>
 <script src="/static/vendor/marked.min.js"></script>
-<script src="/static/reviewer-editor.js" defer></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script src="/static/document-viewer.js" defer></script>
 {% endblock %}

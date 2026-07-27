@@ -21,11 +21,11 @@ verify/reopen). Replaces the reviewer edit-copy page.
 receives the base offset), `docs/spec/rid-schema.md` (normative note:
 optional `anchor.offset`, baseline character offset, absent on pre-v2 RIDs).
 
-- [ ] Failing tests: harvest produces RIDs whose `anchor.offset` equals the
+- [x] Failing tests: harvest produces RIDs whose `anchor.offset` equals the
       block's baseline offset; `rtd.yaml` round-trip with and without
       `offset`; DB export/import preserves it; existing RIDs (no key) load
       as `None`.
-- [ ] Implement; suite green; commit
+- [x] Implement; suite green; commit
       `feat(harvest): persist anchor.offset for viewer anchoring (v2 step 4a)`.
 
 ## Part B — the viewer
@@ -88,19 +88,19 @@ reviewers:[names in stable order]}`. No new JSON API endpoints.
 
 ## Deliverables (TDD, part B)
 
-- [ ] Failing route tests: member roles + admin get 200 with correct
+- [x] Failing route tests: member roles + admin get 200 with correct
       capability flags and full RID payload; non-member 403; AI principal
       gets read-only flags (no dispose/verify capabilities in payload);
       `edit-copy` GET redirects 303 to `/document`; POST contract unchanged
       (a valid save still 303s, a freeze violation still 422s — now
       rendering `document.html`).
-- [ ] Implement route + template + JS + CSS; wire links; delete superseded
+- [x] Implement route + template + JS + CSS; wire links; delete superseded
       files.
-- [ ] Browser verification (dev preview, one user per role): tables and
+- [x] Browser verification (dev preview, one user per role): tables and
       fences render; markers colored per reviewer with legend; reviewer
       adds/edits/deletes own comment and saves fast; owner disposes inline;
       moderator verifies; AI-principal view is read-only.
-- [ ] Suite green; commit
+- [x] Suite green; commit
       `feat(web): unified document viewer — all comments, colors, inline disposition (v2 step 4)`.
 
 ## Definition of Done
@@ -122,3 +122,16 @@ suite green; no migration.
 - `src/malus/web/static/reviewer-editor.js` (parse/popover/notes logic
   carried over), `src/malus/db/rtd_io.py` (anchor_json), `_can_verify`
   in `src/malus/web/router.py:52`.
+
+## Deviations
+
+- 2026-07-27: the payload's `reviewers` list (palette/legend) is
+  `meta.reviewers` — reviewer seats only; moderators author no comments.
+- 2026-07-27: post-submit editing stays allowed (the server's upsert
+  semantics were already so — the plan's "read-only after submit" banner is
+  reduced to a "Submitted — you can still edit and resubmit" status line).
+- 2026-07-27: withdrawn RIDs are excluded from the viewer payload (their
+  text no longer exists in any copy to anchor to); the dashboard still
+  lists them.
+- 2026-07-27: dispose/verify/reopen redirects still land on the legacy
+  finding page until step 5 rewires them to focus mode (planned).

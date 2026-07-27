@@ -19,10 +19,11 @@ def _seed_frozen(mkuser, docs):
 
 def test_reviewer_editor_page_renders(mkuser, docs):
     _owner, f, _mod = _seed_frozen(mkuser, docs)
-    page = f.get(f"/ui/reviews/{R}/edit-copy")
+    # v2: edit-copy redirects to the unified viewer, which carries the sheet
+    r = f.get(f"/ui/reviews/{R}/edit-copy", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith("/document")
+    page = f.get(f"/ui/reviews/{R}/document")
     assert page.status_code == 200
-    # v1.4: rendered A4 sheet + hidden content field (no visible textarea)
-    assert "review copy" in page.text.lower()
     assert 'id="sheet"' in page.text and 'id="content-src"' in page.text
 
 
@@ -42,9 +43,12 @@ def test_reviewer_tampering_is_rejected_server_side(mkuser, docs):
     assert f.get(f"/reviews/{R}/rids").json() == []  # nothing was harvested
 
 
-def test_owner_cannot_open_reviewer_editor(mkuser, docs):
+def test_owner_sees_viewer_without_editor_form(mkuser, docs):
+    # v2: the owner opens the same document page, but gets no Save/Submit form
     owner, _f, _mod = _seed_frozen(mkuser, docs)
-    assert owner.get(f"/ui/reviews/{R}/edit-copy").status_code == 403
+    page = owner.get(f"/ui/reviews/{R}/document")
+    assert page.status_code == 200
+    assert 'name="action" value="save"' not in page.text
 
 
 def test_owner_implement_creates_version_and_links_rid(mkuser, docs):
@@ -95,7 +99,7 @@ def test_save_draft_persists_harvests_and_stays_in_editor(mkuser, docs, app):
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert "/edit-copy" in r.headers["location"]  # stays in the editor
+    assert "/document" in r.headers["location"]  # stays in the viewer
     assert _submitted_at(app) is None  # draft, not submitted
     rids = f.get(f"/reviews/{R}/rids").json()
     assert any(x["kind"] == "COMM" for x in rids)  # Save harvested → visible in the table
@@ -122,7 +126,7 @@ def test_save_draft_still_enforces_freeze_rule(mkuser, docs):
 
 def test_editor_has_save_and_submit_buttons(mkuser, docs):
     _owner, f, _mod = _seed_frozen(mkuser, docs)
-    page = f.get(f"/ui/reviews/{R}/edit-copy").text
+    page = f.get(f"/ui/reviews/{R}/document").text
     assert 'name="action" value="save"' in page
     assert 'name="action" value="submit"' in page
 
@@ -133,13 +137,13 @@ def test_editor_form_opts_out_of_hx_boost(mkuser, docs):
     # "Save draft" would wrongly submit. The form must submit natively so the
     # clicked button's value reaches the server (verified live in the browser).
     _owner, f, _mod = _seed_frozen(mkuser, docs)
-    page = f.get(f"/ui/reviews/{R}/edit-copy").text
+    page = f.get(f"/ui/reviews/{R}/document").text
     assert 'id="rev-form"' in page and 'hx-boost="false"' in page
 
 
 def test_editor_shows_saved_flash_and_draft_state(mkuser, docs):
     _owner, f, _mod = _seed_frozen(mkuser, docs)
     f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "save"})
-    page = f.get(f"/ui/reviews/{R}/edit-copy?saved=1").text
+    page = f.get(f"/ui/reviews/{R}/document?saved=1").text
     assert "Saved" in page  # the "Saved ✓" flash
     assert "Draft" in page  # the copy-state line reflects the un-submitted draft
