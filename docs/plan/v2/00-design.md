@@ -81,9 +81,11 @@ superlinear in pathological cases, more code); async background harvest
 ## 5. Anchor offsets (enabler for workstreams 4–5)
 
 **A1 — persist the baseline character offset at harvest time.**
-- New nullable column `rids.anchor_offset` (Alembic migration). `build_rtd`
-  already computes `base_off` and discards it; it now persists through
-  `sync_rtd_to_review`.
+- *(Amended 2026-07-27 at planning: no migration needed.)* `rids.anchor_json`
+  is already a JSON column serialized from `Anchor.to_dict()`, so the offset
+  becomes an optional `offset` key of the existing `Anchor` dataclass and
+  flows through DB and `rtd.yaml` additively. `build_rtd` already computes
+  `base_off` and discards it; it now persists.
 - `rtd.yaml` gains an **optional, additive** `anchor.offset` field
   (import/export lossless round-trip preserved; absent field imports as
   NULL). `docs/spec/rid-schema.md` gets a normative update.
