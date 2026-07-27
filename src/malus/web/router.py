@@ -249,29 +249,11 @@ def review_page(
     )
 
 
-@web.get("/ui/reviews/{review_id}/rids/{rid}", response_class=HTMLResponse)
-def finding_page(review_id: str, rid: str, request: Request, session: Session = Depends(get_session)):
-    user = _current(request, session)
-    if not user:
-        return _LOGIN
-    review = _review_or_404(session, review_id)
-    role = authz.review_role(session, review, user)
-    dto = next((r for r in svc.export(session, review).rids if r.rid == rid), None)
-    if dto is None:
-        raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
-    return templates.TemplateResponse(
-        request,
-        "finding.html",
-        {
-            "user": user,
-            "review": review,
-            "r": dto,
-            "role": role,
-            "can_dispose": (role == Role.OWNER.value or user.is_admin) and not user.is_ai,
-            "can_verify": _can_verify(role, user, dto.reviewer),
-            "ai_proposal": dto.ai_drafted and dto.status is Status.OPEN,
-        },
-    )
+@web.get("/ui/reviews/{review_id}/rids/{rid}")
+def finding_page(review_id: str, rid: str):
+    """The standalone finding page is superseded by the viewer's focus mode
+    (v2 step 5): the document is always shown beside the comment."""
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 # --------------------------------------------------------------------------- #
@@ -310,7 +292,7 @@ def dispose(
             session, review, rid, reply=reply or None, resolution=resolution or None,
             disposition=disp, by=user,
         )
-    return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/verify")
@@ -324,7 +306,7 @@ def verify_action(review_id: str, rid: str, request: Request, session: Session =
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     on_behalf = authz.require_verify(session, review, user, row)
     svc.verify(session, review, rid, reviewer=user.display_name, moderator=on_behalf, on=dt.date.today())
-    return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/reopen")
@@ -344,7 +326,7 @@ def reopen_action(
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     on_behalf = authz.require_verify(session, review, user, row)
     svc.reopen(session, review, rid, reviewer=user.display_name, reason=reason, moderator=on_behalf)
-    return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/discard-draft")
@@ -361,7 +343,7 @@ def discard_draft(review_id: str, rid: str, request: Request, session: Session =
     if RidRepo(session).get(review, rid) is None:
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     svc.discard_disposition_draft(session, review, rid, by=user)
-    return RedirectResponse(f"/ui/reviews/{review_id}/rids/{rid}", 303)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/retract")
@@ -424,6 +406,7 @@ def _document_context(
     saved: bool = False,
     error: Optional[str] = None,
     my_copy_override: Optional[str] = None,
+    focus: Optional[str] = None,
 ) -> dict:
     """Template context for the unified document viewer (v2 step 4).
 
@@ -444,8 +427,8 @@ def _document_context(
         my_copy = my_copy_override or (mine.content if mine and mine.content else None) or baseline.content
     rids = []
     for r in rtd.rids:
-        if r.status is Status.WITHDRAWN:
-            continue  # no longer present in any copy — dashboard still lists it
+        if r.status is Status.WITHDRAWN and r.rid != focus:
+            continue  # no longer in any copy — dashboard still lists it; keep it only when focused
         rids.append(
             {
                 "rid": r.rid,
@@ -463,6 +446,8 @@ def _document_context(
                 "offset": r.anchor.offset,
                 "lineHint": r.anchor.line_hint,
                 "section": r.anchor.section,
+                "verifiedBy": r.verified_by,
+                "verifiedOn": r.verified_on.isoformat() if r.verified_on else None,
                 "canVerify": _can_verify(role, user, r.reviewer),
                 "canRetract": user.is_admin
                 or (is_reviewer and r.reviewer == user.display_name and r.status is Status.OPEN),
@@ -482,6 +467,7 @@ def _document_context(
         "reviewers": rtd.meta.reviewers,
         "rids": rids,
         "saved": bool(saved),
+        "focus": focus,
     }
     return {"user": user, "review": review, "role": role, "data": data, "error": error}
 
@@ -491,14 +477,20 @@ def document_page(
     review_id: str,
     request: Request,
     saved: bool = False,
+    focus: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
-    """The unified document viewer: every role, one page (v2 step 4)."""
+    """The unified document viewer: every role, one page (v2 step 4).
+    ``?focus=<RID>`` opens it in focus mode — scrolled to the finding, its
+    card expanded — so a comment is never shown without the document (v2
+    step 5)."""
     user = _current(request, session)
     if not user:
         return _LOGIN
     review = _review_or_404(session, review_id)
-    ctx = _document_context(session, request, user, review, saved=saved)
+    if focus is not None and RidRepo(session).get(review, focus) is None:
+        raise HTTPException(status_code=404, detail=f"no such RID: {focus}")
+    ctx = _document_context(session, request, user, review, saved=saved, focus=focus)
     return templates.TemplateResponse(request, "document.html", ctx)
 
 

@@ -363,3 +363,11 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 .doc-sheet img { max-width: 100%; border-radius: var(--radius-sm); }
 .doc-sheet ul.contains-task-list { list-style: none; padding-left: 1.2rem; }
 .doc-sheet a { text-decoration: underline; }
+
+/* focus mode (v2 step 5): the finding is always shown beside the document */
+.focus-mode .marker { opacity: .35; }
+.focus-mode .marker.focused { opacity: 1; transform: scale(1.25); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rev-color, var(--rev-0)) 35%, transparent); }
+.cp-card.focus-card { box-shadow: 0 0 0 2px var(--teal); }
+.cp-focus-close { float: right; font-size: .74rem; color: var(--muted); }
+.cp-focus-close:hover { color: var(--coral-dark); }
+.cp-detail { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin: .1rem 0 .3rem; }

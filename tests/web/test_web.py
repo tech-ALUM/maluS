@@ -54,10 +54,10 @@ def test_dashboard_and_rtd_table_render(mkuser, docs):
 def test_disposition_and_verification_cycle_in_browser(mkuser, docs, app):
     owner, f, _mod = _seed(mkuser, docs)
 
-    # owner sees a disposition form but NOT a verify control
+    # v2: the finding opens as viewer focus mode; capabilities live in the payload
     owner_view = owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "/dispose" in owner_view
-    assert "/verify" not in owner_view  # closure authority: owner never gets a verify control
+    assert '"canDispose": true' in owner_view
+    assert '"canVerify": false' in owner_view  # closure authority: owner never gets verify
 
     # owner rejects the finding via the browser form
     r = owner.post(
@@ -67,15 +67,15 @@ def test_disposition_and_verification_cycle_in_browser(mkuser, docs, app):
     )
     assert r.status_code == 303
 
-    # the reviewer sees a verify control but NOT a disposition form
+    # the reviewer gets the verify capability but not the dispose one
     rev_view = f.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "/verify" in rev_view and "/dispose" not in rev_view
+    assert '"canVerify": true' in rev_view and '"canDispose": false' in rev_view
 
     # reviewer verifies via the browser
     r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/verify", follow_redirects=False)
     assert r.status_code == 303
     detail = f.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "verified" in detail
+    assert '"status": "verified"' in detail
 
     # audit recorded the verifier
     from sqlmodel import Session, select

@@ -515,6 +515,54 @@
     });
   }
 
+  /* ---------------- focus mode (v2 step 5) ------------------------------ */
+  function focusItem(its) {
+    if (!data.focus) return null;
+    for (var i = 0; i < its.length; i++) {
+      var it = its[i];
+      if (it.rid && it.rid.rid === data.focus) return it;
+    }
+    return null;
+  }
+  function applyFocus(its) {
+    var it = focusItem(its);
+    sheet.classList.toggle("focus-mode", !!it);
+    if (!it) return;
+    var key = it.key, r = it.rid;
+    sheet.querySelectorAll(".marker").forEach(function (m) {
+      m.classList.toggle("focused", m.getAttribute("data-key") === key);
+    });
+    var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
+    if (card) {
+      card.classList.add("focus-card");
+      var dform = card.querySelector("form.cp-dispose");
+      if (dform) dform.hidden = false;
+      var bits = [];
+      if (r.section) bits.push("§ " + r.section);
+      if (r.lineHint) bits.push("line " + r.lineHint);
+      if (r.verifiedBy) bits.push("verified by " + r.verifiedBy + (r.verifiedOn ? " on " + r.verifiedOn : ""));
+      if (r.resolution) bits.push("resolution: " + r.resolution);
+      if (bits.length) {
+        var det = document.createElement("div");
+        det.className = "cp-detail";
+        det.textContent = bits.join(" · ");
+        card.insertBefore(det, card.children[1] || null);
+      }
+      var x = document.createElement("button");
+      x.type = "button";
+      x.className = "linkbtn cp-focus-close";
+      x.textContent = "✕ exit focus";
+      x.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        data.focus = null;
+        if (window.history && history.replaceState) history.replaceState(null, "", base + "/document");
+        refresh(false);
+      });
+      card.insertBefore(x, card.firstChild);
+    }
+    setTimeout(function () { selectCard(key); }, 60);
+  }
+
   /* ---------------- init ------------------------------------------------ */
   function refresh(markDirty) {
     if (markDirty) dirty = true;
@@ -522,6 +570,7 @@
     var its = items();
     renderSheet(its);
     renderPanel(its);
+    applyFocus(its);
   }
   parseCopy();
   renderLegend();

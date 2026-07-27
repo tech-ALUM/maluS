@@ -84,16 +84,16 @@ def test_finding_shows_ai_proposal_for_human_owner(mkuser, docs):
     owner, ai, _f = _seed(mkuser, docs)
     ai.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"disposition": "accepted", "reply": "ok"})
     page = owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "AI proposal" in page  # a banner marks it as AI-drafted
-    assert "Confirm disposition" in page  # the dispose button reads "Confirm"
-    assert "/discard-draft" in page  # and a Discard control is offered
+    # v2 focus mode: the AI-proposal state travels in the viewer payload
+    assert '"aiProposal": true' in page
+    assert '"canDispose": true' in page  # the human owner may confirm/discard
 
 
 def test_ai_owner_sees_no_dispose_form(mkuser, docs):
     _owner, ai, _f = _seed(mkuser, docs)
     ai.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"disposition": "accepted"})
     page = ai.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "/dispose" not in page  # an AI co-owner can never commit from the GUI
+    assert '"canDispose": false' in page  # an AI co-owner can never commit from the GUI
 
 
 def test_human_owner_discards_ai_draft(mkuser, docs):

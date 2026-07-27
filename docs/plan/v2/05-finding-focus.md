@@ -26,14 +26,14 @@ focus mode of the step-4 viewer, not a separate page.
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: `/rids/{rid}` redirects 303 to `/document?focus=...`;
+- [x] Failing tests: `/rids/{rid}` redirects 303 to `/document?focus=...`;
       focus with unknown RID → 404; dispose/verify/reopen redirect back to
       focus mode; template payload marks the focused RID.
-- [ ] Implement; delete `finding.html`; wire dashboard links.
-- [ ] Browser verification: click a row in the RTD table → document scrolls
+- [x] Implement; delete `finding.html`; wire dashboard links.
+- [x] Browser verification: click a row in the RTD table → document scrolls
       to the anchor, card expanded; dispose from focus; verify from focus;
       deep-link URL works cold.
-- [ ] Suite green; commit
+- [x] Suite green; commit
       `feat(web): finding focus mode — dual panel everywhere (v2 step 5)`.
 
 ## Definition of Done

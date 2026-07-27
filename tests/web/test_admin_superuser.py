@@ -81,6 +81,6 @@ def test_non_admin_reviewer_still_cannot_dispose(mkuser, docs):
 def test_admin_sees_controls_on_finding_and_dashboard(mkuser, docs):
     _owner, _f, admin = _seed(mkuser, docs)
     finding = admin.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
-    assert "/dispose" in finding and "/verify" in finding  # admin gets both
+    assert '"canDispose": true' in finding and '"canVerify": true' in finding  # admin gets both
     dash = admin.get(f"/ui/reviews/{R}").text
     assert "/retract" in dash and "/reopen-submission" in dash

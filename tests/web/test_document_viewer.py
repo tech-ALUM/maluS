@@ -92,3 +92,33 @@ def test_post_contract_unchanged_and_422_renders_viewer(mkuser, docs):
     assert r.status_code == 422 and "Rejected" in r.text
     assert 'id="viewer-data"' in r.text  # the viewer page, not a bare error
     assert _payload(r.text)["myCopy"] == tampered  # typed content not lost
+
+
+# ---------------------------------------------------------------- focus mode
+
+
+def test_finding_url_redirects_to_focus(mkuser, docs):
+    owner, _f, _mod, _ai = _seed(mkuser, docs)
+    r = owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"].endswith(f"/ui/reviews/{R}/document?focus=SIN-SRS-0001")
+
+
+def test_focus_payload_and_unknown_focus_404(mkuser, docs):
+    owner, _f, _mod, _ai = _seed(mkuser, docs)
+    d = _payload(owner.get(f"/ui/reviews/{R}/document?focus=SIN-SRS-0001").text)
+    assert d["focus"] == "SIN-SRS-0001"
+    assert owner.get(f"/ui/reviews/{R}/document?focus=SIN-SRS-9999").status_code == 404
+
+
+def test_actions_redirect_back_to_focus(mkuser, docs):
+    owner, f, _mod, _ai = _seed(mkuser, docs)
+    # rejected → answered, from which the reviewer may verify directly
+    r = owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
+        data={"disposition": "rejected", "reply": "out of scope", "resolution": ""},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
+    r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/verify", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
