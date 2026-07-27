@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{% set nav_active = 'users' %}
 {% block title %}Users — maluS admin{% endblock %}
 {% block content %}
 <h1>Users</h1>
 <p class="actions"><a class="btn" href="/ui/admin/users/new">Create user</a></p>
+<div class="rtd-wrap">
 <table class="rtd">
   <thead><tr><th>username</th><th>name</th><th>kind</th><th>active</th><th>pw</th><th></th></tr></thead>
   <tbody>
@@ -37,4 +39,5 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}

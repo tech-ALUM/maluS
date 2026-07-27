@@ -7,34 +7,70 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
   <link rel="apple-touch-icon" href="/static/icon.svg">
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#FF6F61">
+  <meta name="theme-color" content="#15181D">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
 </head>
 <body hx-boost="true">
-  <header class="topbar">
-    <a class="brand" href="/ui/reviews"><img class="brand-mark" src="/static/alum-mark.svg" alt="ALUM" width="22" height="22">malu<span>S</span></a>
-    {% if user %}
-    <nav class="topnav">
-      <span class="who">{{ user.display_name }}{% if user.is_admin %} · admin{% endif %}</span>
-      {% if user.is_admin %}<a class="topnav-link" href="/ui/admin/users">Users</a>{% endif %}
-      <a class="topnav-link" href="/ui/account/password">Account</a>
-      <form method="post" action="/ui/logout" class="inline"><button class="linkbtn">Log out</button></form>
+{% if user %}
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/ui/reviews">
+      <img class="brand-mark" src="/static/alum-mark.svg" alt="ALUM" width="26" height="26">
+      <span class="brand-word">malu<span class="s">S</span></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <span class="nav-label">Workspace</span>
+      <a class="nav-link{% if nav_active == 'reviews' %} active{% endif %}" href="/ui/reviews">Reviews</a>
+      {% if user.is_admin %}
+      <a class="nav-link{% if nav_active == 'users' %} active{% endif %}" href="/ui/admin/users">Users</a>
+      {% endif %}
+      {% if review is defined and review %}
+      <span class="nav-label nav-review" title="{{ review.review_id_str }}">{{ review.review_id_str }}</span>
+      <a class="nav-link{% if nav_active == 'dashboard' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}">Dashboard</a>
+      {% if role is defined and role == 'reviewer' %}
+      <a class="nav-link{% if nav_active == 'document' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}/edit-copy">Document</a>
+      {% endif %}
+      {% if (role is defined and role == 'owner') or user.is_admin %}
+      <a class="nav-link{% if nav_active == 'members' %} active{% endif %}" href="/ui/reviews/{{ review.review_id_str }}/members">Members</a>
+      {% endif %}
+      {% endif %}
     </nav>
-    {% endif %}
-  </header>
-  <main class="wrap">
-    {% block content %}{% endblock %}
-  </main>
-  <script>
-    // Let hx-boost render 4xx responses (e.g. a failed login re-rendering with
-    // its error message) instead of silently ignoring them.
-    document.body.addEventListener("htmx:beforeSwap", function (e) {
-      if (e.detail.xhr.status >= 400 && e.detail.xhr.status < 500) {
-        e.detail.shouldSwap = true;
-        e.detail.isError = false;
-      }
-    });
-  </script>
+    <div class="sidebar-foot">
+      <span class="who">{{ user.display_name }}{% if user.is_admin %} <span class="who-admin">admin</span>{% endif %}</span>
+      <div class="sidebar-foot-links">
+        <a href="/ui/account/password">Account</a>
+        <form method="post" action="/ui/logout" class="inline"><button class="linkbtn">Log out</button></form>
+      </div>
+    </div>
+  </aside>
+  <div class="content">
+    <header class="mobile-topbar">
+      <button class="menu-toggle" aria-label="Menu" aria-controls="sidebar"
+              onclick="document.body.classList.toggle('nav-open')">☰</button>
+      <a class="brand brand-sm" href="/ui/reviews">
+        <img class="brand-mark" src="/static/alum-mark.svg" alt="ALUM" width="20" height="20">
+        <span class="brand-word">malu<span class="s">S</span></span>
+      </a>
+    </header>
+{% endif %}
+    <main class="wrap{% if not user %} auth-stage{% endif %}" id="main">
+      {% block content %}{% endblock %}
+    </main>
+{% if user %}
+  </div>
+</div>
+<div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+{% endif %}
+<script>
+  // Let hx-boost render 4xx responses (e.g. a failed login re-rendering with
+  // its error message) instead of silently ignoring them.
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
+    if (e.detail.xhr.status >= 400 && e.detail.xhr.status < 500) {
+      e.detail.shouldSwap = true;
+      e.detail.isError = false;
+    }
+  });
+</script>
 </body>
 </html>

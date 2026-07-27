@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set nav_active = 'dashboard' %}
 {% block title %}{{ review.review_id_str }} — maluS{% endblock %}
 {% block content %}
 <p class="crumb"><a href="/ui/reviews">← Reviews</a></p>
@@ -48,7 +49,14 @@
   {% for s, n in counts_status.items() %}
   <div class="metric"><b>{{ n }}</b><span>{{ s }}</span></div>
   {% endfor %}
-  <div class="metric progress"><b>{{ progress }}%</b><span>closed ({{ closed }}/{{ total }})</span></div>
+  <div class="metric progress">
+    <svg class="ring" viewBox="0 0 46 46" role="img" aria-label="{{ progress }}% closed">
+      <circle class="ring-bg" cx="23" cy="23" r="19"></circle>
+      <circle class="ring-val" cx="23" cy="23" r="19"
+              stroke-dasharray="{{ (progress * 1.194)|round(1) }} 200"></circle>
+    </svg>
+    <div><b>{{ progress }}%</b><span>closed ({{ closed }}/{{ total }})</span></div>
+  </div>
   {% if ai_proposals %}<div class="metric ai-metric"><b>{{ ai_proposals }}</b><span>AI proposals</span></div>{% endif %}
 </section>
 
@@ -67,6 +75,7 @@
   <button>Filter</button>
 </form>
 
+<div class="rtd-wrap">
 <table class="rtd">
   <thead><tr>
     <th>RID</th><th>reviewer</th><th>kind</th><th>type</th><th>sev</th>
@@ -76,7 +85,7 @@
   {% for r in rids %}
     <tr>
       <td><a href="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}">{{ r.rid }}</a>{% if r.ai_drafted and r.status.value == 'open' %} <span class="badge ai-badge">AI</span>{% endif %}</td>
-      <td>{{ r.reviewer }}</td>
+      <td><span class="rev-chip rev-{{ reviewer_names.index(r.reviewer) % 8 if r.reviewer in reviewer_names else 0 }}">{{ r.reviewer }}</span></td>
       <td>{{ r.kind.value }}</td>
       <td>{{ r.type.value if r.type else '' }}</td>
       <td>{{ r.severity.value if r.severity else '' }}</td>
@@ -89,6 +98,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 <script>
   function malusCopyLink(btn) {

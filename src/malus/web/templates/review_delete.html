@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set nav_active = 'dashboard' %}
 {% block title %}Delete {{ review.review_id_str }} — maluS{% endblock %}
 {% block content %}
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>

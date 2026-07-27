@@ -39,18 +39,18 @@ components and logo usage.
 
 ## Deliverables
 
-- [ ] Load the alum-brand-identity skill; extract exact tokens/components.
-- [ ] `base.html` shell + responsive sidebar; every template migrated
+- [x] Load the alum-brand-identity skill; extract exact tokens/components.
+- [x] `base.html` shell + responsive sidebar; every template migrated
       (login stays a centered card outside the shell, brand-marked).
-- [ ] `app.css` rewritten: tokens, shell, components (buttons, chips, pills,
+- [x] `app.css` rewritten: tokens, shell, components (buttons, chips, pills,
       forms, tables, cards, popover, flash/error), reviewer palette tokens.
-- [ ] Reviewer color chips in the RTD table (palette shared with step 4).
-- [ ] Progress ring in dashboard metrics.
-- [ ] Browser verification at desktop + mobile widths of: login, reviews
+- [x] Reviewer color chips in the RTD table (palette shared with step 4).
+- [x] Progress ring in dashboard metrics.
+- [x] Browser verification at desktop + mobile widths of: login, reviews
       list, new review, dashboard, members, edit-copy (old viewer still in
       place at this step), finding, implement, admin users, account password,
       delete confirm.
-- [ ] Suite green; commit
+- [x] Suite green; commit
       `feat(web): ALUM app-shell redesign — sidebar, organic components (v2 step 3)`.
 
 ## Definition of Done

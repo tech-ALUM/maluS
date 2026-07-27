@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% set nav_active = 'reviews' %}
 {% block title %}Reviews — maluS{% endblock %}
 {% block content %}
 <h1>Reviews</h1>
 <p class="actions"><a class="btn" href="/ui/reviews/new">New review</a></p>
 {% if not rows %}
-<p class="muted">No reviews yet.</p>
+<div class="empty">
+  <span class="empty-mark">📄</span>
+  No reviews yet — create the first one and freeze its baseline.
+</div>
 {% else %}
 <ul class="reviews">
   {% for row in rows %}
