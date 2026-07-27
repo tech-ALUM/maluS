@@ -57,18 +57,18 @@ Tail: leftover non-ws on either side → violation; finally
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests first (`tests/test_harvest_perf.py`):
+- [x] Failing tests first (`tests/test_harvest_perf.py`):
       equivalence vs the difflib behavior on a generated corpus — documents
       with tables/fences/unicode; ws-only perturbations (accepted); real text
       edits, deletions, reorders (rejected, correct line); block-stripped
       copies from real `{COMM}/{SUGG}` insertions (accepted); plus mapping
       invariants (r2b monotone, equal-char positions map exactly).
-- [ ] Perf guard test: a ~300 KB baseline with 20 inserted blocks validates +
+- [x] Perf guard test: a ~300 KB baseline with 20 inserted blocks validates +
       maps in < 1.0 s (generous bound; the old code takes far longer).
-- [ ] Implement `_align_ws`; rewire `validate_insertion_only` / `_build_r2b`;
+- [x] Implement `_align_ws`; rewire `validate_insertion_only` / `_build_r2b`;
       delete the two SequenceMatcher usages (import stays only if still used
       elsewhere in the file — it is not).
-- [ ] Full suite green; commit
+- [x] Full suite green; commit
       `perf(harvest): linear freeze validation and offset mapping (v2 step 1)`.
 
 ## Definition of Done

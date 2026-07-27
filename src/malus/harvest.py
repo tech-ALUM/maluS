@@ -12,7 +12,6 @@ objects. The DB-backed orchestration lives in ``malus.services`` (v1);
 
 from __future__ import annotations
 
-import difflib
 import re
 from dataclasses import dataclass, field
 
@@ -62,6 +61,45 @@ def _remove_spans(text: str, spans: list[tuple[int, int]]) -> str:
     return "".join(out)
 
 
+def _align_ws(baseline: str, residue: str) -> list[int]:
+    """Align residue to baseline tolerating only whitespace differences — O(n).
+
+    Returns ``r2b`` (length ``len(residue) + 1``) mapping each residue offset
+    to its baseline offset, with ``r2b[len(residue)] == len(baseline)``.
+    Raises :class:`FreezeViolation` at the first non-whitespace mismatch
+    (a residue is valid iff it equals the baseline after removing every
+    whitespace character — the freeze rule D1). Replaces the two char-level
+    difflib passes of v1 (v2 step 1).
+    """
+    nb, nr = len(baseline), len(residue)
+    r2b = [0] * (nr + 1)
+    i = j = 0
+
+    def _violate() -> None:
+        line = baseline[:i].count("\n") + 1
+        raise FreezeViolation(f"non-comment change at baseline line {line}", line)
+
+    while j < nr:
+        ch = residue[j]
+        if i < nb and baseline[i] == ch:
+            r2b[j] = i
+            i += 1
+            j += 1
+        elif ch.isspace():
+            r2b[j] = i if i < nb else nb
+            j += 1
+        elif i < nb and baseline[i].isspace():
+            i += 1
+        else:
+            _violate()
+    while i < nb:  # leftover baseline must be pure whitespace
+        if not baseline[i].isspace():
+            _violate()
+        i += 1
+    r2b[nr] = nb
+    return r2b
+
+
 def validate_insertion_only(baseline: str, copy: str) -> list[ParsedBlock]:
     """Return the copy's comment blocks, or raise if it edits baseline text.
 
@@ -70,13 +108,7 @@ def validate_insertion_only(baseline: str, copy: str) -> list[ParsedBlock]:
     """
     blocks = scan(copy)
     residue = _remove_spans(copy, [(b.start, b.end) for b in blocks])
-    matcher = difflib.SequenceMatcher(a=baseline, b=residue, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            continue
-        if baseline[i1:i2].strip() or residue[j1:j2].strip():
-            line = baseline[:i1].count("\n") + 1
-            raise FreezeViolation(f"non-comment change at baseline line {line}", line)
+    _align_ws(baseline, residue)
     return blocks
 
 
@@ -87,17 +119,7 @@ def validate_insertion_only(baseline: str, copy: str) -> list[ParsedBlock]:
 
 def _build_r2b(baseline: str, residue: str) -> list[int]:
     """Map each residue offset to its baseline offset (residue ⊇ baseline + ws)."""
-    r2b = [0] * (len(residue) + 1)
-    matcher = difflib.SequenceMatcher(a=baseline, b=residue, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            for off in range(j1, j2):
-                r2b[off] = i1 + (off - j1)
-        else:
-            for off in range(j1, j2):
-                r2b[off] = i1
-    r2b[len(residue)] = len(baseline)
-    return r2b
+    return _align_ws(baseline, residue)
 
 
 def _anchor(baseline: str, offset: int) -> Anchor:
