@@ -283,6 +283,51 @@ def reopen_submission(session: Session, review: Review, reviewer_name: str, *, b
     return copy
 
 
+def transfer_ownership(
+    session: Session, review: Review, new_owner: User, old_owner_fate: str, *, by: User
+) -> Review:
+    """Transfer primary ownership to ``new_owner`` (v2 step 2).
+
+    The transferrer chose the ex-owner's fate: ``"remove"`` (drop their
+    membership) or ``"reviewer"`` (demote — from then on they may verify,
+    legitimately: they are no longer the owner). The target must be an
+    active **human** account. Route-level authorization (current owner or
+    global admin) mirrors the members page; the AI guard is re-checked here
+    (defense-in-depth: transfer is a committing owner action).
+    """
+    _forbid_ai_commit(by)
+    if old_owner_fate not in ("remove", "reviewer"):
+        raise ValueError(f"invalid owner fate: {old_owner_fate!r} (use remove or reviewer)")
+    if new_owner.is_ai:
+        raise ValueError("primary ownership is human — an AI principal cannot own a review")
+    if not new_owner.is_active:
+        raise ValueError(f"inactive account: {new_owner.username!r}")
+    if review.owner_id == new_owner.id:
+        raise ValueError(f"{new_owner.display_name} already owns this review")
+    reviews = ReviewRepo(session)
+    old_owner = session.get(User, review.owner_id)
+    review.owner_id = new_owner.id
+    session.add(review)
+    session.flush()
+    reviews.set_member_role(review, new_owner, Role.OWNER.value)
+    if old_owner is not None:
+        if old_owner_fate == "remove":
+            reviews.remove_member(review, old_owner)
+        else:
+            reviews.set_member_role(review, old_owner, Role.REVIEWER.value)
+    AuditRepo(session).log(
+        action="transfer_ownership",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={
+            "from": old_owner.display_name if old_owner else None,
+            "to": new_owner.display_name,
+            "old_owner_fate": old_owner_fate,
+        },
+    )
+    return review
+
+
 def triage(
     session: Session,
     review: Review,

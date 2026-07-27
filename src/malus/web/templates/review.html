@@ -3,8 +3,11 @@
 {% block content %}
 <p class="crumb"><a href="/ui/reviews">← Reviews</a></p>
 <h1>{{ review.review_id_str }} <span class="badge">{{ review.status }}</span></h1>
-<p class="muted">Owner {{ owner }} · Reviewers {{ reviewers|join(', ') or '—' }} · Your role:
-  {% if role %}<span class="role role-{{ role }}">{{ role }}</span>{% else %}—{% endif %}</p>
+<p class="review-meta">
+  <span class="owner-chip" title="Review owner">owner: <b>{{ owner }}</b></span>
+  <span class="muted">· Reviewers {{ reviewers|join(', ') or '—' }} · Your role:
+  {% if role %}<span class="role role-{{ role }}">{{ role }}</span>{% else %}—{% endif %}</span>
+</p>
 {% if role == 'reviewer' %}
 <div class="cta-banner">
   <span>You're a <b>reviewer</b> on this document — add your comments in your own copy.</span>

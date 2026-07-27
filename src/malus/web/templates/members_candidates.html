@@ -4,7 +4,7 @@
   {% for c in candidates %}
   <li>
     <button type="button" class="candidate" data-username="{{ c.username }}"
-            onclick="malusPickCandidate(this)">
+            onclick="{{ pick_fn|default('malusPickCandidate') }}(this)">
       {{ c.display_name }} <span class="muted">@{{ c.username }}</span>
     </button>
   </li>

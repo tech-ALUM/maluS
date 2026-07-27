@@ -246,8 +246,9 @@ def _can_manage_members(session: Session, review, user: User) -> bool:
 
 def _is_primary_owner(review, account: User) -> bool:
     """The user carried by ``Review.owner_id`` — the owner that drives
-    disposition attribution and must never be demoted/removed (a review always
-    keeps at least this owner; ownership transfer is a separate, future action)."""
+    disposition attribution and must never be demoted/removed from the members
+    table directly; ownership moves only through the transfer action
+    (``POST /ui/reviews/{id}/transfer-owner``, v2 step 2)."""
     return review.owner_id is not None and review.owner_id == account.id
 
 
@@ -294,12 +295,50 @@ def members_submit(
     return RedirectResponse(f"/ui/reviews/{review_id}/members", 303)
 
 
+@accounts.post("/ui/reviews/{review_id}/transfer-owner")
+def transfer_owner_submit(
+    review_id: str,
+    request: Request,
+    username: str = Form(...),
+    fate: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    """Transfer primary ownership (v2 step 2). Current owner or admin only;
+    the ``fate`` field decides whether the ex-owner is removed or demoted to
+    reviewer."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_manage_members(session, review, user):
+        raise HTTPException(
+            status_code=403, detail="only the owner or an admin may transfer ownership"
+        )
+    account = session.exec(select(User).where(User.username == username)).first()
+    if account is None:
+        raise HTTPException(status_code=422, detail=f"unknown account: {username!r}")
+    try:
+        svc.transfer_ownership(session, review, account, fate, by=user)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    # land on the dashboard: after giving ownership away the transferrer may
+    # no longer be allowed to see the members page (fate=remove/reviewer)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
 @accounts.get("/ui/reviews/{review_id}/members/search", response_class=HTMLResponse)
 def members_search(
-    review_id: str, request: Request, q: str = "", session: Session = Depends(get_session)
+    review_id: str,
+    request: Request,
+    q: str = "",
+    mode: str = "",
+    session: Session = Depends(get_session),
 ):
-    """HTMX typeahead: existing **active** accounts not already on the review,
-    matched case-insensitively on username / display name."""
+    """HTMX typeahead over existing **active** accounts, matched
+    case-insensitively on username / display name. Default mode lists
+    non-members (the reviewer picker); ``mode=transfer`` lists eligible new
+    owners instead — humans only, members included, current owner excluded
+    (v2 step 2)."""
     user = _current(request, session)
     if not user:
         return _LOGIN
@@ -309,15 +348,25 @@ def members_search(
     member_ids = {m.user_id for m in ReviewRepo(session).members(review)}
     needle = q.strip().lower()
     everyone = session.exec(select(User).order_by(User.display_name)).all()
+
+    def eligible(u: User) -> bool:
+        if mode == "transfer":
+            return u.is_active and not u.is_ai and u.id != review.owner_id
+        return u.is_active and u.id not in member_ids
+
     candidates = [
         u
         for u in everyone
-        if u.is_active
-        and u.id not in member_ids
+        if eligible(u)
         and (not needle or needle in u.username.lower() or needle in u.display_name.lower())
     ][:20]
     return templates.TemplateResponse(
-        request, "members_candidates.html", {"candidates": candidates}
+        request,
+        "members_candidates.html",
+        {
+            "candidates": candidates,
+            "pick_fn": "malusPickTransfer" if mode == "transfer" else "malusPickCandidate",
+        },
     )
 
 

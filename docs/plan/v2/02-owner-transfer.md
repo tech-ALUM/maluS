@@ -44,21 +44,21 @@ global admin transfer ownership. The transferrer chooses the ex-owner's fate:
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: owner can transfer; admin can transfer; reviewer /
+- [x] Failing tests: owner can transfer; admin can transfer; reviewer /
       moderator / non-member → 403-equivalent error; AI actor refused; AI or
       inactive target → error; self-transfer → error; fate `remove` deletes
       membership; fate `reviewer` leaves reviewer role; `Review.owner_id` and
       member rows consistent after transfer; audit row written; rtd export's
       `meta.owner` reflects the new owner.
-- [ ] Implement service + route + templates.
-- [ ] Owner chip in `reviews.html` rows and prominent owner block in
+- [x] Implement service + route + templates.
+- [x] Owner chip in `reviews.html` rows and prominent owner block in
       `review.html` header (uses `review.owner.display_name`).
-- [ ] Members page section (owner/admin only): user picker reusing the
+- [x] Members page section (owner/admin only): user picker reusing the
       existing members search, fate radio (`remove` / `reviewer`), JS
       `confirm()` before POST, redirect back to members with the new state.
-- [ ] Browser check via dev preview: transfer as owner, verify chip/header
+- [x] Browser check via dev preview: transfer as owner, verify chip/header
       change and ex-owner fate.
-- [ ] Suite green; commit
+- [x] Suite green; commit
       `feat(review): visible + transferable ownership (v2 step 2)`.
 
 ## Definition of Done
@@ -77,3 +77,13 @@ with both fates; every negative case rejected server-side; suite green.
 - `00-design.md` §4; decision table §2 (Alberto, 2026-07-27).
 - `src/malus/db/models.py` (Review.owner_id, ReviewMember),
   `src/malus/api/authz.py`, `src/malus/web/accounts.py` (members routes).
+
+## Deviations
+
+- 2026-07-27: the transfer UI uses the HTMX typeahead (``mode=transfer`` on the
+  members search: humans only, members included, current owner excluded)
+  instead of a plain select — a full account dropdown polluted the page text
+  and does not scale.
+- 2026-07-27: after the transfer the route redirects to the review dashboard,
+  not the members page — with fate ``remove``/``reviewer`` the transferrer may
+  no longer be authorized to view members (found in browser verification).

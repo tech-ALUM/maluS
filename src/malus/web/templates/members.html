@@ -66,12 +66,45 @@
   </form>
 </section>
 
+<section class="card transfer">
+  <h2>Transfer ownership</h2>
+  <p class="muted">The new owner takes over dispositions and implementation.
+    You decide what happens to the current owner.</p>
+  <label>Search the new owner
+    <input type="text" id="transfer-search" autocomplete="off" name="q"
+           placeholder="type a name or username…"
+           hx-get="/ui/reviews/{{ review.review_id_str }}/members/search?mode=transfer"
+           hx-trigger="keyup changed delay:200ms, focus"
+           hx-target="#transfer-candidates"
+           onkeydown="if (event.key === 'Enter') event.preventDefault();">
+  </label>
+  <div id="transfer-candidates" class="candidates-box"></div>
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/transfer-owner" class="stack"
+        onsubmit="return document.getElementById('transfer-username').value !== '' &&
+                  confirm('Transfer ownership of {{ review.review_id_str }}?')">
+    <input type="hidden" name="username" id="transfer-username">
+    <p id="transfer-chosen" class="muted">No account selected.</p>
+    <fieldset class="fate">
+      <legend>The current owner becomes</legend>
+      <label><input type="radio" name="fate" value="reviewer" checked> a reviewer on this review</label>
+      <label><input type="radio" name="fate" value="remove"> removed from the review</label>
+    </fieldset>
+    <button class="danger" type="submit">Transfer ownership</button>
+  </form>
+</section>
+
 <script>
   function malusPickCandidate(btn) {
     document.getElementById("member-username").value = btn.dataset.username;
     document.getElementById("member-chosen").textContent = "Selected: " + btn.textContent.trim();
     document.getElementById("candidates").innerHTML = "";
     document.getElementById("member-search").value = "";
+  }
+  function malusPickTransfer(btn) {
+    document.getElementById("transfer-username").value = btn.dataset.username;
+    document.getElementById("transfer-chosen").textContent = "New owner: " + btn.textContent.trim();
+    document.getElementById("transfer-candidates").innerHTML = "";
+    document.getElementById("transfer-search").value = "";
   }
 </script>
 {% endblock %}
