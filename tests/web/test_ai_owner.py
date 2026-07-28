@@ -117,7 +117,7 @@ def test_dashboard_flags_ai_proposals(mkuser, docs):
     owner, ai, _f = _seed(mkuser, docs)
     ai.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"disposition": "accepted"})
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "AI proposals" in page  # dashboard tile counting pending proposals
+    assert "AI proposal" in page  # metrics-strip badge ("1 AI proposal", v2.2)
 
 
 # --- an AI co-owner may only DRAFT; it never mutates review CONTENT --------- #

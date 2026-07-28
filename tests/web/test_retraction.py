@@ -98,5 +98,5 @@ def test_table_shows_retract_only_on_own_open_comment(mkuser, docs):
 def test_submissions_panel_is_above_the_table(mkuser, docs):
     owner, _f, _r = _seed(mkuser, docs)
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "subm-panel" in page and 'class="rtd"' in page
-    assert page.index("subm-panel") < page.index('class="rtd"')  # panel first
+    assert "subm-line" in page and 'class="rtd"' in page  # slim row since v2.2
+    assert page.index("subm-line") < page.index('class="rtd"')  # submissions first

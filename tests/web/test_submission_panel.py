@@ -38,12 +38,12 @@ def test_panel_shows_each_reviewer_state_and_count(mkuser, docs):
     r.post(f"/ui/reviews/{R}/edit-copy", data={"content": COPY_R, "action": "save"})
 
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "1/3 submitted" in page  # only F is submitted
+    assert "1/3" in page  # only F is submitted (slim badge, v2.2)
     # all three reviewers appear with a state pill
     assert "submitted" in page and "draft" in page and "not started" in page
     # soft indicator: still waiting, nothing is blocked
-    assert "Waiting for 2" in page
-    assert "All reviewers have submitted" not in page
+    assert "waiting for 2" in page
+    assert "all submitted" not in page
 
 
 def test_panel_all_submitted_notice(mkuser, docs):
@@ -51,9 +51,9 @@ def test_panel_all_submitted_notice(mkuser, docs):
     for c in (f, r, t):
         c.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "3/3 submitted" in page
-    assert "All reviewers have submitted" in page
-    assert "Waiting for" not in page
+    assert "3/3" in page
+    assert "all submitted ✓" in page
+    assert "waiting for" not in page
 
 
 def test_panel_soft_gate_does_not_block_disposition(mkuser, docs):
