@@ -39,6 +39,25 @@
   </tbody>
 </table>
 
+<section class="card roles-legend">
+  <h2>What each role can do</h2>
+  <ul class="roles-list">
+    <li><span class="role role-owner">owner</span> Owns the document: freezes the
+      baseline, <b>answers findings</b> (dispose / reply / resolution), implements
+      accepted ones. Does <b>not</b> add comments and can <b>never</b> verify or
+      close a finding.</li>
+    <li><span class="role role-reviewer">reviewer</span> Reviews the document:
+      <b>adds comments</b> in their own copy, submits it, and — closure authority —
+      <b>verifies</b> their own findings once addressed.</li>
+    <li><span class="role role-moderator">moderator</span> Steers the process:
+      harvest/triage and <b>verify/reopen on a reviewer's behalf</b>. Authors no
+      comments, takes no dispositions.</li>
+  </ul>
+  <p class="muted">One role per person per review — the formal flow keeps document
+    author and reviewers separate. A global admin passes every gate (but an AI
+    principal never verifies or commits, regardless of role).</p>
+</section>
+
 <section class="card picker">
   <h2>Add a reviewer</h2>
   <label>Search accounts

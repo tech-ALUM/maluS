@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.0.1 — 2026-07-28 (stale-cache fix: broken UI on Safari/Opera)
+
+- **Fix: v2 looked broken on browsers that cached the v1.9 stylesheet.**
+  `/static` was served without `Cache-Control`, so HTTP *heuristic caching*
+  let Safari/Opera reuse the old `app.css` without revalidating — the new
+  app-shell markup rendered unstyled. Static responses now carry
+  `Cache-Control: no-cache` (every use revalidates; unchanged files are a
+  cheap ETag 304) **and** CSS/JS URLs are version-busted (`?v=2.0.1`), which
+  also heals browsers that already hold the stale copy. Users who still see
+  the old look need one normal reload, not a hard refresh.
+- Fallbacks for `color-mix()` (marker fill/glow) on Safari < 16.2 /
+  Opera < 97.
+
 ## v2.0.0 — 2026-07-27 (unified document viewer, ownership transfer, app shell)
 
 - **Save draft / Submit are fast now.** The freeze validation and the
