@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.0 — 2026-07-28 (decluttered dashboard, chip filters, admin purge)
+
+- **Dashboard decluttered** — one primary action ("Implement accepted
+  findings", shown only when there is work to implement), the rest in a
+  compact "⋯" menu; the duplicate Members button is gone (sidebar has it);
+  the seven metric cards become one strip: progress ring + findings count +
+  **non-zero** status pills only; submissions on a single line.
+- **Filters are multi-select chips** — every facet (status, reviewer, type,
+  severity, disposition) is a row of toggle chips; each chip is a plain
+  link that adds/removes its value from the query string
+  (`?status=open&status=answered`), so filters combine and URLs are
+  shareable. The dropdowns are gone.
+- **Withdrawn hidden by default** — the RTD table omits withdrawn findings
+  unless the "withdrawn (N)" chip (or any explicit status filter) selects
+  them.
+- **Admin purge** — normal deletion still withdraws an acted-upon comment
+  (v1.8); a **human global admin** can now "Purge permanently" from the
+  viewer card (double confirmation): the RID and its traceability links are
+  removed; the `purge_rid` audit row (with the comment text) is the only
+  remaining trace.
+
 ## v2.1.0 — 2026-07-28 (viewer UX, member colors, md upload)
 
 - **Focus is click-driven** — click a comment (marker or card) to focus it,

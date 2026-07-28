@@ -18,14 +18,14 @@
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: withdrawn rows absent by default and present with
+- [x] Failing tests: withdrawn rows absent by default and present with
       `?status=withdrawn`; multi-select works (`?status=open&status=answered`
       shows both, others excluded); combined facets AND together; chips
       carry toggle hrefs (active chip's href removes its value); Implement
       button only with accepted+answered findings; Members button gone.
-- [ ] Implement route + template + CSS.
-- [ ] Browser verification: declutter layout, chip toggling, withdrawn flow.
-- [ ] Suite green.
+- [x] Implement route + template + CSS.
+- [x] Browser verification: declutter layout, chip toggling, withdrawn flow.
+- [x] Suite green.
 
 ## Definition of Done
 

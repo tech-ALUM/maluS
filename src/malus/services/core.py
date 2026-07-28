@@ -283,6 +283,35 @@ def reopen_submission(session: Session, review: Review, reviewer_name: str, *, b
     return copy
 
 
+def purge_rid(session: Session, review: Review, rid_id: str, *, by: User) -> None:
+    """PERMANENTLY remove a finding (v2.2) — an advanced admin action.
+
+    Normal deletion keeps the v1.8 semantics (pristine → hard-delete,
+    acted-upon → ``withdrawn``); purge erases the RID and its traceability
+    links regardless of status. The route gates on a human global admin;
+    re-checked here (defense-in-depth). The ``purge_rid`` audit row — with
+    the comment text — is the only remaining trace."""
+    if by is None or not getattr(by, "is_admin", False) or getattr(by, "is_ai", False):
+        raise ClosureAuthorityError("only a human global admin may purge a comment permanently")
+    row = RidRepo(session).get(review, rid_id)
+    if row is None:
+        raise ValueError(f"no such RID: {rid_id}")
+    for change in session.exec(select(RidChange).where(RidChange.rid_id == row.id)).all():
+        session.delete(change)
+    for dup in session.exec(select(RID).where(RID.master_id == row.id)).all():
+        dup.master_id = None
+        session.add(dup)
+    session.flush()
+    detail = {
+        "reviewer": row.reviewer.display_name if row.reviewer else None,
+        "comment": row.comment,
+        "status": row.status,
+    }
+    session.delete(row)
+    session.flush()
+    AuditRepo(session).log(action="purge_rid", target=f"rid:{rid_id}", actor=by, detail=detail)
+
+
 def transfer_ownership(
     session: Session, review: Review, new_owner: User, old_owner_fate: str, *, by: User
 ) -> Review:

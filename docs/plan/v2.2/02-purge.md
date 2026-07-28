@@ -16,13 +16,13 @@
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: admin purges an acted-upon (answered/withdrawn) RID —
+- [x] Failing tests: admin purges an acted-upon (answered/withdrawn) RID —
       row gone from table, payload and API; audit `purge_rid` written with
       the comment text; owner/reviewer/moderator/AI get 403; unknown RID 404;
       a duplicate pointing at the purged master survives with master cleared.
-- [ ] Implement service + route + JS.
-- [ ] Browser verification: purge a withdrawn comment via chip → focus → purge.
-- [ ] Suite green.
+- [x] Implement service + route + JS.
+- [x] Browser verification: purge a withdrawn comment via chip → focus → purge.
+- [x] Suite green.
 
 ## Definition of Done
 

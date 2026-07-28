@@ -13,7 +13,9 @@ import datetime as dt
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
@@ -196,16 +198,38 @@ async def new_review_submit(
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
+_FACET_VALUES = {
+    "status": ["open", "answered", "implemented", "verified", "withdrawn"],
+    "type": ["typo", "editorial", "technical", "process"],
+    "severity": ["minor", "major", "critical"],
+    "disposition": ["accepted", "rejected", "deferred"],
+}
+_FACET_ORDER = ("status", "reviewer", "type", "severity", "disposition")
+
+
+def _toggle_href(selected: dict[str, list[str]], facet: str, value: str) -> str:
+    """The chip's link: same page with `value` toggled in `facet` (v2.2)."""
+    params = {k: list(vs) for k, vs in selected.items()}
+    vals = params.get(facet, [])
+    if value in vals:
+        vals.remove(value)
+    else:
+        vals.append(value)
+    params[facet] = vals
+    pairs = [(k, v) for k in _FACET_ORDER for v in params.get(k, [])]
+    return "?" + urlencode(pairs) if pairs else "?"
+
+
 @web.get("/ui/reviews/{review_id}", response_class=HTMLResponse)
 def review_page(
     review_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    status: Optional[str] = None,
-    reviewer: Optional[str] = None,
-    type: Optional[str] = None,
-    severity: Optional[str] = None,
-    disposition: Optional[str] = None,
+    status: list[str] = Query(default=[]),
+    reviewer: list[str] = Query(default=[]),
+    type: list[str] = Query(default=[]),
+    severity: list[str] = Query(default=[]),
+    disposition: list[str] = Query(default=[]),
 ):
     user = _current(request, session)
     if not user:
@@ -214,24 +238,39 @@ def review_page(
     role = authz.review_role(session, review, user)
     rtd = svc.export(session, review)
 
-    filters = {
-        "status": status,
-        "reviewer": reviewer,
-        "type": type,
-        "severity": severity,
-        "disposition": disposition,
+    selected = {
+        "status": [s for s in status if s],
+        "reviewer": [s for s in reviewer if s],
+        "type": [s for s in type if s],
+        "severity": [s for s in severity if s],
+        "disposition": [s for s in disposition if s],
     }
 
     def keep(r) -> bool:
+        if selected["status"]:
+            if r.status.value not in selected["status"]:
+                return False
+        elif r.status is Status.WITHDRAWN:
+            return False  # hidden by default (v2.2) — the chip re-includes them
         return (
-            (not status or r.status.value == status)
-            and (not reviewer or r.reviewer == reviewer)
-            and (not type or (r.type.value if r.type else "") == type)
-            and (not severity or (r.severity.value if r.severity else "") == severity)
-            and (not disposition or (r.disposition.value if r.disposition else "") == disposition)
+            (not selected["reviewer"] or r.reviewer in selected["reviewer"])
+            and (not selected["type"] or (r.type.value if r.type else "") in selected["type"])
+            and (not selected["severity"] or (r.severity.value if r.severity else "") in selected["severity"])
+            and (
+                not selected["disposition"]
+                or (r.disposition.value if r.disposition else "") in selected["disposition"]
+            )
         )
 
     rids = [r for r in rtd.rids if keep(r)]
+    facet_values = dict(_FACET_VALUES, reviewer=rtd.meta.reviewers)
+    chips = {
+        facet: [
+            {"value": v, "active": v in selected[facet], "href": _toggle_href(selected, facet, v)}
+            for v in values
+        ]
+        for facet, values in ((f, facet_values[f]) for f in _FACET_ORDER)
+    }
     counts_status = {s.value: sum(1 for r in rtd.rids if r.status is s) for s in Status}
     closed = counts_status[Status.VERIFIED.value] + counts_status[Status.WITHDRAWN.value]
     total = len(rtd.rids)
@@ -264,7 +303,12 @@ def review_page(
             "closed": closed,
             "total": total,
             "progress": round(100 * closed / total) if total else 0,
-            "filters": filters,
+            "chips": chips,
+            "accepted_waiting": sum(
+                1
+                for r in rtd.rids
+                if r.disposition is Disposition.ACCEPTED and r.status is Status.ANSWERED
+            ),
             "reviewer_names": rtd.meta.reviewers,
             "submissions": submissions,
             "subm_done": subm_done,
@@ -370,6 +414,22 @@ def discard_draft(review_id: str, rid: str, request: Request, session: Session =
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     svc.discard_disposition_draft(session, review, rid, by=user)
     return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/rids/{rid}/purge")
+def purge_action(review_id: str, rid: str, request: Request, session: Session = Depends(get_session)):
+    """PERMANENTLY remove a finding — human global admin only (v2.2)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not user.is_admin or user.is_ai:
+        raise HTTPException(status_code=403, detail="only a human global admin may purge a comment")
+    try:
+        svc.purge_rid(session, review, rid, by=user)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/retract")
@@ -493,6 +553,7 @@ def _document_context(
                 "canVerify": _can_verify(role, user, r.reviewer),
                 "canRetract": user.is_admin
                 or (is_reviewer and r.reviewer == user.display_name and r.status is Status.OPEN),
+                "canPurge": user.is_admin and not user.is_ai,
                 "mine": r.reviewer == user.display_name,
             }
         )

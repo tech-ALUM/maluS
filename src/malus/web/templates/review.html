@@ -15,15 +15,23 @@
   <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/document">Add your comments</a>
 </div>
 {% endif %}
+{% if role == 'owner' or user.is_admin %}
 <p class="actions">
-  {% if role == 'owner' or user.is_admin %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings</a>{% endif %}
-  {% if role == 'owner' or user.is_admin %}<a class="btn" href="/ui/reviews/{{ review.review_id_str }}/members">Members</a>{% endif %}
-  {% if role == 'owner' or user.is_admin %}<button type="button" class="btn secondary" id="copy-link" data-path="/ui/reviews/{{ review.review_id_str }}" onclick="malusCopyLink(this)">Copy review link</button>{% endif %}
-  {% if role == 'owner' or user.is_admin %}<a class="btn danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>{% endif %}
+  {% if accepted_waiting %}
+  <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings ({{ accepted_waiting }})</a>
+  {% endif %}
+  <details class="menu">
+    <summary aria-label="More actions">⋯</summary>
+    <div class="menu-items">
+      <button type="button" class="linkbtn" id="copy-link" data-path="/ui/reviews/{{ review.review_id_str }}" onclick="malusCopyLink(this)">Copy review link</button>
+      <a class="menu-danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>
+    </div>
+  </details>
 </p>
+{% endif %}
 
-<aside class="subm-panel" aria-label="Reviewer submissions">
-  <h2 class="cp-title">Submissions <span class="badge">{{ subm_done }}/{{ subm_total }} submitted</span></h2>
+<div class="subm-line" aria-label="Reviewer submissions">
+  <span class="subm-label">Submissions <span class="badge">{{ subm_done }}/{{ subm_total }}</span></span>
   <ul class="subm-list">
     {% for s in submissions %}
     <li class="subm-item">
@@ -35,45 +43,37 @@
     <li class="muted">No reviewers assigned yet.</li>
     {% endfor %}
   </ul>
-  {% if subm_total %}
-    {% if all_submitted %}
-    <p class="subm-note ok">All reviewers have submitted — you can proceed with disposition.</p>
-    {% else %}
-    <p class="subm-note wait">Waiting for {{ subm_total - subm_done }} reviewer{{ '' if (subm_total - subm_done) == 1 else 's' }}.</p>
-    {% endif %}
+  {% if subm_total and not all_submitted %}
+  <span class="subm-note wait">waiting for {{ subm_total - subm_done }}</span>
+  {% elif subm_total %}
+  <span class="subm-note ok">all submitted ✓</span>
   {% endif %}
-</aside>
+</div>
 
-<section class="dash">
-  <div class="metric"><b>{{ total }}</b><span>findings</span></div>
-  {% for s, n in counts_status.items() %}
-  <div class="metric"><b>{{ n }}</b><span>{{ s }}</span></div>
+<section class="metrics-strip" aria-label="Findings metrics">
+  <svg class="ring" viewBox="0 0 46 46" role="img" aria-label="{{ progress }}% closed">
+    <circle class="ring-bg" cx="23" cy="23" r="19"></circle>
+    <circle class="ring-val" cx="23" cy="23" r="19"
+            stroke-dasharray="{{ (progress * 1.194)|round(1) }} 200"></circle>
+  </svg>
+  <span class="ms-progress"><b>{{ progress }}%</b> closed ({{ closed }}/{{ total }})</span>
+  <span class="ms-count"><b>{{ total }}</b> findings</span>
+  {% for s, n in counts_status.items() if n %}
+  <span class="st st-{{ s }}{% if s == 'withdrawn' %} ms-muted{% endif %}">{{ n }} {{ s }}</span>
   {% endfor %}
-  <div class="metric progress">
-    <svg class="ring" viewBox="0 0 46 46" role="img" aria-label="{{ progress }}% closed">
-      <circle class="ring-bg" cx="23" cy="23" r="19"></circle>
-      <circle class="ring-val" cx="23" cy="23" r="19"
-              stroke-dasharray="{{ (progress * 1.194)|round(1) }} 200"></circle>
-    </svg>
-    <div><b>{{ progress }}%</b><span>closed ({{ closed }}/{{ total }})</span></div>
-  </div>
-  {% if ai_proposals %}<div class="metric ai-metric"><b>{{ ai_proposals }}</b><span>AI proposals</span></div>{% endif %}
+  {% if ai_proposals %}<span class="badge ai-badge">{{ ai_proposals }} AI proposal{{ '' if ai_proposals == 1 else 's' }}</span>{% endif %}
 </section>
 
-<form method="get" class="filters">
-  {% for field, opts in [
-      ('status', ['open','answered','implemented','verified','withdrawn']),
-      ('reviewer', reviewer_names),
-      ('type', ['typo','editorial','technical','process']),
-      ('severity', ['minor','major','critical']),
-      ('disposition', ['accepted','rejected','deferred']) ] %}
-  <select name="{{ field }}">
-    <option value="">{{ field }}: all</option>
-    {% for o in opts %}<option value="{{ o }}" {% if filters[field]==o %}selected{% endif %}>{{ o }}</option>{% endfor %}
-  </select>
+<nav class="chips" aria-label="Filters">
+  {% for facet, items in chips.items() %}
+  <span class="chip-group">
+    <span class="chip-label">{{ facet }}</span>
+    {%- for c in items %}
+    <a class="chip-filter{% if c.active %} active{% endif %}" href="{{ c.href }}">{{ c.value }}{% if facet == 'status' and c.value == 'withdrawn' and counts_status['withdrawn'] %} ({{ counts_status['withdrawn'] }}){% endif %}</a>
+    {%- endfor %}
+  </span>
   {% endfor %}
-  <button>Filter</button>
-</form>
+</nav>
 
 <div class="rtd-wrap">
 <table class="rtd">

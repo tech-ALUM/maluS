@@ -360,9 +360,22 @@
       retract.addEventListener("click", function (ev) {
         ev.stopPropagation();
         post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {},
-          "Delete comment " + r.rid + "? This cannot be undone.");
+          "Delete comment " + r.rid + "? An acted-upon comment becomes withdrawn.");
       });
       actions.appendChild(retract);
+    }
+    if (r && r.canPurge) { // v2.2: admin-only permanent removal, double confirm
+      var purge = document.createElement("button");
+      purge.type = "button";
+      purge.className = "danger cp-purge";
+      purge.textContent = "Purge permanently";
+      purge.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (!window.confirm("PERMANENTLY remove " + r.rid + "? It disappears from the review and the RTD.")) return;
+        if (!window.confirm("Really purge " + r.rid + "? Only the audit log will keep a trace. This cannot be undone.")) return;
+        post(base + "/rids/" + encodeURIComponent(r.rid) + "/purge", {});
+      });
+      actions.appendChild(purge);
     }
     if (actions.childNodes.length) card.appendChild(actions);
 

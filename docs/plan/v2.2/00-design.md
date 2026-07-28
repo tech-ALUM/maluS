@@ -1,9 +1,8 @@
 # maluS v2.2 — Design (validated)
 
-**Status:** approved by Alberto Boffi, 2026-07-28 — **NOT implemented**:
-Alberto deferred execution to the v3 cycle (new session, 2026-07-28). The
-design below is validated and ready to be folded into the v3 plan. No
-schema change, no migration.
+**Status:** approved by Alberto Boffi, 2026-07-28; briefly deferred, then
+**implemented and released as v2.2.0 in the same session** on Alberto's
+request. No schema change, no migration.
 
 ## Decisions
 

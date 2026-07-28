@@ -2,8 +2,8 @@
 
 ## Deliverables
 
-- [ ] CHANGELOG v2.2.0; bump `pyproject.toml` + `__init__.py` → 2.2.0.
-- [ ] Full suite green; commit; tag `v2.2.0`; push main + tag.
+- [x] CHANGELOG v2.2.0; bump `pyproject.toml` + `__init__.py` → 2.2.0.
+- [x] Full suite green; commit; tag `v2.2.0`; push main + tag.
 
 ## Definition of Done
 
