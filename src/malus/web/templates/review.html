@@ -64,16 +64,57 @@
   {% if ai_proposals %}<span class="badge ai-badge">{{ ai_proposals }} AI proposal{{ '' if ai_proposals == 1 else 's' }}</span>{% endif %}
 </section>
 
-<nav class="chips" aria-label="Filters">
-  {% for facet, items in chips.items() %}
-  <span class="chip-group">
-    <span class="chip-label">{{ facet }}</span>
-    {%- for c in items %}
-    <a class="chip-filter{% if c.active %} active{% endif %}" href="{{ c.href }}">{{ c.value }}{% if facet == 'status' and c.value == 'withdrawn' and counts_status['withdrawn'] %} ({{ counts_status['withdrawn'] }}){% endif %}</a>
-    {%- endfor %}
+<div class="filter-bar" aria-label="Filters">
+  <form method="get" class="filter-builder">
+    {% for t in tokens %}<input type="hidden" name="f" value="{{ t.facet }}:{{ 'eq' if t.op == '=' else ('ne' if t.op == '≠' else 'contains') }}:{{ t.value }}">{% endfor %}
+    <select name="facet" id="flt-facet">
+      {% for fct in ['status','reviewer','type','severity','disposition','comment'] %}
+      <option value="{{ fct }}">{{ fct }}</option>
+      {% endfor %}
+    </select>
+    <select name="op" id="flt-op">
+      <option value="eq">=</option>
+      <option value="ne">≠</option>
+    </select>
+    <span id="flt-values">
+      {% for fct, opts in filter_options.items() %}
+      <select data-facet="{{ fct }}" {% if not loop.first %}hidden disabled{% endif %} {% if loop.first %}name="value"{% endif %}>
+        {% for o in opts %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+      </select>
+      {% endfor %}
+      <input type="text" data-facet="comment" placeholder="text to search…" hidden disabled>
+    </span>
+    <button class="secondary">Add filter</button>
+  </form>
+  {% if tokens %}
+  <span class="tokens">
+    {% for t in tokens %}
+    <span class="token"><b>{{ t.facet }}</b> {{ t.op }} {{ t.value }} <a class="token-x" href="{{ t.remove_href }}" title="Remove this filter">×</a></span>
+    {% endfor %}
+    <a class="token-clear" href="?">clear all</a>
   </span>
-  {% endfor %}
-</nav>
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var facet = document.getElementById("flt-facet");
+    var op = document.getElementById("flt-op");
+    var holder = document.getElementById("flt-values");
+    function sync() {
+      var isComment = facet.value === "comment";
+      op.innerHTML = isComment ? '<option value="contains">contains</option>'
+        : '<option value="eq">=</option><option value="ne">≠</option>';
+      holder.querySelectorAll("select, input").forEach(function (el) {
+        var on = el.getAttribute("data-facet") === facet.value;
+        el.hidden = !on;
+        el.disabled = !on;
+        if (on) el.setAttribute("name", "value"); else el.removeAttribute("name");
+      });
+    }
+    facet.addEventListener("change", sync);
+    sync();
+  })();
+</script>
 
 <div class="rtd-wrap">
 <table class="rtd">
@@ -91,7 +132,7 @@
       <td>{{ r.severity.value if r.severity else '' }}</td>
       <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></td>
       <td>{{ r.disposition.value if r.disposition else '' }}</td>
-      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if (role == 'reviewer' and r.reviewer == user.display_name and r.status.value == 'open') or user.is_admin %} <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Delete comment {{ r.rid }}? This cannot be undone.')"><button class="linkbtn retract-btn" title="Delete comment">✕ delete</button></form>{% endif %}</td>
+      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if (role == 'reviewer' and r.reviewer == user.display_name and r.status.value == 'open') or user.is_admin %} <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="linkbtn retract-btn" title="Withdraw comment">✕ withdraw</button></form>{% endif %}</td>
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">No findings match.</td></tr>

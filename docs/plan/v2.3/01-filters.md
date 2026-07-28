@@ -11,13 +11,13 @@
 - Test: rewrite `tests/web/test_filters.py`.
 
 ## Deliverables (TDD)
-- [ ] Tests: OR within field (`f=status:eq:open&f=status:eq:answered`), AND
+- [x] Tests: OR within field (`f=status:eq:open&f=status:eq:answered`), AND
       across fields, `ne` excludes, `comment contains` matches
       case-insensitive, withdrawn hidden unless `status:eq:withdrawn`,
       builder GET → 303 canonical, token remove hrefs drop one condition,
       malformed `f` ignored (no 500).
-- [ ] Implement + browser verification.
-- [ ] Suite green.
+- [x] Implement + browser verification.
+- [x] Suite green.
 
 ## DoD
 Complex simultaneous filters expressible and shareable; no dropdown-only

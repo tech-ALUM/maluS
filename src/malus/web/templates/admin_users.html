@@ -5,20 +5,21 @@
 <h1>Users</h1>
 <p class="actions"><a class="btn" href="/ui/admin/users/new">Create user</a></p>
 <div class="rtd-wrap">
-<table class="rtd">
-  <thead><tr><th>username</th><th>name</th><th>kind</th><th>active</th><th>pw</th><th>color</th><th></th></tr></thead>
+<table class="rtd users-table">
+  <thead><tr><th>account</th><th>status</th><th>color</th><th>actions</th></tr></thead>
   <tbody>
   {% for u in users %}
     <tr>
-      <td class="cmt">{{ u.username }}</td>
-      <td>{{ u.display_name }}</td>
-      <td>
+      <td class="user-cell">
+        <span class="user-name">{{ u.display_name }}</span>
+        <span class="muted user-handle">@{{ u.username }}</span>
+      </td>
+      <td class="status-cell">
         {% if u.is_admin %}<span class="role role-owner">admin</span>{% endif %}
         {% if u.is_ai %}<span class="role role-moderator">AI</span>{% endif %}
-        {% if not u.is_admin and not u.is_ai %}<span class="muted">user</span>{% endif %}
+        {% if u.is_active %}<span class="st st-verified">active</span>{% else %}<span class="st st-withdrawn">disabled</span>{% endif %}
+        {% if u.must_change_password %}<span class="st st-open">pw change</span>{% endif %}
       </td>
-      <td>{% if u.is_active %}<span class="st st-verified">active</span>{% else %}<span class="st st-withdrawn">disabled</span>{% endif %}</td>
-      <td>{% if u.must_change_password %}<span class="st st-open">must change</span>{% endif %}</td>
       <td class="color-cell">
         <form method="post" action="/ui/admin/users/{{ u.username }}/color" class="inline color-form">
           <input type="color" name="color" value="{{ u.color or '#8a929c' }}"
@@ -32,21 +33,26 @@
         </form>
         {% endif %}
       </td>
-      <td>
-        <div class="row">
-          {% if u.is_active %}
-          <form method="post" action="/ui/admin/users/{{ u.username }}/deactivate" class="inline"><button>Disable</button></form>
-          {% else %}
-          <form method="post" action="/ui/admin/users/{{ u.username }}/activate" class="inline"><button>Enable</button></form>
-          {% endif %}
-          <form method="post" action="/ui/admin/users/{{ u.username }}/reset-password" class="inline">
-            <input name="password" type="text" placeholder="new temp password" required>
-            <button>Reset pw</button>
-          </form>
-          {% if u.id != user.id %}
-          <a class="btn danger" href="/ui/admin/users/{{ u.username }}/delete">Delete</a>
-          {% endif %}
-        </div>
+      <td class="actions-cell">
+        {% if u.is_active %}
+        <form method="post" action="/ui/admin/users/{{ u.username }}/deactivate" class="inline"><button class="compact">Disable</button></form>
+        {% else %}
+        <form method="post" action="/ui/admin/users/{{ u.username }}/activate" class="inline"><button class="compact">Enable</button></form>
+        {% endif %}
+        {% if u.id != user.id %}
+        <a class="btn danger compact" href="/ui/admin/users/{{ u.username }}/delete">Delete</a>
+        {% endif %}
+        <details class="menu">
+          <summary aria-label="More actions for {{ u.username }}">⋯</summary>
+          <div class="menu-items">
+            <form method="post" action="/ui/admin/users/{{ u.username }}/reset-password" class="stack menu-form">
+              <label>New temporary password
+                <input name="password" type="text" required>
+              </label>
+              <button class="secondary">Reset password</button>
+            </form>
+          </div>
+        </details>
       </td>
     </tr>
   {% endfor %}

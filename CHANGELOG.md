@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.3.0 — 2026-07-28 (filter builder, admin withdraw/purge pair, color fixes)
+
+- **Filter builder with operators** — the chips are gone: pick a field
+  (status, reviewer, type, severity, disposition, **comment**), an operator
+  (`=`, `≠`, `contains` for comment text) and a value; conditions stack as
+  removable tokens. Fields AND together, repeated `=` on one field is OR,
+  `≠` always excludes. URLs stay shareable (`?f=status:eq:open`); works
+  without JavaScript. Withdrawn stay hidden unless `status = withdrawn` is
+  active.
+- **Dispose only on open findings** — "Change disposition" is removed; an
+  answered finding is changed through the formal reopen (back to open, the
+  Dispose button returns). The history timeline keeps recording everything.
+- **Withdraw + Purge, an admin pair** — the card's "✕ delete" link becomes
+  a proper **Withdraw** button (amber) with the same visual weight as
+  **Purge permanently** (red); both admin-only in the card. Reviewers keep
+  managing their own comments from the editor; the RTD-table control is
+  relabeled "withdraw" (unchanged v1.8 rules). The owner sees neither.
+- **Comment colors are never overridden** — hover, selection ring and
+  focus glow now use the reviewer's own color; the pink hover, the teal
+  focus ring and the teal SUGG border are gone.
+- **Users page fits the viewport** — account/status/color/actions columns
+  restructured (reset-password inside a "⋯" menu): no horizontal scroll
+  down to 1024 px.
+
 ## v2.2.0 — 2026-07-28 (decluttered dashboard, chip filters, admin purge)
 
 - **Dashboard decluttered** — one primary action ("Implement accepted

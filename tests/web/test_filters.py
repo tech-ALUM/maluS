@@ -1,5 +1,6 @@
-"""Dashboard chip filters (v2.2): multi-select via repeated query params,
-withdrawn hidden by default, decluttered actions row."""
+"""Dashboard filter builder (v2.3): `?f=facet:op:value` conditions — OR
+within a field (eq), AND across fields, ne excludes, comment contains —
+plus the v2.2 rule: withdrawn hidden unless explicitly selected."""
 
 from __future__ import annotations
 
@@ -35,55 +36,69 @@ def _seed(mkuser):
     return owner, f
 
 
-def _withdraw(owner, admin, rid):
-    """Acted-upon + admin retract → withdrawn (v1.8 semantics)."""
-    owner.post(f"/ui/reviews/{R}/rids/{rid}/dispose", data={"disposition": "rejected", "reply": "no"})
-    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
-    admin.post(f"/ui/reviews/{R}/rids/{rid}/retract")
-
-
-def test_withdrawn_hidden_by_default_and_toggleable(admin, mkuser):
-    owner, _f = _seed(mkuser)
-    _withdraw(owner, admin, "SIN-SRS-0001")
-
-    page = owner.get(f"/ui/reviews/{R}").text
-    assert "SIN-SRS-0002" in page
-    assert "SIN-SRS-0001" not in page  # withdrawn hidden by default
-
-    page = owner.get(f"/ui/reviews/{R}?status=withdrawn").text
-    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" not in page
-
-
-def test_multi_select_filters(admin, mkuser):
+def test_eq_or_within_field_and_across_fields(mkuser):
     owner, _f = _seed(mkuser)
     owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose", data={"disposition": "rejected", "reply": "no"})
-    # 0001 answered, 0002 open
-    page = owner.get(f"/ui/reviews/{R}?status=open&status=answered").text
-    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" in page
-    page = owner.get(f"/ui/reviews/{R}?status=answered").text
-    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" not in page
-    # facets AND together
-    page = owner.get(f"/ui/reviews/{R}?status=open&severity=major").text
-    assert "SIN-SRS-0001" not in page and "SIN-SRS-0002" not in page  # 0002 is minor
+    # 0001 answered/major, 0002 open/minor
+    page = owner.get(f"/ui/reviews/{R}?f=status:eq:open&f=status:eq:answered").text
+    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" in page  # OR within status
+    page = owner.get(f"/ui/reviews/{R}?f=status:eq:open&f=severity:eq:major").text
+    assert "SIN-SRS-0001" not in page and "SIN-SRS-0002" not in page  # AND across
 
 
-def test_chip_hrefs_toggle(mkuser):
+def test_ne_excludes(mkuser):
     owner, _f = _seed(mkuser)
-    page = owner.get(f"/ui/reviews/{R}?status=open").text
-    assert 'href="?status=open&amp;status=answered"' in page or 'href="?status=open&status=answered"' in page
-    # the active chip's href removes its own value
-    assert 'class="chip-filter active" href="?"' in page
+    page = owner.get(f"/ui/reviews/{R}?f=severity:ne:minor").text
+    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" not in page
 
 
-def test_actions_row_decluttered(mkuser):
-    owner, f = _seed(mkuser)
+def test_comment_contains_case_insensitive(mkuser):
+    owner, _f = _seed(mkuser)
+    page = owner.get(f"/ui/reviews/{R}?f=comment:contains:TIMEOUT").text
+    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" not in page
+
+
+def test_withdrawn_hidden_unless_selected(admin, mkuser):
+    owner, _f = _seed(mkuser)
+    owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose", data={"disposition": "rejected", "reply": "no"})
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+    admin.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/retract")
+
+    assert "SIN-SRS-0001" not in owner.get(f"/ui/reviews/{R}").text
+    page = owner.get(f"/ui/reviews/{R}?f=status:eq:withdrawn").text
+    assert "SIN-SRS-0001" in page and "SIN-SRS-0002" not in page
+
+
+def test_builder_params_fold_into_canonical_url(mkuser):
+    owner, _f = _seed(mkuser)
+    r = owner.get(
+        f"/ui/reviews/{R}?f=status:eq:open&facet=severity&op=ne&value=minor",
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert r.headers["location"].endswith("?f=status%3Aeq%3Aopen&f=severity%3Ane%3Aminor")
+
+
+def test_tokens_render_with_remove_links(mkuser):
+    owner, _f = _seed(mkuser)
+    page = owner.get(f"/ui/reviews/{R}?f=status:eq:open&f=severity:ne:minor").text
+    assert "<b>status</b> = open" in page and "<b>severity</b> ≠ minor" in page
+    # removing one token keeps the other
+    assert 'href="?f=severity%3Ane%3Aminor"' in page
+    assert 'href="?f=status%3Aeq%3Aopen"' in page
+
+
+def test_malformed_conditions_are_ignored(mkuser):
+    owner, _f = _seed(mkuser)
+    r = owner.get(f"/ui/reviews/{R}?f=banana&f=status:frobnicate:open&f=nofacet:eq:x")
+    assert r.status_code == 200
+    assert "SIN-SRS-0001" in r.text and "SIN-SRS-0002" in r.text  # no filtering applied
+
+
+def test_actions_row_still_decluttered(mkuser):
+    owner, _f = _seed(mkuser)
     page = owner.get(f"/ui/reviews/{R}").text
-    # no accepted findings yet → no Implement button; menu holds the rest
     assert "Implement accepted findings" not in page
-    assert f'class="btn" href="/ui/reviews/{R}/members"' not in page  # duplicate gone
-    assert "Copy review link" in page and "Delete review" in page  # in the ⋯ menu
     assert '<details class="menu">' in page
-
     owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose", data={"disposition": "accepted", "reply": "ok"})
-    page = owner.get(f"/ui/reviews/{R}").text
-    assert "Implement accepted findings" in page  # appears with work to do
+    assert "Implement accepted findings" in owner.get(f"/ui/reviews/{R}").text

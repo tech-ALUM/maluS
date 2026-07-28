@@ -259,9 +259,8 @@ blockquote { margin: .3rem 0; padding: .65rem 1rem; background: var(--card); bor
 .comments-panel { position: sticky; top: 1rem; }
 .cp-title { margin: 0 0 .6rem; }
 .cp-card { border: 1px solid var(--line); border-left: 3px solid var(--coral); border-radius: var(--radius-sm); padding: .55rem .7rem; margin-bottom: .5rem; background: var(--card); cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--speed), box-shadow var(--speed); }
-.cp-card:hover { border-color: var(--coral); box-shadow: var(--shadow-lift); }
-.cp-card.active { box-shadow: 0 0 0 2px var(--coral); }
-.cp-card.sugg { border-left-color: var(--teal); }
+.cp-card:hover { border-color: var(--rev-color, var(--coral)); box-shadow: var(--shadow-lift); }
+.cp-card.active { box-shadow: 0 0 0 2px var(--rev-color, var(--coral)); }
 .cp-card .cp-body { font-size: .9rem; }
 .cp-card .cp-quote { color: var(--muted); font-size: .78rem; font-style: italic; margin: .15rem 0; }
 .cp-card .cp-meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
@@ -371,7 +370,10 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 @supports (background: color-mix(in srgb, red 50%, white)) {
   .focus-mode .marker.focused { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rev-color, var(--rev-0)) 35%, transparent); }
 }
-.cp-card.focus-card { box-shadow: 0 0 0 2px var(--teal); }
+.cp-card.focus-card { box-shadow: 0 0 0 2px var(--rev-color, var(--coral)); background: #fff; }
+@supports (background: color-mix(in srgb, red 50%, white)) {
+  .cp-card.focus-card { background: color-mix(in srgb, var(--rev-color, var(--coral)) 7%, #fff); }
+}
 .cp-focus-close { float: right; font-size: .74rem; color: var(--muted); }
 .cp-focus-close:hover { color: var(--coral-dark); }
 .cp-detail { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin: .1rem 0 .3rem; }
@@ -433,3 +435,33 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 .chip-filter { font-size: .8rem; padding: .16rem .6rem; border: 1px solid var(--line); border-radius: var(--radius-pill); background: #fff; color: var(--muted); transition: border-color var(--speed), background var(--speed), color var(--speed); }
 .chip-filter:hover { border-color: var(--teal); color: var(--teal); text-decoration: none; }
 .chip-filter.active { background-color: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+
+/* v2.3: filter builder + tokens (replaces the v2.2 chips) */
+.filter-bar { display: flex; flex-direction: column; gap: .5rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem .8rem; margin: .8rem 0 1rem; box-shadow: var(--shadow); }
+.filter-builder { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.filter-builder select, .filter-builder input[type="text"] { font-size: .85rem; padding: .3rem .5rem; }
+.filter-builder button { font-size: .85rem; padding: .3rem .8rem; }
+.tokens { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.token { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; background: var(--teal-soft); border: 1px solid var(--teal); color: var(--teal-dark); border-radius: var(--radius-pill); padding: .14rem .3rem .14rem .6rem; }
+.token b { font-weight: 600; }
+.token-x { font-weight: 700; color: var(--teal-dark); padding: 0 .3rem; border-radius: 50%; }
+.token-x:hover { background: var(--teal); color: #fff; text-decoration: none; }
+.token-clear { font-size: .76rem; color: var(--muted); margin-left: .3rem; }
+
+/* v2.3: amber Withdraw paired with red Purge; reviewer-color focus/hover */
+button.warn { color: #7a5c00; border-color: #d8b74a; background: #fff; }
+button.warn:hover { background: #d8b74a; color: #fff; border-color: #d8b74a; }
+
+/* v2.3: Users page fits the viewport */
+.users-table { table-layout: auto; }
+.user-cell .user-name { display: block; font-weight: 500; }
+.user-cell .user-handle { font-size: .8rem; }
+.status-cell { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; border-bottom: none; }
+.users-table td { vertical-align: middle; }
+.actions-cell { white-space: nowrap; }
+.actions-cell form.inline { display: inline-block; }
+button.compact, .btn.compact { font-size: .78rem; padding: .28rem .6rem; }
+.actions-cell .menu { vertical-align: middle; }
+.actions-cell .menu summary { width: 1.8rem; height: 1.8rem; font-size: .95rem; }
+.menu-form { padding: .5rem; min-width: 13rem; }
+.menu-form label { font-size: .78rem; }

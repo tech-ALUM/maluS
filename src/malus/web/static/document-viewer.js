@@ -314,11 +314,13 @@
       card.appendChild(noteLabel);
     }
 
-    if (r && data.canDispose) { // owner/admin: inline disposition
+    if (r && data.canDispose && r.status === "open") {
+      // owner/admin dispose an OPEN finding (v2.3: an answered one is changed
+      // only through the formal reopen, which brings it back to open)
       var toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "secondary cp-dispose-toggle";
-      toggle.textContent = r.aiProposal ? "Review AI draft…" : (r.disposition ? "Change disposition…" : "Dispose…");
+      toggle.textContent = r.aiProposal ? "Review AI draft…" : "Dispose…";
       var dform = disposeForm(r);
       dform.hidden = true;
       toggle.addEventListener("click", function (ev) {
@@ -352,17 +354,19 @@
       });
       actions.appendChild(reopen);
     }
-    if (r && r.canRetract && !c) { // harvested comment retraction (own OPEN / admin any)
-      var retract = document.createElement("button");
-      retract.type = "button";
-      retract.className = "linkbtn retract-btn";
-      retract.textContent = "✕ delete";
-      retract.addEventListener("click", function (ev) {
+    if (r && r.canPurge) { // v2.3: Withdraw — admin-only in the card, amber,
+      // same visual weight as Purge (reviewers manage their own comments
+      // from the editor; the RTD table keeps the v1.8 own+open control)
+      var withdraw = document.createElement("button");
+      withdraw.type = "button";
+      withdraw.className = "warn cp-withdraw";
+      withdraw.textContent = "Withdraw";
+      withdraw.addEventListener("click", function (ev) {
         ev.stopPropagation();
         post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {},
-          "Delete comment " + r.rid + "? An acted-upon comment becomes withdrawn.");
+          "Withdraw " + r.rid + "? A pristine comment is deleted; an acted-upon one is kept as withdrawn.");
       });
-      actions.appendChild(retract);
+      actions.appendChild(withdraw);
     }
     if (r && r.canPurge) { // v2.2: admin-only permanent removal, double confirm
       var purge = document.createElement("button");

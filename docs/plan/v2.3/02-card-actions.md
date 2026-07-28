@@ -13,10 +13,10 @@
   admin; no server change for dispose visibility — client-side).
 
 ## Deliverables (TDD)
-- [ ] Tests adjusted; implement; browser verification (hover keeps reviewer
+- [x] Tests adjusted; implement; browser verification (hover keeps reviewer
       color, focus glows with reviewer color, no pink/teal; answered card
       has no Dispose; admin sees Withdraw+Purge, owner neither).
-- [ ] Suite green.
+- [x] Suite green.
 
 ## DoD
 No foreign color ever appears on a comment; disposed findings are changed

@@ -8,9 +8,9 @@
   present in row, no bare reset input at top level).
 
 ## Deliverables (TDD)
-- [ ] Tests; implement; browser verification at 1280 and 1024 px: no
+- [x] Tests; implement; browser verification at 1280 and 1024 px: no
       horizontal scroll.
-- [ ] Suite green.
+- [x] Suite green.
 
 ## DoD
 document.documentElement.scrollWidth <= innerWidth on /ui/admin/users at

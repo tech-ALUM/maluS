@@ -204,20 +204,30 @@ _FACET_VALUES = {
     "severity": ["minor", "major", "critical"],
     "disposition": ["accepted", "rejected", "deferred"],
 }
-_FACET_ORDER = ("status", "reviewer", "type", "severity", "disposition")
+_ENUM_FACETS = ("status", "reviewer", "type", "severity", "disposition")
+_OP_LABELS = {"eq": "=", "ne": "≠", "contains": "contains"}
 
 
-def _toggle_href(selected: dict[str, list[str]], facet: str, value: str) -> str:
-    """The chip's link: same page with `value` toggled in `facet` (v2.2)."""
-    params = {k: list(vs) for k, vs in selected.items()}
-    vals = params.get(facet, [])
-    if value in vals:
-        vals.remove(value)
-    else:
-        vals.append(value)
-    params[facet] = vals
-    pairs = [(k, v) for k in _FACET_ORDER for v in params.get(k, [])]
-    return "?" + urlencode(pairs) if pairs else "?"
+def _parse_conditions(raw: list[str]) -> list[tuple[str, str, str]]:
+    """Parse `facet:op:value` filter conditions (v2.3); malformed → ignored.
+    `comment` accepts only `contains` (any sent op is coerced to it)."""
+    out: list[tuple[str, str, str]] = []
+    for item in raw:
+        parts = item.split(":", 2)
+        if len(parts) != 3:
+            continue
+        facet, op, value = parts
+        if not value:
+            continue
+        if facet == "comment":
+            out.append((facet, "contains", value))
+        elif facet in _ENUM_FACETS and op in ("eq", "ne"):
+            out.append((facet, op, value))
+    return out
+
+
+def _conditions_qs(conds: list[tuple[str, str, str]]) -> str:
+    return "?" + urlencode([("f", f"{facet}:{op}:{value}") for facet, op, value in conds]) if conds else "?"
 
 
 @web.get("/ui/reviews/{review_id}", response_class=HTMLResponse)
@@ -225,52 +235,74 @@ def review_page(
     review_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    status: list[str] = Query(default=[]),
-    reviewer: list[str] = Query(default=[]),
-    type: list[str] = Query(default=[]),
-    severity: list[str] = Query(default=[]),
-    disposition: list[str] = Query(default=[]),
+    f: list[str] = Query(default=[]),
+    facet: str = "",
+    op: str = "eq",
+    value: str = "",
 ):
     user = _current(request, session)
     if not user:
         return _LOGIN
     review = _review_or_404(session, review_id)
+
+    conds = _parse_conditions(f)
+    if facet and value:  # builder submit: fold into the canonical ?f= URL
+        new = _parse_conditions([f"{facet}:{op}:{value}"])
+        for cond in new:
+            if cond not in conds:
+                conds.append(cond)
+        return RedirectResponse(
+            f"/ui/reviews/{review_id}{_conditions_qs(conds)}", 303
+        )
+
     role = authz.review_role(session, review, user)
     rtd = svc.export(session, review)
 
-    selected = {
-        "status": [s for s in status if s],
-        "reviewer": [s for s in reviewer if s],
-        "type": [s for s in type if s],
-        "severity": [s for s in severity if s],
-        "disposition": [s for s in disposition if s],
-    }
+    eq_sets: dict[str, set[str]] = {}
+    ne_sets: dict[str, set[str]] = {}
+    contains: list[str] = []
+    for cfacet, cop, cvalue in conds:
+        if cop == "contains":
+            contains.append(cvalue.lower())
+        elif cop == "eq":
+            eq_sets.setdefault(cfacet, set()).add(cvalue)
+        else:
+            ne_sets.setdefault(cfacet, set()).add(cvalue)
+
+    def _facet_value(r, cfacet: str) -> str:
+        if cfacet == "status":
+            return r.status.value
+        if cfacet == "reviewer":
+            return r.reviewer
+        if cfacet == "type":
+            return r.type.value if r.type else ""
+        if cfacet == "severity":
+            return r.severity.value if r.severity else ""
+        return r.disposition.value if r.disposition else ""
 
     def keep(r) -> bool:
-        if selected["status"]:
-            if r.status.value not in selected["status"]:
+        if r.status is Status.WITHDRAWN and "withdrawn" not in eq_sets.get("status", set()):
+            return False  # hidden unless explicitly selected (v2.2 rule)
+        for cfacet in _ENUM_FACETS:
+            v = _facet_value(r, cfacet)
+            if cfacet in eq_sets and v not in eq_sets[cfacet]:
                 return False
-        elif r.status is Status.WITHDRAWN:
-            return False  # hidden by default (v2.2) — the chip re-includes them
-        return (
-            (not selected["reviewer"] or r.reviewer in selected["reviewer"])
-            and (not selected["type"] or (r.type.value if r.type else "") in selected["type"])
-            and (not selected["severity"] or (r.severity.value if r.severity else "") in selected["severity"])
-            and (
-                not selected["disposition"]
-                or (r.disposition.value if r.disposition else "") in selected["disposition"]
-            )
-        )
+            if v in ne_sets.get(cfacet, ()):
+                return False
+        text = (r.comment or "").lower()
+        return all(sub in text for sub in contains)
 
     rids = [r for r in rtd.rids if keep(r)]
-    facet_values = dict(_FACET_VALUES, reviewer=rtd.meta.reviewers)
-    chips = {
-        facet: [
-            {"value": v, "active": v in selected[facet], "href": _toggle_href(selected, facet, v)}
-            for v in values
-        ]
-        for facet, values in ((f, facet_values[f]) for f in _FACET_ORDER)
-    }
+    tokens = [
+        {
+            "facet": cfacet,
+            "op": _OP_LABELS[cop],
+            "value": cvalue,
+            "remove_href": _conditions_qs([c for c in conds if c != (cfacet, cop, cvalue)]),
+        }
+        for cfacet, cop, cvalue in conds
+    ]
+    filter_options = dict(_FACET_VALUES, reviewer=rtd.meta.reviewers)
     counts_status = {s.value: sum(1 for r in rtd.rids if r.status is s) for s in Status}
     closed = counts_status[Status.VERIFIED.value] + counts_status[Status.WITHDRAWN.value]
     total = len(rtd.rids)
@@ -303,7 +335,8 @@ def review_page(
             "closed": closed,
             "total": total,
             "progress": round(100 * closed / total) if total else 0,
-            "chips": chips,
+            "tokens": tokens,
+            "filter_options": filter_options,
             "accepted_waiting": sum(
                 1
                 for r in rtd.rids
