@@ -6,11 +6,24 @@
 <h1>Members — {{ review.review_id_str }}</h1>
 
 <table class="rtd">
-  <thead><tr><th>member</th><th>role</th><th></th></tr></thead>
+  <thead><tr><th>member</th><th>role</th><th>color</th><th></th></tr></thead>
   <tbody>
   {% for m in members %}
     <tr>
       <td>{{ m.user.display_name }} <span class="muted">@{{ m.user.username }}</span></td>
+      <td class="color-cell">
+        <form method="post" action="/ui/reviews/{{ review.review_id_str }}/members/{{ m.user.username }}/color" class="inline color-form">
+          <input type="color" name="color" value="{{ m.color or m.user.color or '#8a929c' }}"
+                 title="Comment color — {{ 'review override' if m.color else ('global default' if m.user.color else 'palette fallback') }}"
+                 onchange="this.form.requestSubmit()">
+        </form>
+        {% if m.color %}
+        <form method="post" action="/ui/reviews/{{ review.review_id_str }}/members/{{ m.user.username }}/color" class="inline">
+          <input type="hidden" name="color" value="">
+          <button class="linkbtn" title="Reset to the global default">reset</button>
+        </form>
+        {% endif %}
+      </td>
       <td>
         {% if m.user_id == review.owner_id %}
           <span class="role role-owner">owner</span> <span class="muted">· primary</span>
@@ -34,7 +47,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="3" class="muted">No members yet.</td></tr>
+    <tr><td colspan="4" class="muted">No members yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>

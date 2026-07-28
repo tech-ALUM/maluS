@@ -36,6 +36,19 @@
   function colorClass(reviewer) {
     return "rev-" + (revIdx[reviewer] !== undefined ? revIdx[reviewer] : 0);
   }
+  function customColor(reviewer) { // v2.1: resolved override/global, else null
+    return (data.colors && data.colors[reviewer]) || null;
+  }
+  function applyColor(el, reviewer) {
+    var c = customColor(reviewer);
+    if (c) el.style.setProperty("--rev-color", c);
+  }
+  function chipHtml(reviewer, extra) {
+    var c = customColor(reviewer);
+    return '<span class="rev-chip ' + colorClass(reviewer) + '"' +
+      (c ? ' style="--rev-color: ' + esc(c) + '"' : "") + ">" +
+      esc(reviewer) + (extra || "") + "</span>";
+  }
 
   function esc(s) {
     return (s || "").replace(/[&<>"]/g, function (c) {
@@ -180,6 +193,7 @@
     var kind = it.rid ? it.rid.kind : it.local.kind;
     el.className = "marker " + colorClass(reviewer) + (kind === "SUGG" ? " sugg" : "") +
       (it.local && !it.rid ? " unsaved" : "");
+    applyColor(el, reviewer);
     el.setAttribute("data-key", it.key);
     el.title = reviewer + (it.rid ? " · " + it.rid.rid : " · not saved yet");
     el.addEventListener("click", function (ev) {
@@ -194,6 +208,7 @@
     data.reviewers.forEach(function (n) {
       var chip = document.createElement("span");
       chip.className = "rev-chip " + colorClass(n);
+      applyColor(chip, n);
       chip.textContent = n + (n === data.me ? " (you)" : "");
       legendEl.appendChild(chip);
     });
@@ -222,6 +237,7 @@
     var kind = r ? r.kind : c.kind;
     var card = document.createElement("div");
     card.className = "cp-card " + colorClass(reviewer) + (kind === "SUGG" ? " sugg" : "");
+    applyColor(card, reviewer);
     card.setAttribute("data-key", it.key);
 
     var head = document.createElement("div");
@@ -230,7 +246,7 @@
     if (r) metaBits.push('<span class="cp-rid">' + esc(r.rid) + "</span>");
     metaBits.push(kind === "SUGG" ? "SUGG" : "COMM · " + esc(r ? (r.type || "") : c.type) + " · " + esc(r ? (r.severity || "") : c.sev));
     head.innerHTML =
-      '<span class="rev-chip ' + colorClass(reviewer) + '">' + esc(reviewer) + "</span>" +
+      chipHtml(reviewer) +
       '<span class="cp-meta">' + metaBits.join(" · ") + "</span>" +
       (r ? ' <span class="st st-' + r.status + '">' + r.status + "</span>" : ' <span class="st st-unsaved">unsaved</span>') +
       (r && r.disposition ? ' <span class="st">' + esc(r.disposition) + "</span>" : "") +
@@ -247,11 +263,28 @@
       body.textContent = c ? c.body : r.comment;
     }
     card.appendChild(body);
-    if (r && r.reply) {
-      var reply = document.createElement("div");
-      reply.className = "cp-reply";
-      reply.innerHTML = "<b>Owner reply:</b> " + esc(r.reply);
-      card.appendChild(reply);
+
+    if (r) { // fixed record: anchor context + owner-side values, read-only
+      var bits = [];
+      if (r.section) bits.push("§ " + r.section);
+      if (r.lineHint) bits.push("line " + r.lineHint);
+      if (bits.length) {
+        var det = document.createElement("div");
+        det.className = "cp-detail";
+        det.textContent = bits.join(" · ");
+        card.appendChild(det);
+      }
+      var record = [];
+      if (r.reply) record.push("<div class='cp-record'><b>Owner reply:</b> " + esc(r.reply) + "</div>");
+      if (r.resolution) record.push("<div class='cp-record'><b>Resolution:</b> " + esc(r.resolution) + "</div>");
+      if (r.verifiedBy) record.push("<div class='cp-record'><b>Verified by:</b> " + esc(r.verifiedBy) + (r.verifiedOn ? " on " + esc(r.verifiedOn) : "") + "</div>");
+      if (record.length) {
+        var rec = document.createElement("div");
+        rec.className = "cp-records";
+        rec.innerHTML = record.join("");
+        card.appendChild(rec);
+      }
+      if (r.history && r.history.length) card.appendChild(historyEl(r));
     }
 
     var actions = document.createElement("div");
@@ -285,7 +318,7 @@
       var toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "secondary cp-dispose-toggle";
-      toggle.textContent = r.aiProposal ? "Review AI draft" : (r.disposition ? "Edit disposition" : "Dispose");
+      toggle.textContent = r.aiProposal ? "Review AI draft…" : (r.disposition ? "Change disposition…" : "Dispose…");
       var dform = disposeForm(r);
       dform.hidden = true;
       toggle.addEventListener("click", function (ev) {
@@ -335,10 +368,36 @@
 
     card.addEventListener("click", function (ev) {
       var t = ev.target;
-      if (t.closest && t.closest("form, textarea, button, select, input, label")) return;
+      // ignore interactive children only — the whole viewer sits inside the
+      // outer #rev-form, so matching bare "form" would swallow every click
+      if (t.closest && t.closest(".cp-dispose, .cp-history, button, textarea, select, input, label, a")) return;
       selectCard(it.key);
     });
     return card;
+  }
+
+  function historyLine(e) {
+    var what = e.action.replace(/_/g, " ");
+    var extra = "";
+    if (e.detail) {
+      if (e.detail.disposition) extra = " → " + e.detail.disposition;
+      else if (e.detail.changed) {
+        extra = " → " + Object.keys(e.detail.changed).map(function (k) {
+          return k + ": " + e.detail.changed[k];
+        }).join(", ");
+      } else if (e.detail.reason) extra = " — " + e.detail.reason;
+    }
+    return "<li><span class='hist-ts'>" + esc((e.ts || "").replace("T", " ")) +
+      "</span> <b>" + esc(what) + "</b>" + esc(extra) +
+      (e.actor ? " <span class='hist-actor'>· " + esc(e.actor) + "</span>" : "") + "</li>";
+  }
+  function historyEl(r) {
+    var det = document.createElement("details");
+    det.className = "cp-history";
+    det.innerHTML = "<summary>History (" + r.history.length + ")</summary><ul>" +
+      r.history.map(historyLine).join("") + "</ul>";
+    det.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    return det;
   }
 
   function disposeForm(r) {
@@ -379,19 +438,77 @@
     its.forEach(function (it) { list.appendChild(cardEl(it)); });
   }
 
-  function selectCard(key) {
-    var marker = sheet.querySelector('.marker[data-key="' + CSS.escape(key) + '"]');
-    if (marker) {
-      marker.scrollIntoView({ behavior: "smooth", block: "center" });
-      marker.classList.remove("flash");
-      void marker.offsetWidth;
-      marker.classList.add("flash");
-      setTimeout(function () { marker.classList.remove("flash"); }, 2300);
+  /* ------- focus: click a comment to focus it, click away / ESC to exit --
+     (v2.1: no explicit enter/exit controls; clicking another comment moves
+     the focus; a text selection never exits) */
+  var focusKey = null;
+  var currentItems = [];
+
+  function itemByKey(key) {
+    for (var i = 0; i < currentItems.length; i++) {
+      if (currentItems[i].key === key) return currentItems[i];
     }
-    list.querySelectorAll(".cp-card.active").forEach(function (el) { el.classList.remove("active"); });
-    var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
-    if (card) { card.classList.add("active"); card.scrollIntoView({ block: "nearest" }); }
+    return null;
   }
+  function keyForRid(ridStr) {
+    for (var i = 0; i < currentItems.length; i++) {
+      var it = currentItems[i];
+      if (it.rid && it.rid.rid === ridStr) return it.key;
+    }
+    return null;
+  }
+  function flashEl(el) {
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+    setTimeout(function () { el.classList.remove("flash"); }, 2300);
+  }
+  function setFocus(key, opts) {
+    opts = opts || {};
+    focusKey = key;
+    sheet.classList.toggle("focus-mode", !!key);
+    sheet.querySelectorAll(".marker").forEach(function (m) {
+      m.classList.toggle("focused", m.getAttribute("data-key") === key);
+    });
+    list.querySelectorAll(".cp-card").forEach(function (el) {
+      var on = el.getAttribute("data-key") === key;
+      el.classList.toggle("active", on);
+      el.classList.toggle("focus-card", on);
+      if (on) {
+        var h = el.querySelector(".cp-history");
+        if (h) h.open = true;
+      }
+    });
+    if (window.history && history.replaceState) {
+      var it = key ? itemByKey(key) : null;
+      history.replaceState(null, "", it && it.rid
+        ? base + "/document?focus=" + encodeURIComponent(it.rid.rid)
+        : base + "/document");
+    }
+    if (key && opts.scroll !== false) {
+      var marker = sheet.querySelector('.marker[data-key="' + CSS.escape(key) + '"]');
+      if (marker) { marker.scrollIntoView({ behavior: "smooth", block: "center" }); flashEl(marker); }
+      var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
+      if (card) card.scrollIntoView({ block: "nearest" });
+    }
+  }
+  function selectCard(key) { setFocus(key, { scroll: true }); }
+
+  document.addEventListener("click", function (ev) {
+    if (!focusKey) return;
+    var t = ev.target;
+    // interactive targets and comment surfaces keep the focus; the outer
+    // #rev-form wraps everything, so bare "form" must NOT be matched here
+    if (t.closest && t.closest(".marker, .cp-card, .cmt-pop, button, input, select, textarea, label, summary, a")) return;
+    var sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return; // selecting text is not "clicking away"
+    setFocus(null);
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    if (pop && !pop.hidden) { pop.hidden = true; pending = null; return; }
+    if (focusKey) setFocus(null);
+  });
 
   /* ---------------- add-comment popover (reviewer) ---------------------- */
   function countOcc(hay, needle) {
@@ -515,62 +632,20 @@
     });
   }
 
-  /* ---------------- focus mode (v2 step 5) ------------------------------ */
-  function focusItem(its) {
-    if (!data.focus) return null;
-    for (var i = 0; i < its.length; i++) {
-      var it = its[i];
-      if (it.rid && it.rid.rid === data.focus) return it;
-    }
-    return null;
-  }
-  function applyFocus(its) {
-    var it = focusItem(its);
-    sheet.classList.toggle("focus-mode", !!it);
-    if (!it) return;
-    var key = it.key, r = it.rid;
-    sheet.querySelectorAll(".marker").forEach(function (m) {
-      m.classList.toggle("focused", m.getAttribute("data-key") === key);
-    });
-    var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
-    if (card) {
-      card.classList.add("focus-card");
-      var dform = card.querySelector("form.cp-dispose");
-      if (dform) dform.hidden = false;
-      var bits = [];
-      if (r.section) bits.push("§ " + r.section);
-      if (r.lineHint) bits.push("line " + r.lineHint);
-      if (r.verifiedBy) bits.push("verified by " + r.verifiedBy + (r.verifiedOn ? " on " + r.verifiedOn : ""));
-      if (r.resolution) bits.push("resolution: " + r.resolution);
-      if (bits.length) {
-        var det = document.createElement("div");
-        det.className = "cp-detail";
-        det.textContent = bits.join(" · ");
-        card.insertBefore(det, card.children[1] || null);
-      }
-      var x = document.createElement("button");
-      x.type = "button";
-      x.className = "linkbtn cp-focus-close";
-      x.textContent = "✕ exit focus";
-      x.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        data.focus = null;
-        if (window.history && history.replaceState) history.replaceState(null, "", base + "/document");
-        refresh(false);
-      });
-      card.insertBefore(x, card.firstChild);
-    }
-    setTimeout(function () { selectCard(key); }, 60);
-  }
-
   /* ---------------- init ------------------------------------------------ */
   function refresh(markDirty) {
     if (markDirty) dirty = true;
     reconstruct();
-    var its = items();
-    renderSheet(its);
-    renderPanel(its);
-    applyFocus(its);
+    currentItems = items();
+    renderSheet(currentItems);
+    renderPanel(currentItems);
+    if (data.focus) { // deep link / post-action redirect: focus once, scrolled
+      var key = keyForRid(data.focus);
+      data.focus = null;
+      if (key) { setTimeout(function () { setFocus(key, { scroll: true }); }, 60); return; }
+    }
+    // re-apply the current focus across re-renders (no scroll jump)
+    setFocus(focusKey && itemByKey(focusKey) ? focusKey : null, { scroll: false });
   }
   parseCopy();
   renderLegend();

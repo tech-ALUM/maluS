@@ -19,11 +19,11 @@ text. JSON API unchanged.
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests as above (upload via `files={"baseline": (name, bytes,
+- [x] Failing tests as above (upload via `files={"baseline": (name, bytes,
       "text/markdown")}`).
-- [ ] Implement route + template.
-- [ ] Browser verification: create a review by uploading a real .md.
-- [ ] Suite green; commit
+- [x] Implement route + template.
+- [x] Browser verification: create a review by uploading a real .md.
+- [x] Suite green; commit
       `feat(web): create review by uploading the baseline .md (v2.1 step 3)`.
 
 ## Definition of Done

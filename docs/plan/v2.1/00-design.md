@@ -40,3 +40,13 @@ guard, freeze rule).
 - Alberto's requests + the two recorded decisions, this session (2026-07-28).
 - `src/malus/services/core.py` (audit calls), `alembic/versions/`,
   `src/malus/web/static/document-viewer.js`, `src/malus/db/models.py`.
+
+## Deviations
+
+- 2026-07-28: steps 1–3 land in a single feature commit — `router.py` and
+  `document-viewer.js` are touched by all of them and could not be staged
+  separately without artificial splits.
+- 2026-07-28: dev DBs created via `create_all` lack `alembic_version`; the
+  color migration was verified with `alembic stamp f1a2b3c4d5e6` +
+  `upgrade head` on a real pre-color DB. Production (docker entrypoint)
+  migrates normally.

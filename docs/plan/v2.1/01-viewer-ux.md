@@ -26,16 +26,16 @@ role-filtered action row per card.
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: payload rids carry `history` with the `answer` event
+- [x] Failing tests: payload rids carry `history` with the `answer` event
       (action, actor display name, iso ts, disposition in detail) after a
       dispose; `update_rid` events carry `changed`; history ordered by ts;
       a RID with no events has `history: []`.
-- [ ] Implement repo + service enrichment + payload.
-- [ ] JS/CSS rework (focus semantics, record view, timeline, action row).
-- [ ] Browser verification: dispose → change disposition → both events in
+- [x] Implement repo + service enrichment + payload.
+- [x] JS/CSS rework (focus semantics, record view, timeline, action row).
+- [x] Browser verification: dispose → change disposition → both events in
       timeline; focus moves between comments by click; click-away and ESC
       exit; reviewer selection with focus active still opens the popover.
-- [ ] Suite green; commit
+- [x] Suite green; commit
       `feat(web): click focus, per-RID history timeline, unified card actions (v2.1 step 1)`.
 
 ## Definition of Done

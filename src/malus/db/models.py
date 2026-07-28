@@ -57,6 +57,7 @@ class User(SQLModel, table=True):
     is_admin: bool = False  # global superuser: full authority on every review (v1.10) + user mgmt
     is_ai: bool = False  # AI principal: may never verify/reopen/confirm, regardless of role
     must_change_password: bool = False  # forces a password change after admin bootstrap/create
+    color: Optional[str] = None  # global default comment color (#rrggbb, admin-set, v2.1)
     created: dt.datetime = Field(default_factory=_utcnow)
 
 
@@ -89,6 +90,7 @@ class ReviewMember(SQLModel, table=True):
     review_id: Optional[int] = Field(default=None, foreign_key="reviews.id", nullable=False)
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", nullable=False)
     role: str  # Role.value: owner | reviewer | moderator
+    color: Optional[str] = None  # per-review override of User.color (#rrggbb, v2.1)
 
     review: Optional[Review] = Relationship(back_populates="members")
     user: Optional[User] = Relationship()

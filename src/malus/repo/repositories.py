@@ -325,6 +325,19 @@ class AuditRepo:
         self.s.flush()
         return entry
 
+    def for_targets(self, targets: list[str]) -> list[AuditLog]:
+        """All audit rows for the given targets, chronological — one grouped
+        query feeding the per-RID history timeline (v2.1)."""
+        if not targets:
+            return []
+        return list(
+            self.s.exec(
+                select(AuditLog)
+                .where(AuditLog.target.in_(targets))
+                .order_by(AuditLog.ts, AuditLog.id)
+            ).all()
+        )
+
     def list(self, *, action: Optional[str] = None) -> list[AuditLog]:
         stmt = select(AuditLog).order_by(AuditLog.id)
         if action is not None:

@@ -395,9 +395,10 @@ def answer(
     rid.reply = reply
     transition(rid, Status.ANSWERED, actor_role=Role.OWNER, actor_name=review.owner.display_name)
     sync_rtd_to_review(session, review, rtd)
-    AuditRepo(session).log(
-        action="answer", target=f"rid:{rid_id}", actor=by, detail={"disposition": disposition.value}
-    )
+    detail: dict = {"disposition": disposition.value}
+    if reply:
+        detail["reply"] = reply
+    AuditRepo(session).log(action="answer", target=f"rid:{rid_id}", actor=by, detail=detail)
     return RidRepo(session).get(review, rid_id)
 
 
@@ -423,7 +424,17 @@ def update_rid(
     if by is not None and getattr(by, "is_ai", False):
         rid.ai_drafted = True  # v1.7: an AI-written disposition is a draft awaiting human confirm
     sync_rtd_to_review(session, review, rtd)
-    AuditRepo(session).log(action="update_rid", target=f"rid:{rid_id}", actor=by)
+    changed: dict = {}  # v2.1: the timeline records WHAT changed, per event
+    if reply is not None:
+        changed["reply"] = reply
+    if resolution is not None:
+        changed["resolution"] = resolution
+    if disposition is not None:
+        changed["disposition"] = disposition.value
+    AuditRepo(session).log(
+        action="update_rid", target=f"rid:{rid_id}", actor=by,
+        detail={"changed": changed} if changed else None,
+    )
     return RidRepo(session).get(review, rid_id)
 
 

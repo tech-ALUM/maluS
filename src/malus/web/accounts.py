@@ -8,6 +8,7 @@ closure invariant is untouched (this step manages accounts/roles, not verdicts).
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -28,6 +29,18 @@ accounts = APIRouter(include_in_schema=False)
 _LOGIN = RedirectResponse("/ui/login", status_code=303)
 
 _ROLE_VALUES = {Role.OWNER.value, Role.REVIEWER.value, Role.MODERATOR.value}
+
+_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _valid_color_or_422(color: str) -> Optional[str]:
+    """Normalize a color form field: '' clears, '#rrggbb' passes, else 422."""
+    color = color.strip()
+    if not color:
+        return None
+    if not _COLOR_RE.match(color):
+        raise HTTPException(status_code=422, detail="color must be #rrggbb (or empty to reset)")
+    return color.lower()
 
 
 def _admin_or_redirect(request: Request, session: Session):
@@ -292,6 +305,50 @@ def members_submit(
             status_code=409, detail="the primary owner cannot be demoted; transfer ownership first"
         )
     ReviewRepo(session).set_member_role(review, account, role)
+    return RedirectResponse(f"/ui/reviews/{review_id}/members", 303)
+
+
+@accounts.post("/ui/admin/users/{username}/color")
+def admin_user_color(
+    username: str,
+    request: Request,
+    color: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Admin sets a user's GLOBAL default comment color (v2.1); '' resets."""
+    admin = _admin_or_redirect(request, session)
+    if admin is None:
+        return _LOGIN
+    account = _user_or_404(session, username)
+    account.color = _valid_color_or_422(color)
+    session.add(account)
+    return RedirectResponse("/ui/admin/users", 303)
+
+
+@accounts.post("/ui/reviews/{review_id}/members/{username}/color")
+def member_color(
+    review_id: str,
+    username: str,
+    request: Request,
+    color: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    """Owner/admin sets a member's PER-REVIEW color override (v2.1); ''
+    resets to the user's global default (or the palette)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not _can_manage_members(session, review, user):
+        raise HTTPException(status_code=403, detail="only the owner or an admin may set member colors")
+    account = _user_or_404(session, username)
+    member = next(
+        (m for m in ReviewRepo(session).members(review) if m.user_id == account.id), None
+    )
+    if member is None:
+        raise HTTPException(status_code=404, detail=f"{username} is not a member of this review")
+    member.color = _valid_color_or_422(color)
+    session.add(member)
     return RedirectResponse(f"/ui/reviews/{review_id}/members", 303)
 
 

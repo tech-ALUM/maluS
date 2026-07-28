@@ -6,7 +6,7 @@
 <p class="actions"><a class="btn" href="/ui/admin/users/new">Create user</a></p>
 <div class="rtd-wrap">
 <table class="rtd">
-  <thead><tr><th>username</th><th>name</th><th>kind</th><th>active</th><th>pw</th><th></th></tr></thead>
+  <thead><tr><th>username</th><th>name</th><th>kind</th><th>active</th><th>pw</th><th>color</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
     <tr>
@@ -19,6 +19,19 @@
       </td>
       <td>{% if u.is_active %}<span class="st st-verified">active</span>{% else %}<span class="st st-withdrawn">disabled</span>{% endif %}</td>
       <td>{% if u.must_change_password %}<span class="st st-open">must change</span>{% endif %}</td>
+      <td class="color-cell">
+        <form method="post" action="/ui/admin/users/{{ u.username }}/color" class="inline color-form">
+          <input type="color" name="color" value="{{ u.color or '#8a929c' }}"
+                 title="Global default comment color{{ '' if u.color else ' (palette fallback)' }}"
+                 onchange="this.form.requestSubmit()">
+        </form>
+        {% if u.color %}
+        <form method="post" action="/ui/admin/users/{{ u.username }}/color" class="inline">
+          <input type="hidden" name="color" value="">
+          <button class="linkbtn" title="Reset to palette">reset</button>
+        </form>
+        {% endif %}
+      </td>
       <td>
         <div class="row">
           {% if u.is_active %}

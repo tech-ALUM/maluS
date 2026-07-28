@@ -122,3 +122,34 @@ def test_actions_redirect_back_to_focus(mkuser, docs):
     assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
     r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/verify", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
+
+
+# ------------------------------------------------------------------ history
+
+
+def test_rid_history_is_append_only_timeline(mkuser, docs):
+    owner, _f, _mod, _ai = _seed(mkuser, docs)
+    # a fresh finding has an empty history
+    d = _payload(owner.get(f"/ui/reviews/{R}/document").text)
+    assert d["rids"][0]["history"] == []
+
+    # first disposition → an "answer" event with disposition + reply
+    owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
+        data={"disposition": "rejected", "reply": "out of scope", "resolution": ""},
+    )
+    # changing it later → an "update_rid" event carrying the changed fields
+    owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
+        data={"disposition": "deferred", "reply": "next cycle", "resolution": ""},
+    )
+
+    d = _payload(owner.get(f"/ui/reviews/{R}/document").text)
+    h = d["rids"][0]["history"]
+    assert [e["action"] for e in h] == ["answer", "update_rid"]
+    assert h[0]["actor"] == "A. Boffi" and h[1]["actor"] == "A. Boffi"
+    assert h[0]["detail"]["disposition"] == "rejected"
+    assert h[0]["detail"]["reply"] == "out of scope"
+    assert h[1]["detail"]["changed"]["disposition"] == "deferred"
+    assert h[1]["detail"]["changed"]["reply"] == "next cycle"
+    assert h[0]["ts"] <= h[1]["ts"]  # append-only, chronological

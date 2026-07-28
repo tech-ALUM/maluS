@@ -27,14 +27,14 @@ page). Marker, cards, legend and RTD chips use the resolved color.
 
 ## Deliverables (TDD)
 
-- [ ] Failing tests: admin sets a user color (bad hex 422; non-admin 403);
+- [x] Failing tests: admin sets a user color (bad hex 422; non-admin 403);
       owner sets a member override (reviewer 403); payload `colors`
       resolves override > global > null; reset (`""`) clears the override.
-- [ ] Migration + models + routes + resolution.
-- [ ] Templates + JS consumption (marker/card/legend/chips).
-- [ ] Browser verification: set a global color, override it in one review,
+- [x] Migration + models + routes + resolution.
+- [x] Templates + JS consumption (marker/card/legend/chips).
+- [x] Browser verification: set a global color, override it in one review,
       markers/legend/chips follow; reset restores.
-- [ ] Suite green (migration applied in test engines via create_all);
+- [x] Suite green (migration applied in test engines via create_all);
       commit `feat(web): per-member colors — global default + review override (v2.1 step 2)`.
 
 ## Definition of Done

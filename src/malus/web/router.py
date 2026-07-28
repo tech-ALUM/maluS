@@ -13,7 +13,7 @@ import datetime as dt
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
@@ -27,7 +27,15 @@ from malus.constants import Disposition, Role, Status
 from malus.db.models import User
 from malus.harvest import FreezeViolation, validate_insertion_only
 from malus.parser import ParseError
-from malus.repo import ReviewerCopyRepo, ReviewerNoteRepo, ReviewRepo, RidRepo, VersionRepo
+from malus.repo import (
+    AuditRepo,
+    ReviewerCopyRepo,
+    ReviewerNoteRepo,
+    ReviewRepo,
+    RidRepo,
+    UserRepo,
+    VersionRepo,
+)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 # cache-busting version for asset URLs (?v=...) — see RevalidatedStaticFiles
@@ -136,41 +144,55 @@ def new_review_page(request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(request, "new_review.html", {"user": user, "error": None})
 
 
+_BASELINE_MAX_BYTES = 2 * 1024 * 1024  # 2 MB — plenty for a Markdown DUR
+
+
 @web.post("/ui/reviews/new")
-def new_review_submit(
+async def new_review_submit(
     request: Request,
     review_id: str = Form(...),
-    baseline: str = Form(...),
+    baseline: UploadFile = File(...),
     title: str = Form(""),
     rid_prefix: str = Form(""),
     session: Session = Depends(get_session),
 ):
+    """Create a review from an uploaded Markdown baseline (v2.1 — the paste
+    textarea is gone). The JSON API ``POST /reviews`` is unchanged."""
     user = _current(request, session)
     if not user:
         return _LOGIN
+
+    def _fail(message: str, status: int = 422):
+        return templates.TemplateResponse(
+            request, "new_review.html", {"user": user, "error": message}, status_code=status
+        )
+
     review_id = review_id.strip()
     if not review_id:
-        return templates.TemplateResponse(
-            request, "new_review.html", {"user": user, "error": "A review id is required."}, status_code=422
-        )
+        return _fail("A review id is required.")
+    filename = baseline.filename or ""
+    if not filename.lower().endswith((".md", ".markdown")):
+        return _fail("The baseline must be a Markdown file (.md or .markdown).")
+    raw = await baseline.read()
+    if len(raw) > _BASELINE_MAX_BYTES:
+        return _fail("The baseline file exceeds 2 MB.")
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return _fail("The baseline file is not valid UTF-8 text.")
     if ReviewRepo(session).get(review_id) is not None:
-        return templates.TemplateResponse(
-            request,
-            "new_review.html",
-            {"user": user, "error": f"A review with id {review_id!r} already exists."},
-            status_code=409,
-        )
-    # the creator becomes the owner; freeze the supplied baseline immediately
+        return _fail(f"A review with id {review_id!r} already exists.", status=409)
+    # the creator becomes the owner; freeze the uploaded baseline immediately
     review = svc.create_review(
         session,
         review_id=review_id,
         document_name="baseline.md",
         owner=user.display_name,
         reviewers=[],
-        title=title or None,
+        title=title.strip() or Path(filename).stem or None,
         rid_prefix=rid_prefix or None,
     )
-    svc.freeze_baseline(session, review, baseline, by=user)
+    svc.freeze_baseline(session, review, content, by=user)
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
@@ -236,6 +258,7 @@ def review_page(
             "role": role,
             "owner": rtd.meta.owner,
             "reviewers": rtd.meta.reviewers,
+            "colors": _reviewer_colors(session, review, rtd.meta.reviewers),
             "rids": rids,
             "counts_status": counts_status,
             "closed": closed,
@@ -400,6 +423,22 @@ def _own_copy(session: Session, review, user: User):
     )
 
 
+def _reviewer_colors(session: Session, review, reviewer_names: list[str]) -> dict:
+    """Resolved comment color per reviewer (v2.1): the review-member override
+    wins over the user's global default; ``None`` means the client falls back
+    to the deterministic palette."""
+    members = {m.user.display_name: m for m in ReviewRepo(session).members(review) if m.user}
+    colors: dict[str, Optional[str]] = {}
+    for name in reviewer_names:
+        member = members.get(name)
+        if member is not None:
+            colors[name] = member.color or (member.user.color if member.user else None)
+        else:  # e.g. a removed member whose findings survive
+            user = UserRepo(session).by_display_name(name)
+            colors[name] = user.color if user else None
+    return colors
+
+
 def _document_context(
     session: Session,
     request: Request,
@@ -457,6 +496,24 @@ def _document_context(
                 "mine": r.reviewer == user.display_name,
             }
         )
+    # v2.1: resolved reviewer colors — review override → global default → null
+    colors = _reviewer_colors(session, review, rtd.meta.reviewers)
+
+    # v2.1: append-only per-RID history from the audit log (one grouped query)
+    audit_rows = AuditRepo(session).for_targets([f"rid:{r['rid']}" for r in rids])
+    history: dict[str, list[dict]] = {}
+    for row in audit_rows:
+        history.setdefault(row.target, []).append(
+            {
+                "action": row.action,
+                "actor": row.actor.display_name if row.actor else None,
+                "ts": row.ts.isoformat(timespec="seconds"),
+                "detail": row.detail_json or {},
+            }
+        )
+    for r in rids:
+        r["history"] = history.get(f"rid:{r['rid']}", [])
+
     data = {
         "reviewId": review.review_id_str,
         "role": role,
@@ -468,6 +525,7 @@ def _document_context(
         "myCopy": my_copy,
         "mySubmitted": bool(mine and mine.submitted_at) if is_reviewer else False,
         "reviewers": rtd.meta.reviewers,
+        "colors": colors,
         "rids": rids,
         "saved": bool(saved),
         "focus": focus,
