@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.0 — 2026-07-28 (viewer UX, member colors, md upload)
+
+- **Focus is click-driven** — click a comment (marker or card) to focus it,
+  click another to move the focus, click elsewhere or press ESC to exit.
+  The explicit enter/exit controls are gone; selecting text never exits.
+- **Fixed comment history** — every card shows saved values (reply,
+  resolution, verified-by) as a **read-only record**, plus an append-only
+  **History timeline** (who did what, when) built from the audit log.
+  Dispositions can still be changed, but every change is a new tracked
+  event: history is never rewritten.
+- **Unified card actions** — one action row per comment showing **only the
+  buttons your role and the finding's status allow** (owner/admin:
+  Dispose/Change disposition + AI Confirm/Discard; verify-capable:
+  Verify/Reopen; reviewer: Delete own). One single editing form.
+- **Member colors** — the comment color is the reviewer's color: an admin
+  sets each user's global default (Users page), the owner/admin can
+  override it per review (Members page), and markers, cards, legend and
+  RTD chips all follow (palette only as fallback). **Schema migration**
+  `a7c31e90d412` (nullable `users.color` + `review_members.color`) — the
+  docker entrypoint migrates on start.
+- **New review by upload** — the baseline arrives as an uploaded `.md`
+  file (2 MB max, UTF-8); an empty title defaults to the file name. The
+  paste textarea is gone; the JSON API is unchanged.
+
 ## v2.0.1 — 2026-07-28 (stale-cache fix: broken UI on Safari/Opera)
 
 - **Fix: v2 looked broken on browsers that cached the v1.9 stylesheet.**
