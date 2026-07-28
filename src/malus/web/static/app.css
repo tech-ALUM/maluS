@@ -326,6 +326,7 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
   width: 1.05rem; height: 1.05rem; padding: 0; margin: 0 .12rem;
   vertical-align: text-top; cursor: pointer;
   border: 2px solid var(--rev-color, var(--rev-0)); border-radius: 50% 50% 50% 4px;
+  background: #fff; /* fallback for browsers without color-mix (Safari <16.2) */
   background: color-mix(in srgb, var(--rev-color, var(--rev-0)) 18%, #fff);
   box-shadow: 0 1px 3px rgba(21, 24, 29, .25);
 }
@@ -366,8 +367,20 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 
 /* focus mode (v2 step 5): the finding is always shown beside the document */
 .focus-mode .marker { opacity: .35; }
-.focus-mode .marker.focused { opacity: 1; transform: scale(1.25); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rev-color, var(--rev-0)) 35%, transparent); }
+.focus-mode .marker.focused { opacity: 1; transform: scale(1.25); box-shadow: 0 0 0 3px rgba(21, 24, 29, .2); }
+@supports (background: color-mix(in srgb, red 50%, white)) {
+  .focus-mode .marker.focused { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rev-color, var(--rev-0)) 35%, transparent); }
+}
 .cp-card.focus-card { box-shadow: 0 0 0 2px var(--teal); }
 .cp-focus-close { float: right; font-size: .74rem; color: var(--muted); }
 .cp-focus-close:hover { color: var(--coral-dark); }
 .cp-detail { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin: .1rem 0 .3rem; }
+
+/* v2.0.1: role-capability banners (viewer) + roles legend (members) */
+.role-banner { display: flex; gap: .7rem; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: var(--radius); padding: .7rem .9rem; margin: .4rem 0 .8rem; font-size: .9rem; box-shadow: var(--shadow); }
+.role-banner .role { flex: 0 0 auto; margin-top: .15rem; }
+.role-banner-owner { border-left-color: var(--teal); }
+.role-banner-reviewer { border-left-color: var(--coral); }
+.role-banner-moderator { border-left-color: #d8b74a; }
+.roles-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; font-size: .9rem; }
+.roles-list .role { margin-right: .35rem; }

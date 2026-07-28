@@ -23,6 +23,6 @@ new version and links it to those RIDs (the traceability record).</p>
   {% endif %}
   <button class="primary">Save version &amp; link</button>
 </form>
-<script src="/static/vendor/marked.min.js"></script>
-<script src="/static/editor.js" defer></script>
+<script src="/static/vendor/marked.min.js?v={{ asset_v }}"></script>
+<script src="/static/editor.js?v={{ asset_v }}" defer></script>
 {% endblock %}

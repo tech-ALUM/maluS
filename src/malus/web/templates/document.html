@@ -5,12 +5,30 @@
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
 <h1>Document <span class="badge">{{ review.status }}</span></h1>
 {% if data.isReviewer %}
-<p class="muted">Select text in the document to add a comment — only comments are added;
-  the baseline text is frozen and the server re-checks on save and submit.</p>
+<div class="role-banner role-banner-reviewer">
+  <span class="role role-reviewer">reviewer</span>
+  <span><b>Select text in the document to add a comment.</b> Only comment blocks are
+  added — the baseline is frozen (the server re-checks on save and submit). You can
+  edit or delete your own comments; everyone else's are read-only.</span>
+</div>
 <p class="muted copy-state">Your copy:
   {% if data.mySubmitted %}<b>Submitted</b> — you can still edit and resubmit
   {%- elif data.saved %}<b>Draft</b> — saved, not yet submitted
   {%- else %}<b>Draft</b>{% endif %}</p>
+{% elif data.canDispose %}
+<div class="role-banner role-banner-owner">
+  <span class="role role-owner">{% if data.role == 'owner' %}owner{% else %}admin{% endif %}</span>
+  <span><b>You answer comments here</b> — open a card and use <i>Dispose</i>
+  (accept / reject / defer, with reply and resolution). Adding comments is the
+  reviewers' job in the formal flow: the document is yours, the findings are theirs.
+  You never verify/close findings — that authority belongs to the reviewers.</span>
+</div>
+{% elif data.role == 'moderator' %}
+<div class="role-banner role-banner-moderator">
+  <span class="role role-moderator">moderator</span>
+  <span><b>You steer the process</b> — you can verify or reopen findings on a
+  reviewer's behalf. You don't author comments and you don't disposition.</span>
+</div>
 {% else %}
 <p class="muted">Everyone's comments, colored per reviewer. Click a marker or a card to jump.</p>
 {% endif %}
@@ -79,7 +97,7 @@
 {% endif %}
 
 <script type="application/json" id="viewer-data">{{ data | tojson }}</script>
-<script src="/static/vendor/marked.min.js"></script>
-<script src="/static/vendor/purify.min.js"></script>
-<script src="/static/document-viewer.js" defer></script>
+<script src="/static/vendor/marked.min.js?v={{ asset_v }}"></script>
+<script src="/static/vendor/purify.min.js?v={{ asset_v }}"></script>
+<script src="/static/document-viewer.js?v={{ asset_v }}" defer></script>
 {% endblock %}

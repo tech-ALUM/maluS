@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
+from malus import __version__ as malus_version
 from malus import services as svc
 from malus.api import authz
 from malus.api.deps import get_session
@@ -29,6 +30,8 @@ from malus.parser import ParseError
 from malus.repo import ReviewerCopyRepo, ReviewerNoteRepo, ReviewRepo, RidRepo, VersionRepo
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+# cache-busting version for asset URLs (?v=...) — see RevalidatedStaticFiles
+templates.env.globals["asset_v"] = malus_version
 web = APIRouter(include_in_schema=False)
 
 _LOGIN = RedirectResponse("/ui/login", status_code=303)

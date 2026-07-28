@@ -8,8 +8,8 @@
   <link rel="apple-touch-icon" href="/static/icon.svg">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#15181D">
-  <link rel="stylesheet" href="/static/app.css">
-  <script src="/static/vendor/htmx.min.js" defer></script>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
+  <script src="/static/vendor/htmx.min.js?v={{ asset_v }}" defer></script>
 </head>
 <body hx-boost="true">
 {% if user %}

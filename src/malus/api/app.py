@@ -15,6 +15,22 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files that browsers must revalidate on every use (v2.0.1).
+
+    Without ``Cache-Control``, HTTP heuristic caching lets browsers reuse a
+    cached asset for ~10% of its age WITHOUT asking the server — after the v2
+    redesign, Safari/Opera kept rendering the new HTML with the stale v1.9
+    stylesheet. ``no-cache`` (= revalidate, not "don't cache") keeps every
+    reuse an ETag round-trip: a cheap 304 normally, a fresh 200 after a
+    deploy. Asset URLs are additionally version-busted (``?v=<version>``)."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -87,7 +103,7 @@ def create_app(
     app.include_router(router)
     app.include_router(web_router)
     app.include_router(accounts_router)
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=str(STATIC_DIR)), name="static")
 
     admin = bootstrap_admin or (
         (os.environ["MALUS_ADMIN_USER"], os.environ["MALUS_ADMIN_PASSWORD"])
