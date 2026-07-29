@@ -233,6 +233,7 @@
 
   function cardEl(it) {
     var r = it.rid, c = it.local;
+    var phase = data.phase;
     var reviewer = r ? r.reviewer : data.me;
     var kind = r ? r.kind : c.kind;
     var card = document.createElement("div");
@@ -314,7 +315,7 @@
       card.appendChild(noteLabel);
     }
 
-    if (r && data.canDispose && r.status === "open") {
+    if (r && data.canDispose && r.status === "open" && phase === "in_review") {
       // owner/admin dispose an OPEN finding (v2.3: an answered one is changed
       // only through the formal reopen, which brings it back to open)
       var toggle = document.createElement("button");
@@ -331,18 +332,18 @@
       card.appendChild(dform);
     }
 
-    if (r && r.canVerify && (r.status === "answered" || r.status === "implemented")) {
-      var verify = document.createElement("button");
-      verify.type = "button";
-      verify.className = "primary cp-verify";
-      verify.textContent = "Verify";
-      verify.addEventListener("click", function (ev) {
+    if (r && r.canVerify && phase === "in_review" && r.status === "answered") {
+      var accept = document.createElement("button");
+      accept.type = "button";
+      accept.className = "primary cp-accept";
+      accept.textContent = "Accept disposition";
+      accept.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        post(base + "/rids/" + encodeURIComponent(r.rid) + "/verify", {});
+        post(base + "/rids/" + encodeURIComponent(r.rid) + "/accept", {});
       });
-      actions.appendChild(verify);
+      actions.appendChild(accept);
     }
-    if (r && r.canVerify && r.status === "verified") {
+    if (r && r.canVerify && phase === "in_review" && (r.status === "answered" || r.status === "closed")) {
       var reopen = document.createElement("button");
       reopen.type = "button";
       reopen.className = "cp-reopen";
@@ -353,6 +354,40 @@
         if (reason) post(base + "/rids/" + encodeURIComponent(r.rid) + "/reopen", { reason: reason });
       });
       actions.appendChild(reopen);
+    }
+    if (r && r.canVerify && phase === "closeout" && r.status === "implemented") {
+      var verify = document.createElement("button");
+      verify.type = "button";
+      verify.className = "primary cp-verify";
+      verify.textContent = "Verify";
+      verify.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        post(base + "/rids/" + encodeURIComponent(r.rid) + "/verify", {});
+      });
+      actions.appendChild(verify);
+      var rc = document.createElement("button");
+      rc.type = "button";
+      rc.className = "warn cp-request-changes";
+      rc.textContent = "Request changes…";
+      rc.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var reason = window.prompt("What still needs work on " + r.rid + "?");
+        if (reason) post(base + "/rids/" + encodeURIComponent(r.rid) + "/request-changes", { reason: reason });
+      });
+      actions.appendChild(rc);
+    }
+    if (r && r.canVerify && phase === "closeout" && r.status === "verified") {
+      // reopen a verdict during closeout = request changes (verified → closed)
+      var undo = document.createElement("button");
+      undo.type = "button";
+      undo.className = "cp-reopen";
+      undo.textContent = "Reopen…";
+      undo.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var reason = window.prompt("Reopen reason for " + r.rid + ":");
+        if (reason) post(base + "/rids/" + encodeURIComponent(r.rid) + "/request-changes", { reason: reason });
+      });
+      actions.appendChild(undo);
     }
     if (r && r.canPurge) { // v2.3: Withdraw — admin-only in the card, amber,
       // same visual weight as Purge (reviewers manage their own comments

@@ -7,9 +7,15 @@
 {% if data.isReviewer %}
 <div class="role-banner role-banner-reviewer">
   <span class="role role-reviewer">reviewer</span>
+  {% if data.phase == 'closeout' %}
+  <span><b>Closeout:</b> verify the changes made for your comments — open a card and use
+  <i>Verify</i> once it's fixed, or <i>Request changes…</i> if it isn't yet.</span>
+  {% else %}
   <span><b>Select text in the document to add a comment.</b> Only comment blocks are
-  added — the baseline is frozen (the server re-checks on save and submit). You can
-  edit or delete your own comments; everyone else's are read-only.</span>
+  added — the baseline is frozen (the server re-checks on save and submit). Once the
+  owner answers, use <i>Accept disposition</i> to close it, or <i>Reopen…</i> if you
+  disagree. You can edit or delete your own comments; everyone else's are read-only.</span>
+  {% endif %}
 </div>
 <p class="muted copy-state">Your copy:
   {% if data.mySubmitted %}<b>Submitted</b> — you can still edit and resubmit
@@ -18,16 +24,27 @@
 {% elif data.canDispose %}
 <div class="role-banner role-banner-owner">
   <span class="role role-owner">{% if data.role == 'owner' %}owner{% else %}admin{% endif %}</span>
+  {% if data.phase == 'closeout' %}
+  <span><b>Closeout:</b> implement the accepted findings and link each one to a document
+  change (the "Closeout workspace" from the dashboard). Reviewers verify your changes —
+  you never verify or close a finding yourself.</span>
+  {% else %}
   <span><b>You answer comments here</b> — open a card and use <i>Dispose</i>
   (accept / reject / defer, with reply and resolution). Adding comments is the
   reviewers' job in the formal flow: the document is yours, the findings are theirs.
   You never verify/close findings — that authority belongs to the reviewers.</span>
+  {% endif %}
 </div>
 {% elif data.role == 'moderator' %}
 <div class="role-banner role-banner-moderator">
   <span class="role role-moderator">moderator</span>
-  <span><b>You steer the process</b> — you can verify or reopen findings on a
+  {% if data.phase == 'closeout' %}
+  <span><b>You steer closeout</b> — you can verify a finding or request changes on a
   reviewer's behalf. You don't author comments and you don't disposition.</span>
+  {% else %}
+  <span><b>You steer the process</b> — you can accept a disposition or reopen a finding
+  on a reviewer's behalf. You don't author comments and you don't disposition.</span>
+  {% endif %}
 </div>
 {% else %}
 <p class="muted">Everyone's comments, colored per reviewer. Click a marker or a card to jump.</p>

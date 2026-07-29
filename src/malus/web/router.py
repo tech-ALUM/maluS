@@ -26,7 +26,7 @@ from malus.api import authz
 from malus.api.deps import get_session
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
-from malus.db.models import User
+from malus.db.models import ReviewStatus, User
 from malus.harvest import FreezeViolation, validate_insertion_only
 from malus.parser import ParseError
 from malus.repo import (
@@ -199,7 +199,7 @@ async def new_review_submit(
 
 
 _FACET_VALUES = {
-    "status": ["open", "answered", "implemented", "verified", "withdrawn"],
+    "status": ["open", "answered", "closed", "implemented", "verified", "withdrawn"],
     "type": ["typo", "editorial", "technical", "process"],
     "severity": ["minor", "major", "critical"],
     "disposition": ["accepted", "rejected", "deferred"],
@@ -304,8 +304,14 @@ def review_page(
     ]
     filter_options = dict(_FACET_VALUES, reviewer=rtd.meta.reviewers)
     counts_status = {s.value: sum(1 for r in rtd.rids if r.status is s) for s in Status}
-    closed = counts_status[Status.VERIFIED.value] + counts_status[Status.WITHDRAWN.value]
+    closed = (
+        counts_status[Status.CLOSED.value]
+        + counts_status[Status.VERIFIED.value]
+        + counts_status[Status.WITHDRAWN.value]
+    )
     total = len(rtd.rids)
+    phase = review.status
+    closeout_errors = svc.closeout_gate(session, review) if phase == ReviewStatus.IN_REVIEW.value else []
 
     # v1.6: reviewer submission panel (soft indicator — blocks nothing)
     copies_by_uid = {c.user_id: c for c in ReviewerCopyRepo(session).list(review)}
@@ -337,17 +343,14 @@ def review_page(
             "progress": round(100 * closed / total) if total else 0,
             "tokens": tokens,
             "filter_options": filter_options,
-            "accepted_waiting": sum(
-                1
-                for r in rtd.rids
-                if r.disposition is Disposition.ACCEPTED and r.status is Status.ANSWERED
-            ),
             "reviewer_names": rtd.meta.reviewers,
             "submissions": submissions,
             "subm_done": subm_done,
             "subm_total": subm_total,
             "all_submitted": subm_total > 0 and subm_done == subm_total,
             "ai_proposals": ai_proposals,
+            "phase": phase,
+            "closeout_errors": closeout_errors,
         },
     )
 
@@ -430,6 +433,77 @@ def reopen_action(
     on_behalf = authz.require_verify(session, review, user, row)
     svc.reopen(session, review, rid, reviewer=user.display_name, reason=reason, moderator=on_behalf)
     return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/rids/{rid}/accept")
+def accept_action(review_id: str, rid: str, request: Request, session: Session = Depends(get_session)):
+    """The RID's own reviewer (or a moderator on their behalf) accepts the
+    owner's disposition (v3): ``answered -> closed``, in_review only."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    row = RidRepo(session).get(review, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
+    on_behalf = authz.require_verify(session, review, user, row)
+    svc.accept_disposition(session, review, rid, reviewer=user.display_name, moderator=on_behalf)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/rids/{rid}/request-changes")
+def request_changes_action(
+    review_id: str,
+    rid: str,
+    request: Request,
+    reason: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    """The RID's own reviewer (or a moderator on their behalf) sends an
+    implemented/verified RID back for rework (v3): ``-> closed``, closeout only."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    row = RidRepo(session).get(review, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
+    on_behalf = authz.require_verify(session, review, user, row)
+    svc.request_changes(
+        session, review, rid, reviewer=user.display_name, reason=reason, moderator=on_behalf
+    )
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/start-closeout")
+def start_closeout_action(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Owner-only (v3): ``in_review -> closeout``, gated on every finding
+    being closed (or withdrawn) — see ``svc.closeout_gate``."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    authz.forbid_ai_commit(user)
+    svc.start_closeout(session, review, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
+@web.post("/ui/reviews/{review_id}/reopen-review")
+def reopen_review_action(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Admin escape hatch (v3): ``closeout -> in_review``. Reserved to a
+    human global admin — not the owner, not a moderator, never an AI."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not (user.is_admin and not user.is_ai):
+        raise HTTPException(
+            status_code=403,
+            detail="reopening a review from closeout is a human global-admin-only action",
+        )
+    svc.reopen_review(session, review, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/discard-draft")
@@ -610,6 +684,7 @@ def _document_context(
 
     data = {
         "reviewId": review.review_id_str,
+        "phase": review.status,
         "role": role,
         "isAdmin": user.is_admin,
         "isReviewer": is_reviewer,
@@ -771,11 +846,15 @@ def implement_page(review_id: str, request: Request, session: Session = Depends(
         return _LOGIN
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)
+    if review.status != ReviewStatus.CLOSEOUT.value:
+        raise HTTPException(
+            status_code=409, detail="implementing findings is only available during closeout"
+        )
     latest = VersionRepo(session).latest(review)
     accepted = [
         r
         for r in svc.export(session, review).rids
-        if r.disposition is Disposition.ACCEPTED and r.status is Status.ANSWERED
+        if r.disposition is Disposition.ACCEPTED and r.status is Status.CLOSED
     ]
     return templates.TemplateResponse(
         request,
@@ -803,6 +882,10 @@ def implement_submit(
         return _LOGIN
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)
+    if review.status != ReviewStatus.CLOSEOUT.value:
+        raise HTTPException(
+            status_code=409, detail="implementing findings is only available during closeout"
+        )
     version = svc.save_version(session, review, content, by=user)
     for rid in rids:
         if RidRepo(session).get(review, rid) is None:

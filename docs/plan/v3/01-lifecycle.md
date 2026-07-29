@@ -33,12 +33,12 @@ services + authz (spec: `docs/plan/v3/00-design.md`).
 - [x] `Status.CLOSED` + new forward transition graph (`constants.py`)
 - [x] `transition()` closure authority extended to `closed` (`models.py`)
 - [x] `accept_disposition_rid` / `request_changes_rid` helpers; `reopen_rid` extended (`lifecycle.py`)
-- [ ] `ReviewStatus` phases + phase-gated services + `start_closeout` / `reopen_review` (`services/core.py`)
-- [ ] Startup migration backfill `draft|active → in_review` (`db/session.py`)
-- [ ] API endpoints: accept, request-changes, start-closeout, reopen-review
-- [ ] Web wiring: routes + viewer buttons (Accept disposition / Verify / Request changes) + dashboard phase actions
+- [x] `ReviewStatus` phases + phase-gated services + `start_closeout` / `reopen_review` (`services/core.py`)
+- [x] Startup migration backfill `draft|active → in_review` (`db/session.py`)
+- [x] API endpoints: accept, request-changes, start-closeout, reopen-review
+- [x] Web wiring: routes + viewer buttons (Accept disposition / Verify / Request changes) + dashboard phase actions
 - [ ] Spec docs updated (`docs/spec/rid-schema.md` §3, `docs/spec/data-model.md`)
-- [ ] Full suite green
+- [x] Full suite green
 
 ---
 
@@ -554,12 +554,12 @@ def migrate_review_phases(session: Session) -> None:
 - Modify: `src/malus/web/templates/document.html` (role banners :7-34)
 - Test: `tests/web/test_lifecycle_v3.py` (new) + existing web tests updated
 
-- [ ] **Step 1: failing web tests** covering: POST `…/rids/{rid}/accept` as the RID's
+- [x] **Step 1: failing web tests** covering: POST `…/rids/{rid}/accept` as the RID's
   reviewer → 303 and RID `closed`; as owner → 403; POST `…/start-closeout` as owner
   with gate satisfied → 303 and phase `closeout`; POST `…/rids/{rid}/request-changes`
   in closeout → 303 and RID back to `closed` with reason in reply; dashboard HTML
   contains `Start closeout` only for owner with gate satisfied.
-- [ ] **Step 2:** run → FAIL. **Step 3: implement:**
+- [x] **Step 2:** run → FAIL. **Step 3: implement:**
 
   Router — add beside `verify_action` (`router.py:401`), same shape (auth,
   404, `authz.require_verify` / `authz.require_owner`, redirect to
@@ -695,8 +695,8 @@ def reopen_review_action(review_id: str, request: Request, session: Session = De
   public helper or by catching `PhaseError` → 409 — to `implement_page`/`implement_submit`.)
   Update the owner/reviewer banners in `document.html` to mention the two phases
   (reviewer in closeout: *"verify the changes made for your comments"*).
-- [ ] **Step 4:** `python -m pytest -q` → full suite PASS.
-- [ ] **Step 5:** `git commit -m "feat(web): v3 phase-aware actions — accept disposition, closeout, request changes"`
+- [x] **Step 4:** `python -m pytest -q` → full suite PASS.
+- [x] **Step 5:** `git commit -m "feat(web): v3 phase-aware actions — accept disposition, closeout, request changes"`
 
 ### Task 8: spec docs
 
@@ -710,6 +710,34 @@ def reopen_review_action(review_id: str, request: Request, session: Session = De
   `answered→verified` path as removed in v3. Note in data-model.md that
   `ReviewStatus.ACTIVE` was dropped and backfilled.
 - [ ] **Step 2:** `git commit -m "docs(spec): v3 lifecycle — closed status, review phases"`
+
+## Deviations
+
+- Task 4 (review follow-up): `triage` gained an `IN_REVIEW` phase gate — the
+  spec's phase table did not enumerate it, but triage is a review-phase
+  activity by process definition. `retract_comment` stays deliberately
+  ungated: a reviewer withdraw needs an OPEN rid (impossible in closeout by
+  gate), admin withdraw remains the any-phase escape hatch. To be ratified by
+  Alberto at step close.
+- Task 4: imported already-finalized v0 reviews keep status `finalized`
+  (no fixture exercises re-freezing them; importer unchanged).
+- Task 7: the brief's dashboard hint (`title="{{ closeout_errors|join('; ') }}"`)
+  was changed to a count (`title="{{ closeout_errors|length }} check(s) not yet
+  met…"`), dropping the RID names `svc.closeout_gate` embeds in its message —
+  literal RID text in a page-wide `title` attribute broke five pre-existing
+  `tests/web/test_filters.py` assertions that check a filtered-out RID's
+  absence from the *whole* page. The findings table already shows which rows
+  are open/answered, so no information is lost; only its placement changed.
+  To be ratified by Alberto at step close.
+- Task 7: `tests/e2e/test_v1_e2e.py::test_full_multi_user_review_to_finalize`
+  needed a v3 rewrite (dispose → accept → start-closeout → implement → verify,
+  per-actor) since the new `implement` phase guard 409s the old dispose→implement
+  shortcut; per the task brief this was in scope as "the last one standing."
+- Task 7: `implement_page`'s `accepted` filter moved from `status is ANSWERED`
+  to `status is CLOSED` — in v3 an accepted RID is `closed` (post-accept) by
+  the time closeout is reached, never `answered` (the closeout gate forbids
+  entering closeout with any `answered` RID), so the old predicate would have
+  always rendered "No accepted findings are awaiting implementation."
 
 ## Definition of Done
 

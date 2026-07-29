@@ -59,10 +59,10 @@ def test_disposition_and_verification_cycle_in_browser(mkuser, docs, app):
     assert '"canDispose": true' in owner_view
     assert '"canVerify": false' in owner_view  # closure authority: owner never gets verify
 
-    # owner rejects the finding via the browser form
+    # owner accepts the finding via the browser form (v3: needed to reach implement/verify)
     r = owner.post(
         f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
-        data={"disposition": "rejected", "reply": "out of scope", "resolution": ""},
+        data={"disposition": "accepted", "reply": "will fix", "resolution": ""},
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -71,7 +71,25 @@ def test_disposition_and_verification_cycle_in_browser(mkuser, docs, app):
     rev_view = f.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
     assert '"canVerify": true' in rev_view and '"canDispose": false' in rev_view
 
-    # reviewer verifies via the browser
+    # v3: the reviewer accepts the owner's disposition — answered -> closed, in_review only
+    r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept", follow_redirects=False)
+    assert r.status_code == 303
+    assert '"status": "closed"' in f.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
+
+    # the owner starts closeout via the browser — the gate is satisfied (RID closed)
+    r = owner.post(f"/ui/reviews/{R}/start-closeout", follow_redirects=False)
+    assert r.status_code == 303
+
+    # owner implements the accepted finding via the browser editor -> version + RID link
+    r = owner.post(
+        f"/ui/reviews/{R}/implement",
+        data={"content": docs["baseline"] + "\nbounded.\n", "rids": ["SIN-SRS-0001"]},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert '"status": "implemented"' in owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
+
+    # reviewer verifies via the browser (closeout only)
     r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/verify", follow_redirects=False)
     assert r.status_code == 303
     detail = f.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text

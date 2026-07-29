@@ -51,7 +51,20 @@ def test_full_multi_user_review_to_finalize(app, mkuser, basic_client, docs):
         f"/reviews/{R}/rids/{ai_rid}", json={"status": "answered", "disposition": "rejected", "reply": "no"}
     ).status_code == 200
 
+    # --- v3: each reviewer accepts the owner's disposition (in_review) before closeout;
+    #     an AI principal may never close a finding — a moderator does it on its behalf ---
+    assert human.post(f"/ui/reviews/{R}/rids/{human_rid}/accept", follow_redirects=False).status_code == 303
+    assert ai.post(f"/reviews/{R}/rids/{ai_rid}/accept").status_code == 403  # AI cannot close
+    assert mod.post(f"/reviews/{R}/rids/{ai_rid}/accept").status_code == 200  # moderator on behalf
+    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "closed"
+    assert owner.get(f"/reviews/{R}/rids/{ai_rid}").json()["status"] == "closed"
+
+    # --- the closeout gate is satisfied (both findings closed) — owner starts closeout (GUI) ---
+    assert owner.post(f"/ui/reviews/{R}/start-closeout", follow_redirects=False).status_code == 303
+    assert owner.get(f"/reviews/{R}").json()["status"] == "closeout"
+
     # --- owner implements the accepted finding via the editor (GUI) -> version + RID link ---
+    # (the rejected AI finding stays 'closed' — only an accepted RID may be implemented)
     assert owner.post(
         f"/ui/reviews/{R}/implement",
         data={"content": docs["baseline"] + "\nThe timeout is bounded to 30s.\n", "rids": [human_rid]},
@@ -60,11 +73,9 @@ def test_full_multi_user_review_to_finalize(app, mkuser, basic_client, docs):
     assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "implemented"
     assert human_rid in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
-    # --- verification: the human verifies their own (GUI); the moderator verifies the
-    #     AI's finding on the AI's behalf (an AI can never verify) ---
+    # --- verification: the human verifies their own finding (GUI, closeout-only) ---
     assert human.post(f"/ui/reviews/{R}/rids/{human_rid}/verify", follow_redirects=False).status_code == 303
     assert ai.post(f"/reviews/{R}/rids/{ai_rid}/verify").status_code == 403  # AI cannot close
-    assert mod.post(f"/reviews/{R}/rids/{ai_rid}/verify").status_code == 200  # moderator on behalf
 
     # --- report + finalize ---
     report = owner.get(f"/reviews/{R}/report").json()
@@ -72,13 +83,20 @@ def test_full_multi_user_review_to_finalize(app, mkuser, basic_client, docs):
     fin = owner.post(f"/reviews/{R}/finalize", json={})
     assert fin.status_code == 200 and fin.json()["finalized"] is True and fin.json()["status"] == "finalized"
 
-    # every RID is closed and the audit log recorded distinct actors
-    assert all(r["status"] in ("verified", "withdrawn") for r in owner.get(f"/reviews/{R}/rids").json())
+    # every RID reached a terminal state — the accepted one verified, the rejected
+    # one closed (v3: rejected/deferred findings never go past 'closed') — and the
+    # audit log recorded distinct actors throughout
+    final_status = {r["rid"]: r["status"] for r in owner.get(f"/reviews/{R}/rids").json()}
+    assert final_status[human_rid] == "verified"
+    assert final_status[ai_rid] == "closed"
     from malus.db.models import AuditLog
 
     with Session(app.state.engine) as session:
         actions = {a.action for a in session.exec(select(AuditLog)).all()}
-        assert {"create_review", "freeze", "harvest", "answer", "implement", "verify", "finalize"} <= actions
+        assert {
+            "create_review", "freeze", "harvest", "answer",
+            "accept_disposition", "start_closeout", "implement", "verify", "finalize",
+        } <= actions
 
 
 def test_v0_review_directory_imports_and_is_usable(app, admin):

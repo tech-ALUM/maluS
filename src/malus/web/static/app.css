@@ -171,6 +171,7 @@ button.danger:hover { background: var(--coral); color: #fff; border-color: var(-
 .st { font-family: var(--mono); font-size: .72rem; padding: .12rem .5rem; border-radius: var(--radius-pill); border: 1px solid var(--line); background: #fff; white-space: nowrap; }
 .st-open { color: var(--coral-dark); border-color: var(--coral); background: var(--coral-soft); }
 .st-answered { color: #7a5c00; border-color: #d8b74a; background: #fbf6e7; }
+.st-closed { color: #2a5885; border-color: #7fa8cc; background: #eef4fa; }
 .st-implemented { color: var(--teal); border-color: var(--teal); background: var(--teal-soft); }
 .st-verified { color: #1f7a3d; border-color: #57b877; background: #eef8f0; }
 .st-withdrawn { color: var(--muted); }

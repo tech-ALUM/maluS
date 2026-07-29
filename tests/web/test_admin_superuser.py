@@ -33,11 +33,38 @@ def test_admin_can_dispose_without_membership(mkuser, docs):
 
 
 def test_admin_can_verify_and_reopen_closure(mkuser, docs):
+    """v3: admin closure authority spans both phases — accept on behalf in
+    in_review, then verify / request-changes on behalf in closeout."""
     _owner, _f, admin = _seed(mkuser, docs)
-    admin.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"status": "answered", "disposition": "rejected", "reply": "n/a"})
-    assert admin.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 200  # closure
+    admin.patch(
+        f"/reviews/{R}/rids/SIN-SRS-0001",
+        json={"status": "answered", "disposition": "accepted", "reply": "ok"},
+    )
+
+    # in_review: admin accepts the disposition on the reviewer's behalf (closure)
+    assert admin.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 200
+    assert admin.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "closed"
+
+    # move the review into closeout (gate satisfied: the only RID is closed)
+    assert admin.post(f"/reviews/{R}/start-closeout").status_code == 200
+
+    # link a change + advance to implemented so there's something to verify
+    assert admin.post(
+        f"/reviews/{R}/changes",
+        json={"content": docs["baseline"] + "\nbounded.\n", "rids": ["SIN-SRS-0001"]},
+    ).status_code == 200
+    assert admin.patch(
+        f"/reviews/{R}/rids/SIN-SRS-0001", json={"status": "implemented"}
+    ).status_code == 200
+
+    # closeout: admin verifies on behalf (closure)
+    assert admin.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 200
     assert admin.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "verified"
-    assert admin.post(f"/reviews/{R}/rids/SIN-SRS-0001/reopen", json={"reason": "recheck"}).status_code == 200
+
+    # ... and can also send it back for rework via request-changes (closure)
+    resp = admin.post(f"/reviews/{R}/rids/SIN-SRS-0001/request-changes", json={"reason": "recheck"})
+    assert resp.status_code == 200
+    assert admin.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "closed"
 
 
 def test_admin_can_freeze_and_edit_document(mkuser, docs):

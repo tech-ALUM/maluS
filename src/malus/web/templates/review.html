@@ -17,8 +17,26 @@
 {% endif %}
 {% if role == 'owner' or user.is_admin %}
 <p class="actions">
-  {% if accepted_waiting %}
-  <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Implement accepted findings ({{ accepted_waiting }})</a>
+  {% if phase == 'in_review' %}
+    {% if not closeout_errors %}
+    <form method="post" action="/ui/reviews/{{ review.review_id_str }}/start-closeout" class="inline"
+          onsubmit="return confirm('Start closeout? New comments will be locked; the owner implements the accepted findings and reviewers verify them.')">
+      <button class="primary">Start closeout</button>
+    </form>
+    {% else %}
+    {# the gate message itself may name specific RIDs (svc.closeout_gate) — kept out of
+       this page's markup so it never collides with the RTD table's own filtering; the
+       findings table below always shows which rows are still open/answered. #}
+    <span class="muted" title="{{ closeout_errors|length }} check{{ 's' if closeout_errors|length != 1 else '' }} not yet met — see the findings table below">Closeout unlocks when every comment is closed.</span>
+    {% endif %}
+  {% elif phase == 'closeout' %}
+    <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Closeout workspace</a>
+    {% if user.is_admin %}
+    <form method="post" action="/ui/reviews/{{ review.review_id_str }}/reopen-review" class="inline"
+          onsubmit="return confirm('Reopen the review phase? Reviewers can comment again.')">
+      <button class="linkbtn">Back to review</button>
+    </form>
+    {% endif %}
   {% endif %}
   <details class="menu">
     <summary aria-label="More actions">⋯</summary>

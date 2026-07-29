@@ -113,14 +113,15 @@ def test_focus_payload_and_unknown_focus_404(mkuser, docs):
 
 def test_actions_redirect_back_to_focus(mkuser, docs):
     owner, f, _mod, _ai = _seed(mkuser, docs)
-    # rejected → answered, from which the reviewer may verify directly
+    # rejected → answered, from which the reviewer may accept the disposition directly
     r = owner.post(
         f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
         data={"disposition": "rejected", "reply": "out of scope", "resolution": ""},
         follow_redirects=False,
     )
     assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
-    r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/verify", follow_redirects=False)
+    # v3: accept replaces verify as the in_review closure action
+    r = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].endswith("?focus=SIN-SRS-0001")
 
 

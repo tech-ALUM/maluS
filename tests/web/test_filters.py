@@ -96,9 +96,21 @@ def test_malformed_conditions_are_ignored(mkuser):
 
 
 def test_actions_row_still_decluttered(mkuser):
-    owner, _f = _seed(mkuser)
+    """v3: the single phase-aware action (Start closeout / Closeout workspace)
+    replaces the old always-there 'Implement accepted findings' link; the
+    ⋯ menu stays put regardless of phase."""
+    owner, f = _seed(mkuser)
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "Implement accepted findings" not in page
+    assert "Start closeout" not in page  # gate unmet: both findings still open
     assert '<details class="menu">' in page
-    owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose", data={"disposition": "accepted", "reply": "ok"})
-    assert "Implement accepted findings" in owner.get(f"/ui/reviews/{R}").text
+
+    # dispose + accept both findings to satisfy the closeout gate
+    for rid in ("SIN-SRS-0001", "SIN-SRS-0002"):
+        owner.post(f"/ui/reviews/{R}/rids/{rid}/dispose", data={"disposition": "accepted", "reply": "ok"})
+        f.post(f"/ui/reviews/{R}/rids/{rid}/accept")
+
+    page = owner.get(f"/ui/reviews/{R}").text
+    assert "Start closeout" in page and "Closeout workspace" not in page
+
+    owner.post(f"/ui/reviews/{R}/start-closeout")
+    assert "Closeout workspace" in owner.get(f"/ui/reviews/{R}").text
