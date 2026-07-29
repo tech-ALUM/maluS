@@ -291,7 +291,8 @@
     var actions = document.createElement("div");
     actions.className = "cp-actions";
 
-    if (c) { // own local comment: edit/delete + private note
+    if (c && !r) { // own UNSAVED comment: deletable here; once harvested,
+      // withdrawal moves to the dashboard ⋯ menu (open findings only, v3)
       var del = document.createElement("button");
       del.type = "button";
       del.className = "linkbtn cp-del";
@@ -302,7 +303,8 @@
         refresh(true);
       });
       actions.appendChild(del);
-
+    }
+    if (c) { // own comment: private note
       var noteLabel = document.createElement("label");
       noteLabel.className = "cp-note-label";
       noteLabel.textContent = "My private note";

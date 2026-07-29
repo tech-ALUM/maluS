@@ -150,7 +150,7 @@
       <td>{{ r.severity.value if r.severity else '' }}</td>
       <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></td>
       <td>{{ r.disposition.value if r.disposition else '' }}</td>
-      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if ((role == 'reviewer' and r.reviewer == user.display_name and r.status.value == 'open') or user.is_admin) and phase == 'in_review' %} <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="linkbtn retract-btn" title="Withdraw comment">✕ withdraw</button></form>{% endif %}</td>
+      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if r.status.value == 'open' and ((role == 'reviewer' and r.reviewer == user.display_name) or user.is_admin) and phase == 'in_review' %} <details class="menu rid-menu"><summary aria-label="Comment actions">⋯</summary><div class="menu-items"><form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="menu-danger linkbtn retract-btn" title="Withdraw comment">Withdraw</button></form></div></details>{% endif %}</td>
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">No findings match.</td></tr>
