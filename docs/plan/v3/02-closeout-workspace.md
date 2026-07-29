@@ -33,10 +33,10 @@ same services + authz. Depends on step 01 (phases, `closed` status).
 ## Deliverables
 
 - [x] `save_closeout_version` service (link-only save with validation)
-- [ ] Closeout page: work queue + editor + per-RID Mark implemented
-- [ ] `/implement` route replaced (301/303 to `/closeout`)
-- [ ] Dashboard + viewer link to the workspace in closeout phase
-- [ ] Full suite green
+- [x] Closeout page: work queue + editor + per-RID Mark implemented
+- [x] `/implement` route replaced (301/303 to `/closeout`)
+- [x] Dashboard + viewer link to the workspace in closeout phase
+- [x] Full suite green
 
 ---
 
@@ -311,12 +311,25 @@ resolves, save — then mark the finding implemented so its reviewer can verify 
   mark-implemented POST where they relied on it).
 - [ ] **Step 5:** `git commit -m "feat(web): closeout workspace — work queue, linked saves, explicit mark implemented"`
 
+## Deviations
+
+- Resolution field (agreed with Alberto, wave-2 fallout): the dispose form no
+  longer carries `resolution`, so the Mark-implemented form records it
+  (optional input → `svc.update_rid` before `svc.implement`); the queue shows
+  the recorded text.
+- "Rework requested" groups on the `[changes requested by` reply marker (only
+  request-changes writes it), not on "has a linked change" — a saved-but-not-
+  yet-marked RID stays under *To implement* (review finding, fixed c9ba5b0).
+- `POST /ui/reviews/{id}/implement` removed outright (405); only the GET
+  redirects to `/closeout`.
+
 ## Definition of Done
 
-- [ ] Deliverables checked; suite green.
-- [ ] Manual smoke: closeout review → workspace shows queue; save without ticks
+- [x] Deliverables checked; suite green.
+- [x] Manual smoke: closeout review → workspace shows queue; save without ticks
   → error with text preserved; save with tick → version + link; Mark implemented
-  appears only after a linked save; RID moves to *Awaiting verification*.
+  appears only after a linked save; RID moves to *Awaiting verification*
+  (with its resolution shown).
 
 ## Out of scope
 
