@@ -15,6 +15,14 @@ same services + authz. Depends on step 01 (phases, `closed` status).
 
 **Tech stack:** FastAPI/Jinja, vanilla JS, pytest.
 
+## Carried from step 01's final review
+
+- Close the disposition-edit loophole: `svc.update_rid` still accepts a
+  `disposition` change on a RID past `answered` (an owner could flip
+  accepted→rejected on a `closed` RID in closeout, dodging implementation).
+  Refuse disposition edits once status is past `answered` — changing a settled
+  disposition must go through the formal reopen.
+
 ## Global constraints
 
 - Every save must reference ≥1 accepted RID and actually change the text —
