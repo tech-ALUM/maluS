@@ -920,9 +920,13 @@ def _closeout_context(session: Session, request: Request, user: User, review, *,
     changed_rids = {  # rids that already have a post-baseline linked change
         r.rid for r in accepted if svc.rid_has_change(session, review, r.rid)
     }
+    # "rework" means a reviewer sent it back (request_changes appends this
+    # marker to the reply) — NOT merely "a save already links it": a RID with
+    # a linked save awaiting its Mark-implemented click is still "to implement".
+    reworked = {r.rid for r in accepted if "[changes requested by" in (r.reply or "")}
     queue = {
-        "todo": [r for r in accepted if r.status is Status.CLOSED and r.rid not in changed_rids],
-        "rework": [r for r in accepted if r.status is Status.CLOSED and r.rid in changed_rids],
+        "todo": [r for r in accepted if r.status is Status.CLOSED and r.rid not in reworked],
+        "rework": [r for r in accepted if r.status is Status.CLOSED and r.rid in reworked],
         "awaiting": [r for r in accepted if r.status is Status.IMPLEMENTED],
         "done": [r for r in accepted if r.status is Status.VERIFIED],
     }
@@ -995,6 +999,8 @@ def mark_implemented(
         if resolution:
             svc.update_rid(session, review, rid, resolution=resolution, by=user)
         svc.implement(session, review, rid, by=user)
+    except svc.PhaseError:  # 409 like the workspace GET/save (phase conflict)
+        raise HTTPException(status_code=409, detail="the review is not in closeout")
     except ValueError as exc:  # no linked change / wrong status / no such RID
         raise HTTPException(status_code=422, detail=str(exc))
     return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
@@ -1004,4 +1010,3 @@ def mark_implemented(
 def implement_redirect(review_id: str):
     """v2's implement page is superseded by the closeout workspace (v3)."""
     return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
-    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
