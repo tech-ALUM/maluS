@@ -26,11 +26,11 @@ since step 01; here they gain the Changes context.
 
 ## Deliverables
 
-- [ ] `diffing.py`: word-level unified diff → HTML (`<ins>`/`<del>`, ±3 lines context)
-- [ ] Per-RID `changes` payload in `_document_context` + card Changes section
-- [ ] Full-diff page `GET /ui/reviews/{id}/diff`
-- [ ] CSS for ins/del/diff blocks
-- [ ] Full suite green
+- [x] `diffing.py`: word-level unified diff → HTML (`<ins>`/`<del>`, ±3 lines context)
+- [x] Per-RID `changes` payload in `_document_context` + card Changes section
+- [x] Full-diff page `GET /ui/reviews/{id}/diff`
+- [x] CSS for ins/del/diff blocks
+- [x] Full suite green
 
 ---
 
@@ -268,13 +268,19 @@ back from the dashboard and the closeout workspace.
   members) and in `closeout.html`'s header line.
 - [ ] **Step 4:** run → PASS. **Step 5:** `git commit -m "feat(web): full-diff page (baseline vs latest)"`
 
+## Deviations
+
+- Tasks 3+4 were implemented in one dispatch (both thin UI); the review.html
+  "Full diff" link exists twice — in the owner actions row and, for every
+  member, under the metrics strip (closeout/finalized only).
+
 ## Definition of Done
 
-- [ ] Deliverables checked; `python -m pytest -q` green.
-- [ ] Manual smoke: closeout review → reviewer opens their accepted comment →
-  card shows Changes with word-level ins/del → Verify moves it to verified;
-  Request changes sends it back with the reason visible in the owner's queue
-  (step 02) → owner re-saves → new diff appears appended.
+- [x] Deliverables checked; `python -m pytest -q` green (444 tests, exit 0).
+- [x] Manual smoke (browser): closeout review → reviewer's accepted comment
+  card shows "Changes (1)" with word-level <del>quick</del>/<ins>slow</ins>
+  and Verify / Request changes… beneath; full-diff page renders
+  baseline v1 → v2.
 
 ## Out of scope
 
