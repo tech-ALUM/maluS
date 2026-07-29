@@ -431,6 +431,16 @@ def apply_suggestions(
 # --------------------------------------------------------------------------- #
 
 
+def _reviewer_copy_submitted(session: Session, review: Review, reviewer_name: str) -> bool:
+    user = UserRepo(session).by_display_name(reviewer_name)
+    if user is None:
+        return False
+    copy = next(
+        (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
+    )
+    return bool(copy and copy.submitted_at)
+
+
 def answer(
     session: Session,
     review: Review,
@@ -444,6 +454,11 @@ def answer(
     _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
+    # v3: a draft comment (unsubmitted copy) can still change — dispose waits
+    if not _reviewer_copy_submitted(session, review, rid.reviewer):
+        raise PhaseError(
+            f"{rid_id} is a draft comment — its reviewer has not submitted their copy yet"
+        )
     rid.disposition = disposition
     rid.reply = reply
     transition(rid, Status.ANSWERED, actor_role=Role.OWNER, actor_name=review.owner.display_name)

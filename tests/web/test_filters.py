@@ -32,7 +32,7 @@ def _seed(mkuser):
     owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
     owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
     owner.post(f"/reviews/{R}/freeze", json={"content": BASELINE})
-    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": COPY_TWO, "action": "save"})
+    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": COPY_TWO, "action": "submit"})
     return owner, f
 
 

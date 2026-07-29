@@ -79,6 +79,7 @@
   {% for s, n in counts_status.items() if n %}
   <span class="st st-{{ s }}{% if s == 'withdrawn' %} ms-muted{% endif %}">{{ n }} {{ s }}</span>
   {% endfor %}
+  {% if draft_count %}<span class="st st-draft" title="Comments from copies not yet submitted">{{ draft_count }} draft{{ '' if draft_count == 1 else 's' }}</span>{% endif %}
   {% if ai_proposals %}<span class="badge ai-badge">{{ ai_proposals }} AI proposal{{ '' if ai_proposals == 1 else 's' }}</span>{% endif %}
 </section>
 
@@ -86,7 +87,7 @@
   <form method="get" class="filter-builder">
     {% for t in tokens %}<input type="hidden" name="f" value="{{ t.facet }}:{{ 'eq' if t.op == '=' else ('ne' if t.op == '≠' else 'contains') }}:{{ t.value }}">{% endfor %}
     <select name="facet" id="flt-facet">
-      {% for fct in ['status','reviewer','type','severity','disposition','comment'] %}
+      {% for fct in ['status','reviewer','type','severity','disposition','draft','comment'] %}
       <option value="{{ fct }}">{{ fct }}</option>
       {% endfor %}
     </select>
@@ -142,13 +143,13 @@
   </tr></thead>
   <tbody>
   {% for r in rids %}
-    <tr>
+    <tr{% if r.rid in draft_rids %} class="row-draft"{% endif %}>
       <td><a href="/ui/reviews/{{ review.review_id_str }}/document?focus={{ r.rid }}">{{ r.rid }}</a>{% if r.ai_drafted and r.status.value == 'open' %} <span class="badge ai-badge">AI</span>{% endif %}</td>
       <td><span class="rev-chip rev-{{ reviewer_names.index(r.reviewer) % 8 if r.reviewer in reviewer_names else 0 }}"{% if colors.get(r.reviewer) %} style="--rev-color: {{ colors[r.reviewer] }}"{% endif %}>{{ r.reviewer }}</span></td>
       <td>{{ r.kind.value }}</td>
       <td>{{ r.type.value if r.type else '' }}</td>
       <td>{{ r.severity.value if r.severity else '' }}</td>
-      <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span></td>
+      <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span>{% if r.rid in draft_rids %} <span class="st st-draft" title="The reviewer has not submitted their copy yet">draft</span>{% endif %}</td>
       <td>{{ r.disposition.value if r.disposition else '' }}</td>
       <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if r.status.value == 'open' and ((role == 'reviewer' and r.reviewer == user.display_name) or user.is_admin) and phase == 'in_review' %} <details class="menu rid-menu"><summary aria-label="Comment actions">⋯</summary><div class="menu-items"><form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="menu-danger linkbtn retract-btn" title="Withdraw comment">Withdraw</button></form></div></details>{% endif %}</td>
     </tr>

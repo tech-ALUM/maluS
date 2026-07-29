@@ -466,3 +466,9 @@ button.compact, .btn.compact { font-size: .78rem; padding: .28rem .6rem; }
 .actions-cell .menu summary { width: 1.8rem; height: 1.8rem; font-size: .95rem; }
 .menu-form { padding: .5rem; min-width: 13rem; }
 .menu-form label { font-size: .78rem; }
+
+/* v3: draft findings (reviewer copy not yet submitted) */
+.st-draft { border-style: dashed; color: var(--muted); background: transparent; }
+tr.row-draft td { opacity: .55; }
+tr.row-draft td .st { opacity: 1; }
+.rid-menu { margin-left: .3rem; }

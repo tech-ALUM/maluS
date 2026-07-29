@@ -47,8 +47,8 @@ def test_full_pipeline_over_http(app, mkuser, docs):
 
     # owner freezes; reviewers submit their own copies
     assert owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]}).status_code == 200
-    assert f.put(f"/reviews/{R}/copies/F. Miccoli", json={"content": docs["copy_f"]}).status_code == 200
-    assert r.put(f"/reviews/{R}/copies/R. Bianchi", json={"content": docs["copy_r"]}).status_code == 200
+    assert f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["copy_f"]}).status_code == 200
+    assert r.post(f"/reviews/{R}/copies/R. Bianchi/submit", json={"content": docs["copy_r"]}).status_code == 200
 
     # moderator harvests + triages
     h = mod.post(f"/reviews/{R}/harvest")

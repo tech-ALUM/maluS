@@ -20,7 +20,7 @@ def _seed_answered(mkuser, docs):
     owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
     owner.post(f"/reviews/{R}/reviewers", json={"name": "M. Mod", "role": "moderator"})
     owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
-    f.put(f"/reviews/{R}/copies/F. Miccoli", json={"content": docs["copy_f"]})
+    f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["copy_f"]})
     mod.post(f"/reviews/{R}/harvest")
     r = owner.post(
         f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
@@ -57,7 +57,7 @@ def test_save_that_drops_an_open_block_still_withdraws(mkuser, docs):
     owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
     owner.post(f"/reviews/{R}/reviewers", json={"name": "M. Mod", "role": "moderator"})
     owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
-    f.put(f"/reviews/{R}/copies/F. Miccoli", json={"content": docs["copy_f"]})
+    f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["copy_f"]})
     mod.post(f"/reviews/{R}/harvest")
 
     r = f.post(

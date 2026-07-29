@@ -250,6 +250,7 @@
       chipHtml(reviewer) +
       '<span class="cp-meta">' + metaBits.join(" · ") + "</span>" +
       (r ? ' <span class="st st-' + r.status + '">' + r.status + "</span>" : ' <span class="st st-unsaved">unsaved</span>') +
+      (r && r.draft ? ' <span class="st st-draft">draft</span>' : "") +
       (r && r.disposition ? ' <span class="st">' + esc(r.disposition) + "</span>" : "") +
       (r && r.aiProposal ? ' <span class="badge ai-badge">AI</span>' : "");
     card.appendChild(head);
@@ -317,7 +318,7 @@
       card.appendChild(noteLabel);
     }
 
-    if (r && data.canDispose && r.status === "open" && phase === "in_review") {
+    if (r && data.canDispose && r.status === "open" && phase === "in_review" && !r.draft) {
       // owner/admin dispose an OPEN finding (v2.3: an answered one is changed
       // only through the formal reopen, which brings it back to open)
       var toggle = document.createElement("button");

@@ -57,9 +57,10 @@ def test_panel_all_submitted_notice(mkuser, docs):
 
 
 def test_panel_soft_gate_does_not_block_disposition(mkuser, docs):
-    # even with reviewers still drafting, the owner can dispose (no hard gate)
+    # OTHER reviewers still pending never block a dispose; the disposed
+    # comment's own copy must be submitted though (v3: no dispose on drafts)
     owner, f, _r, _t = _seed_three_reviewers(mkuser, docs)
-    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "save"})
+    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
     r = owner.post(
         f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
         data={"disposition": "accepted", "reply": "ok", "resolution": ""},

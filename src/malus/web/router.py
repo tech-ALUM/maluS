@@ -203,8 +203,23 @@ _FACET_VALUES = {
     "type": ["typo", "editorial", "technical", "process"],
     "severity": ["minor", "major", "critical"],
     "disposition": ["accepted", "rejected", "deferred"],
+    "draft": ["yes", "no"],  # v3: comment from a not-yet-submitted copy
 }
-_ENUM_FACETS = ("status", "reviewer", "type", "severity", "disposition")
+_ENUM_FACETS = ("status", "reviewer", "type", "severity", "disposition", "draft")
+
+
+def _draft_reviewers(session: Session, review) -> set[str]:
+    """Reviewers whose current copy exists but is not submitted (v3): their
+    findings render as drafts and cannot be disposed yet."""
+    copies_by_uid = {c.user_id: c for c in ReviewerCopyRepo(session).list(review)}
+    out: set[str] = set()
+    for m in ReviewRepo(session).members(review):
+        if m.role != Role.REVIEWER.value:
+            continue
+        copy = copies_by_uid.get(m.user_id)
+        if copy is not None and copy.submitted_at is None:
+            out.add(m.user.display_name)
+    return out
 _OP_LABELS = {"eq": "=", "ne": "≠", "contains": "contains"}
 
 
@@ -269,6 +284,8 @@ def review_page(
         else:
             ne_sets.setdefault(cfacet, set()).add(cvalue)
 
+    draft_names = _draft_reviewers(session, review)
+
     def _facet_value(r, cfacet: str) -> str:
         if cfacet == "status":
             return r.status.value
@@ -278,6 +295,8 @@ def review_page(
             return r.type.value if r.type else ""
         if cfacet == "severity":
             return r.severity.value if r.severity else ""
+        if cfacet == "draft":
+            return "yes" if r.reviewer in draft_names else "no"
         return r.disposition.value if r.disposition else ""
 
     def keep(r) -> bool:
@@ -325,11 +344,18 @@ def review_page(
     subm_total = len(submissions)
     subm_done = sum(1 for s in submissions if s["state"] == "submitted")
     ai_proposals = sum(1 for r in rtd.rids if r.ai_drafted and r.status is Status.OPEN)
+    draft_rids = {
+        r.rid
+        for r in rtd.rids
+        if r.reviewer in draft_names and r.status is not Status.WITHDRAWN
+    }
 
     return templates.TemplateResponse(
         request,
         "review.html",
         {
+            "draft_rids": draft_rids,
+            "draft_count": len(draft_rids),
             "user": user,
             "review": review,
             "role": role,
@@ -630,6 +656,7 @@ def _document_context(
         raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
     rtd = svc.export(session, review)
     is_reviewer = role == Role.REVIEWER.value
+    draft_names = _draft_reviewers(session, review)
     mine = _own_copy(session, review, user) if is_reviewer else None
     my_copy = None
     if is_reviewer:
@@ -652,6 +679,7 @@ def _document_context(
                 "resolution": r.resolution or None,
                 "aiDrafted": bool(r.ai_drafted),
                 "aiProposal": bool(r.ai_drafted and r.status is Status.OPEN),
+                "draft": r.reviewer in draft_names,
                 "offset": r.anchor.offset,
                 "lineHint": r.anchor.line_hint,
                 "section": r.anchor.section,

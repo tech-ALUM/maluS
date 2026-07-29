@@ -25,7 +25,7 @@ def _seed(mkuser, docs):
     for name, role in [("F. Miccoli", "reviewer"), ("M. Mod", "moderator"), ("AI Bot", "reviewer")]:
         owner.post(f"/reviews/{R}/reviewers", json={"name": name, "role": role})
     owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
-    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "save"})
+    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
     return owner, f, mod, ai
 
 

@@ -31,7 +31,7 @@ def _review_with_one_rid(owner, f, mod) -> str:
         f"/reviews/{R}/reviewers", json={"name": "M. Mod", "role": "moderator"}
     ).status_code == 200
     assert owner.post(f"/reviews/{R}/freeze", json={"content": BASELINE}).status_code == 200
-    assert f.put(f"/reviews/{R}/copies/F. Miccoli", json={"content": COPY}).status_code == 200
+    assert f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": COPY}).status_code == 200
     h = mod.post(f"/reviews/{R}/harvest")
     assert h.status_code == 200, h.text
     rids = h.json()["rids"]
