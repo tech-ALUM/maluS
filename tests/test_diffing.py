@@ -15,6 +15,33 @@ def test_html_is_escaped():
     assert "<script>" not in out and "&lt;script&gt;" in out
 
 
+def test_html_is_escaped_on_insert_and_delete():
+    # "<b>bold</b>" is removed (pure delete opcode) and
+    # "<script>alert(1)</script>" is appended (pure insert opcode) —
+    # neither pairs with a same-length replacement, so both take the
+    # non-refined else branch of html_diff.
+    old = "keep one\n<b>bold</b>\nkeep two\n"
+    new = "keep one\nkeep two\n<script>alert(1)</script>\n"
+    out = html_diff(old, new)
+    assert "<script>" not in out and "<b>" not in out
+    assert "&lt;script&gt;" in out and "&lt;b&gt;" in out
+    assert '<div class="diff-del"><del>&lt;b&gt;bold&lt;/b&gt;</del></div>' in out
+    assert (
+        '<div class="diff-ins"><ins>&lt;script&gt;alert(1)&lt;/script&gt;</ins></div>'
+        in out
+    )
+
+
+def test_html_is_escaped_in_context_lines():
+    # The first line is unchanged, so it is emitted via the equal/context
+    # branch — it must still be escaped.
+    old = "Tom & Jerry <inc>\nold line\n"
+    new = "Tom & Jerry <inc>\nnew line\n"
+    out = html_diff(old, new)
+    assert '<div class="diff-ctx">Tom &amp; Jerry &lt;inc&gt;</div>' in out
+    assert "<inc>" not in out
+
+
 def test_context_is_limited():
     old = "\n".join(f"line {i:02d}" for i in range(50)) + "\n"
     new = old.replace("line 10", "line ten").replace("line 40", "line forty")
