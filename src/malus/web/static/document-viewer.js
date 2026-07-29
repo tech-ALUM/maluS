@@ -324,7 +324,9 @@
       var toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "secondary cp-dispose-toggle";
-      toggle.textContent = r.aiProposal ? "Review AI draft…" : "Dispose…";
+      // v3 naming: no disposition yet → "Save disposition…"; an answered one
+      // (present but not yet accepted) gets "Edit disposition…" below
+      toggle.textContent = r.aiProposal ? "Review AI draft…" : "Save disposition…";
       var dform = disposeForm(r);
       dform.hidden = true;
       toggle.addEventListener("click", function (ev) {
@@ -613,40 +615,23 @@
     if (idx === -1) return { text: text, offset: baseline.length };
     return { text: text, offset: idx + text.length };
   }
-  function toggleKind() {
-    var sugg = document.getElementById("cmt-kind").value === "SUGG";
-    document.getElementById("cmt-sugg-fields").hidden = !sugg;
-    document.getElementById("cmt-comm-fields").hidden = sugg;
-    document.getElementById("cmt-body").hidden = sugg;
-  }
   function openPop(pageX, pageY, text) {
-    document.getElementById("cmt-kind").value = "COMM";
     document.getElementById("cmt-body").value = "";
-    document.getElementById("cmt-old").value = text;
-    document.getElementById("cmt-new").value = "";
-    toggleKind();
     pop.style.left = Math.max(8, Math.min(pageX, window.scrollX + window.innerWidth - 306)) + "px";
     pop.style.top = (pageY + 8) + "px";
     pop.hidden = false;
     document.getElementById("cmt-body").focus();
   }
   if (data.isReviewer && pop) {
-    document.getElementById("cmt-kind").addEventListener("change", toggleKind);
     document.getElementById("cmt-cancel").addEventListener("click", function () { pop.hidden = true; pending = null; });
     document.getElementById("cmt-save").addEventListener("click", function () {
       if (!pending) return;
-      var kind = document.getElementById("cmt-kind").value;
-      var c = { cid: seq++, offset: pending.offset, kind: kind, type: "editorial", sev: "minor", body: "", oldText: "", newText: "" };
-      if (kind === "SUGG") {
-        c.oldText = document.getElementById("cmt-old").value;
-        c.newText = document.getElementById("cmt-new").value;
-        if (!c.oldText) return;
-      } else {
-        c.type = document.getElementById("cmt-type").value;
-        c.sev = document.getElementById("cmt-sev").value;
-        c.body = document.getElementById("cmt-body").value.trim();
-        if (!c.body) return;
-      }
+      // v3: the GUI creates comments only (SUGG survives as legacy data)
+      var c = { cid: seq++, offset: pending.offset, kind: "COMM", type: "editorial", sev: "minor", body: "", oldText: "", newText: "" };
+      c.type = document.getElementById("cmt-type").value;
+      c.sev = document.getElementById("cmt-sev").value;
+      c.body = document.getElementById("cmt-body").value.trim();
+      if (!c.body) return;
       comments.push(c);
       pop.hidden = true;
       pending = null;

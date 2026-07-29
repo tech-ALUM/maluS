@@ -77,15 +77,8 @@
 
 {% if data.isReviewer %}
 <!-- selection → comment popover -->
+<!-- v3: comments only — the SUGG kind is no longer offered by the GUI -->
 <div id="cmt-pop" class="cmt-pop" hidden>
-  <div class="cmt-pop-row">
-    <label>Kind
-      <select id="cmt-kind">
-        <option value="COMM">Comment</option>
-        <option value="SUGG">Suggestion</option>
-      </select>
-    </label>
-  </div>
   <div id="cmt-comm-fields" class="cmt-pop-row">
     <label>Type
       <select id="cmt-type">
@@ -104,10 +97,6 @@
     </label>
   </div>
   <textarea id="cmt-body" rows="3" placeholder="Your comment…"></textarea>
-  <div id="cmt-sugg-fields" hidden>
-    <input id="cmt-old" type="text" placeholder="old text (from selection)">
-    <input id="cmt-new" type="text" placeholder="new text">
-  </div>
   <div class="cmt-pop-row cmt-pop-actions">
     <button type="button" id="cmt-save" class="primary">Add</button>
     <button type="button" id="cmt-cancel">Cancel</button>
