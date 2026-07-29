@@ -49,8 +49,35 @@ in PostgreSQL.
 | `title` | str | yes | |
 | `rid_prefix` | str | yes | `rtd.meta.rid_prefix`; when null it is derived from `review_id` |
 | `owner_id` | FK→users | no | the document owner |
-| `status` | str | no | `ReviewStatus.value` (provisional: draft/active/finalized) |
+| `status` | str | no | `ReviewStatus.value` — the review's lifecycle **phase** (see below) |
 | `created` | date | no | `rtd.meta.created` |
+
+#### `reviews.status` — the review phase state machine (v3)
+
+`ReviewStatus` (`src/malus/db/models.py`) is a real state machine as of v3:
+`draft → in_review → closeout → finalized`, with a human-global-admin escape
+hatch `closeout → in_review`. The v1 provisional enum's `active` value is
+**dropped** (there is no `ReviewStatus.ACTIVE` in v3); `in_review` and
+`closeout` replace it as two distinct phases.
+
+| Phase | Meaning | Entered by |
+|-------|---------|-----------|
+| `draft` | before the baseline is frozen | initial value on `create_review` |
+| `in_review` | reviewers comment, the owner answers, reviewers accept the disposition (or reopen it) | `freeze_baseline`, on success |
+| `closeout` | accepted findings are implemented and verified, or sent back for rework | owner's `start_closeout` (gate: `svc.closeout_gate`) |
+| `finalized` | terminal — the closing document + minutes are produced | `finalize` (gate: every RID `verified`/`withdrawn`, or `closed` with disposition `rejected`/`deferred`) |
+
+Phase enforcement lives only in `services/core.py` (`_require_phase`,
+`PhaseError` → HTTP 409); the per-RID `transition()` in `src/malus/models.py`
+stays phase-agnostic (`docs/spec/rid-schema.md` §3 documents both the per-RID
+graph and the phase gate table together).
+
+**Migration/backfill:** pre-v3 databases have rows stuck at `draft` (no phase
+column existed before) or at the removed `active` value. A one-time,
+idempotent backfill (`migrate_review_phases`, `src/malus/db/session.py`),
+run from `create_all` on every startup, promotes any `draft`/`active` review
+that already has a frozen baseline to `in_review`; reviews with no baseline
+yet are left at `draft`, and `closeout`/`finalized` rows are never touched.
 
 ### `review_members`
 Review-scoped role for a user (RBAC enforcement arrives at Step 4).
@@ -189,9 +216,12 @@ both directions) in `tests/db/test_db_mapping.py`.
 
 Authentication and password hashing, and RBAC enforcement of the review-scoped
 roles (Step 4). The full review-level lifecycle behind `reviews.status`
-(freeze → harvest → triage → disposition → … → finalize) is refined by the
-API/lifecycle steps; Step 1 stores a provisional value only. No behavioural
-change to triage/lifecycle logic — only where its data comes from (Step 2).
+(freeze → harvest → triage → disposition → … → finalize) was refined across
+the API/lifecycle steps; **v3** (`docs/plan/v3/01-lifecycle.md`) turned it
+into the real `draft`/`in_review`/`closeout`/`finalized` phase state machine
+described above (§2 `reviews.status`) — it is no longer a provisional value.
+No behavioural change to triage/lifecycle logic — only where its data comes
+from (Step 2).
 
 ## Sources
 
@@ -206,3 +236,11 @@ change to triage/lifecycle logic — only where its data comes from (Step 2).
   D2 (single canonical RTD), D3 (reviewer-side closure) preserved by this model.
 - `src/malus/db/models.py`, `src/malus/db/rtd_io.py` — the implementation this
   document specifies.
+- `docs/plan/v3/00-design.md`, `docs/plan/v3/01-lifecycle.md` — the v3 design
+  (approved by Alberto Boffi, 2026-07-29) and implementation plan for the
+  `reviews.status` phase state machine, the `ACTIVE` removal, and the
+  migration backfill.
+- `src/malus/db/session.py` (`migrate_review_phases`, `create_all`),
+  `src/malus/services/core.py` (`_require_phase`, `closeout_gate`,
+  `start_closeout`, `reopen_review`, `finalize`) — the v3 phase implementation
+  this update was checked against.

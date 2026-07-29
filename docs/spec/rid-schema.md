@@ -112,36 +112,82 @@ RID ids have the form `<PROJECT>-<DOC>-<NNNN>`:
 
 ## 3. Status lifecycle
 
-States: `open`, `answered`, `implemented`, `verified`, `withdrawn`.
+States: `open`, `answered`, `closed` (**v3** — the reviewer accepted the
+owner's disposition), `implemented`, `verified`, `withdrawn`.
+
+Forward graph (**v3** — the v2 direct path `answered → verified` is
+**removed**: a `rejected`/`deferred` RID now stops at `closed`; only an
+`accepted` one continues on to `implemented → verified`):
 
 ```
-open ──▶ answered ──▶ implemented ──▶ verified
-  │          │                            ▲
-  │          └───────────(rejected/deferred)──┘
+open ──▶ answered ──▶ closed ──▶ implemented ──▶ verified
+  │
   └──▶ withdrawn
 ```
 
-Allowed transitions:
+Allowed forward transitions:
 
 | From | To | Actor | Condition |
 |------|----|-------|-----------|
 | `open` | `answered` | owner | Owner records `reply` + `disposition`. |
 | `open` | `withdrawn` | the RID's **reviewer** only | Reviewer retracts the finding. |
-| `answered` | `implemented` | owner | Only when `disposition = accepted`; requires ≥1 commit referencing the RID (traceability). |
-| `answered` | `verified` | the RID's **reviewer**, or moderator on their behalf | Only when `disposition ∈ {rejected, deferred}`; reviewer acknowledges the disposition. |
+| `answered` | `closed` | the RID's **reviewer**, or moderator on their behalf | **Accept disposition** (v3): the reviewer agrees the discussion is settled, whatever the disposition (`accepted`/`rejected`/`deferred`). |
+| `closed` | `implemented` | owner | Only when `disposition = accepted`; requires ≥1 commit referencing the RID (traceability). A `rejected`/`deferred` RID never takes this edge — it stays `closed`. |
 | `implemented` | `verified` | the RID's **reviewer**, or moderator on their behalf | Reviewer confirms the change resolves the finding. |
 
-`verified` and `withdrawn` are terminal.
+### Review phases (gates on which RID actions are available) — v3
+
+Since v3, the per-RID graph above is further gated by the **review's own
+phase** (`reviews.status` / `ReviewStatus`; normative detail in
+`docs/spec/data-model.md`): `draft → in_review → closeout → finalized`, with
+a human-global-admin escape hatch `closeout → in_review`.
+
+| Phase | Entry gate | RID actions allowed in this phase |
+|-------|-----------|-------------------------------------|
+| `draft` | initial state, before the baseline is frozen | none — no RIDs exist yet |
+| `in_review` | baseline frozen | comments/harvest, triage, `answer` (dispose), **accept disposition**, `reopen` |
+| `closeout` | owner's **Start closeout**; gate: ≥1 non-withdrawn RID and none still `open`/`answered` | `implement`, `verify`, **request changes**, `link_change`; a human global admin may revert to `in_review` |
+| `finalized` | owner's **Finalize**; gate: every RID `verified` or `withdrawn`, or `closed` with disposition `rejected`/`deferred` | terminal — no further RID actions |
+
+Retracting a still-`open` comment (`retract_comment`) and the admin-only
+`purge_rid` escape hatch are deliberately left phase-ungated: an `open` RID
+cannot exist past `in_review` (the closeout gate forbids it), so the
+restriction is structural rather than enforced in code.
+
+Backward moves (`src/malus/lifecycle.py` helpers — direct field assignment,
+**not** edges in the forward graph above; both require a mandatory reason
+appended to the RID's `reply` thread):
+
+| Helper | From → To | Actor | Phase |
+|--------|-----------|-------|-------|
+| `reopen` | `answered` \| `closed` → `open` | the RID's **reviewer**, or moderator on their behalf | `in_review` only |
+| `request-changes` | `implemented` \| `verified` → `closed` | the RID's **reviewer**, or moderator on their behalf | `closeout` only — the closeout-phase analogue of `reopen`; appends `"[changes requested by <reviewer>: <reason>]"` and clears `verified_by`/`verified_on` |
+
+`verified` and `withdrawn` are terminal. `closed` is terminal in practice for
+a `rejected`/`deferred` RID — the only forward edge out of `closed` requires
+`disposition = accepted` — but it is not itself in `TERMINAL_STATUSES`: an
+accepted `closed` RID still moves on to `implemented`.
 
 ### Closure-authority invariant (critical control)
 
-> **Only the reviewer — or a moderator acting on their behalf — may set a
-> RID to `verified`. The owner may never verify. An AI may never set
-> `verified` regardless of which seat it occupies.**
+> **Only the reviewer — or a moderator (or human global admin) acting on
+> their behalf — may set a RID to `closed` or `verified`. The owner may
+> never issue either verdict. An AI may never set `closed` or `verified`,
+> regardless of which seat it occupies.**
+
+`closed` and `verified` are both reviewer verdicts, gated by the same
+invariant: only the RID's own reviewer, or someone acting on their behalf
+(moderator, or a human global admin per v1.10) — never the owner identity,
+never an AI principal. **v3** extends the invariant from `verified` alone to
+also cover `closed`, since accepting the disposition is now a distinct
+reviewer act, separate from later verifying the implemented change.
+Recording the **disposition** itself (`answer`, `open → answered`) remains an
+owner/admin action; an AI principal may only draft it (`ai_drafted`), never
+commit it.
 
 This makes owner self-certification structurally impossible and is what makes
 the AI-owner mode safe (decision D3). It is enforced in the transition logic
-(`src/malus/models.py`), not merely by convention.
+(`src/malus/models.py:transition`), not merely by convention.
 
 ### Scope enforced at Step 1 vs. later
 
@@ -149,12 +195,15 @@ Step 1 (`constants.py` + `models.py`) enforces the **status graph** and the
 **closure-authority invariant** above. The following are documented here as
 the normative contract but are enforced in **Step 5 (lifecycle enforcement)**:
 
-- the disposition conditions in the table (`accepted → implemented`,
-  `{rejected, deferred} → verified`);
+- the disposition conditions in the table (`accepted → implemented`; a
+  `rejected`/`deferred` RID stays `closed` instead — the v2 path
+  `{rejected, deferred} → verified` no longer exists, v3);
 - the traceability rule — an accepted RID needs ≥1 referencing commit between
   `baseline_sha` and `HEAD` before it may become `implemented`;
-- finalize requires every RID to be `verified` or `withdrawn`; `deferred`
-  RIDs export to a carry-over file for the next review cycle.
+- finalize requires every RID to be `verified` or `withdrawn`, or `closed`
+  with disposition `rejected`/`deferred` (v3 — previously `verified` covered
+  rejected/deferred too); `deferred` RIDs export to a carry-over file for the
+  next review cycle.
 
 ## Sources
 
@@ -163,4 +212,14 @@ the normative contract but are enforced in **Step 5 (lifecycle enforcement)**:
 - `memory/decisions/2026-07-03-architecture-decisions.md` — D2, D3.
 - `memory/specs/rid-schema-and-lifecycle.md` — draft observations this
   document makes normative.
+- `docs/plan/v3/00-design.md`, `docs/plan/v3/01-lifecycle.md` — the v3 design
+  (approved by Alberto Boffi, 2026-07-29) and implementation plan for `closed`,
+  the forward/backward graphs, the closure-authority extension, and the
+  review-phase gate table this §3 update makes normative.
+- `src/malus/constants.py` (`Status`, `TRANSITIONS`, `TERMINAL_STATUSES`),
+  `src/malus/models.py` (`transition`), `src/malus/lifecycle.py`
+  (`accept_disposition_rid`, `request_changes_rid`, `reopen_rid`),
+  `src/malus/services/core.py` (`_require_phase`, `closeout_gate`,
+  `start_closeout`, `reopen_review`, `finalize`) — the v3 implementation this
+  §3 update was checked against.
 - `memory/knowledge/roles-model.md` — owner/reviewer/moderator authority.
