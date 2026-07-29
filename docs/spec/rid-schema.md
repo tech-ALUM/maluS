@@ -34,7 +34,7 @@ rids:
     kind: COMM                           # COMM | SUGG
     type: technical                      # typo | editorial | technical | process (null for SUGG)
     severity: major                      # minor | major | critical (null for SUGG)
-    status: open                         # open | answered | implemented | verified | withdrawn
+    status: open                         # open | answered | closed | implemented | verified | withdrawn
     comment: >-
       The timeout must be bounded.
     reply: null
