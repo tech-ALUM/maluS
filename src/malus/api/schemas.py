@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from malus.models import RID as RidDTO
 
@@ -67,6 +67,19 @@ class RidPatch(BaseModel):
 class ReopenIn(BaseModel):
     # The reviewer/moderator is the authenticated user; only a reason is supplied.
     reason: str
+
+
+class RequestChangesIn(BaseModel):
+    # The reviewer/moderator is the authenticated user; only a reason is supplied
+    # (v3, closeout-phase analogue of ReopenIn — see services.request_changes).
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("requesting changes requires a non-blank reason")
+        return v
 
 
 class ChangeIn(BaseModel):

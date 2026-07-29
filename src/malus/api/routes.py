@@ -34,6 +34,7 @@ from malus.api.schemas import (
     HarvestOut,
     ReopenIn,
     ReportOut,
+    RequestChangesIn,
     ReviewCreate,
     ReviewerAdd,
     ReviewOut,
@@ -447,6 +448,41 @@ def reopen(
     return RidOut.from_dto(_rid_dto(svc.export(session, review), rid))
 
 
+@router.post("/reviews/{review_id}/rids/{rid}/accept", response_model=RidOut)
+def accept(
+    review_id: str,
+    rid: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """The RID's own reviewer (or a moderator on their behalf) accepts the
+    owner's disposition (v3): ``answered -> closed``, in_review only."""
+    review = _review_or_404(session, review_id)
+    row = _require_rid(session, review, rid)
+    on_behalf = authz.require_verify(session, review, user, row)
+    svc.accept_disposition(session, review, rid, reviewer=user.display_name, moderator=on_behalf)
+    return RidOut.from_dto(_rid_dto(svc.export(session, review), rid))
+
+
+@router.post("/reviews/{review_id}/rids/{rid}/request-changes", response_model=RidOut)
+def request_changes(
+    review_id: str,
+    rid: str,
+    body: RequestChangesIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """The RID's own reviewer (or a moderator on their behalf) sends an
+    implemented/verified RID back for rework (v3): ``-> closed``, closeout only."""
+    review = _review_or_404(session, review_id)
+    row = _require_rid(session, review, rid)
+    on_behalf = authz.require_verify(session, review, user, row)
+    svc.request_changes(
+        session, review, rid, reviewer=user.display_name, reason=body.reason, moderator=on_behalf
+    )
+    return RidOut.from_dto(_rid_dto(svc.export(session, review), rid))
+
+
 @router.post("/reviews/{review_id}/changes", response_model=ChangeOut)
 def create_change(
     review_id: str,
@@ -486,6 +522,41 @@ def traceability(review_id: str, session: Session = Depends(get_session)):
         referenced_not_accepted=result.referenced_not_accepted,
         ok=result.ok,
     )
+
+
+@router.post("/reviews/{review_id}/start-closeout", response_model=ReviewOut)
+def start_closeout(
+    review_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Owner-only (v3): ``in_review -> closeout``, gated on every finding
+    being closed (or withdrawn) — see ``svc.closeout_gate``. A gate
+    violation raises ``PhaseError`` (-> 409, via the ``TransitionError``
+    handler) with the unmet conditions in ``detail``."""
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    authz.forbid_ai_commit(user)
+    svc.start_closeout(session, review, by=user)
+    return ReviewOut.from_row(review)
+
+
+@router.post("/reviews/{review_id}/reopen-review", response_model=ReviewOut)
+def reopen_review(
+    review_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Admin escape hatch (v3): ``closeout -> in_review``. Reserved to a
+    human global admin — not the owner, not a moderator, never an AI."""
+    review = _review_or_404(session, review_id)
+    if not (user.is_admin and not user.is_ai):
+        raise HTTPException(
+            status_code=403,
+            detail="reopening a review from closeout is a human global-admin-only action",
+        )
+    svc.reopen_review(session, review, by=user)
+    return ReviewOut.from_row(review)
 
 
 @router.post("/reviews/{review_id}/finalize", response_model=FinalizeOut)

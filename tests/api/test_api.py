@@ -31,6 +31,9 @@ def test_add_reviewer_rejects_unknown_account(app, mkuser):
 
 
 def test_full_pipeline_over_http(app, mkuser, docs):
+    """The v3 lifecycle end-to-end: dispose -> accept (reviewer, in_review)
+    -> start-closeout (owner) -> implement -> verify (reviewer, closeout)
+    -> finalize."""
     owner = mkuser("owner", "A. Boffi")
     f = mkuser("fmiccoli", "F. Miccoli")
     r = mkuser("rbianchi", "R. Bianchi")
@@ -53,31 +56,44 @@ def test_full_pipeline_over_http(app, mkuser, docs):
     assert sorted(x["kind"] for x in h.json()["rids"]) == ["COMM", "COMM", "SUGG"]
     assert mod.post(f"/reviews/{R}/triage", json={"auto": True}).json()["applied"] >= 1
 
-    # owner answers + implements 0001
+    # owner disposes 0001 (accepted, in_review)
     assert owner.patch(
         f"/reviews/{R}/rids/SIN-SRS-0001",
         json={"status": "answered", "disposition": "accepted", "reply": "ok"},
     ).status_code == 200
+
+    # closure authority on accept: owner 403, another reviewer 403, the RID's own reviewer 200
+    assert owner.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 403
+    assert r.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 403
+    assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 200
+
+    # moderator disposes + accepts the rest on the reviewers' behalf (in_review)
+    for rid in owner.get(f"/reviews/{R}/rids").json():
+        if rid["status"] == "closed":
+            continue
+        owner.patch(
+            f"/reviews/{R}/rids/{rid['rid']}",
+            json={"status": "answered", "disposition": "rejected", "reply": "n/a"},
+        )
+        assert mod.post(f"/reviews/{R}/rids/{rid['rid']}/accept").status_code == 200
+
+    # owner starts closeout now every finding is closed
+    closeout = owner.post(f"/reviews/{R}/start-closeout")
+    assert closeout.status_code == 200 and closeout.json()["status"] == "closeout"
+
+    # owner links a change + implements the accepted RID (closeout-only)
     assert owner.post(
         f"/reviews/{R}/changes",
         json={"content": docs["baseline"] + "\nbound\n", "rids": ["SIN-SRS-0001"]},
     ).status_code == 200
     assert owner.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"status": "implemented"}).status_code == 200
 
-    # closure authority: owner 403, another reviewer 403, the RID's own reviewer 200
+    # closure authority on verify: owner 403, another reviewer 403, the RID's own reviewer 200
     assert owner.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 403
     assert r.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 403
     assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 200
 
-    # moderator closes out the rest on reviewers' behalf, owner finalizes
-    for rid in owner.get(f"/reviews/{R}/rids").json():
-        if rid["status"] == "verified":
-            continue
-        owner.patch(
-            f"/reviews/{R}/rids/{rid['rid']}",
-            json={"status": "answered", "disposition": "rejected", "reply": "n/a"},
-        )
-        assert mod.post(f"/reviews/{R}/rids/{rid['rid']}/verify").status_code == 200
+    # owner finalizes (the rejected findings stayed closed, no implementation needed)
     fin = owner.post(f"/reviews/{R}/finalize", json={})
     assert fin.status_code == 200 and fin.json()["finalized"] is True
 
