@@ -59,6 +59,9 @@ def test_save_that_drops_an_open_block_still_withdraws(mkuser, docs):
     owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
     f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["copy_f"]})
     mod.post(f"/reviews/{R}/harvest")
+    # v3: a submitted copy is locked — reopen (request + approval) to edit again
+    f.post(f"/ui/reviews/{R}/request-reopen")
+    owner.post(f"/ui/reviews/{R}/approve-reopen/F. Miccoli")
 
     r = f.post(
         f"/ui/reviews/{R}/edit-copy",

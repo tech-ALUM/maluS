@@ -78,7 +78,10 @@ def test_edit_copy_redirects_to_document(mkuser, docs):
 
 
 def test_post_contract_unchanged_and_422_renders_viewer(mkuser, docs):
-    _owner, f, _mod, _ai = _seed(mkuser, docs)
+    owner, f, _mod, _ai = _seed(mkuser, docs)
+    # v3: the seed submitted the copy (locked) — reopen it to edit again
+    f.post(f"/ui/reviews/{R}/request-reopen")
+    owner.post(f"/ui/reviews/{R}/approve-reopen/F. Miccoli")
     # valid save → 303 back to the document viewer
     r = f.post(
         f"/ui/reviews/{R}/edit-copy",

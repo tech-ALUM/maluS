@@ -57,6 +57,21 @@ def migrate_review_phases(session: Session) -> None:
             ReviewRepo(session).set_status(review, ReviewStatus.IN_REVIEW.value)
 
 
+def migrate_reviewer_copy_columns(engine: Engine) -> None:
+    """v3 additive column: ``reviewer_copies.reopen_requested_at`` (Submit is
+    irreversible; a reviewer requests a reopen the owner approves).
+    ``create_all`` only creates missing tables, never columns — pre-v3
+    databases need the ALTER. Idempotent via a PRAGMA column check."""
+    from sqlalchemy import inspect, text
+
+    cols = {c["name"] for c in inspect(engine).get_columns("reviewer_copies")}
+    if "reopen_requested_at" not in cols:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE reviewer_copies ADD COLUMN reopen_requested_at TIMESTAMP")
+            )
+
+
 def create_all(engine: Engine) -> None:
     """Create every table on ``engine`` (used by tests and first-run bootstrap;
     production schema changes go through Alembic), then run the v3 phase
@@ -72,6 +87,7 @@ def create_all(engine: Engine) -> None:
     from malus.db import models  # noqa: F401  ensure tables are registered on metadata
 
     SQLModel.metadata.create_all(engine)
+    migrate_reviewer_copy_columns(engine)
     with Session(engine) as session:
         migrate_review_phases(session)
         session.commit()

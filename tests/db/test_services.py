@@ -284,32 +284,37 @@ def _copy_of(session: Session, review, display_name: str):
 
 
 def test_add_reviewer_copy_draft_leaves_submitted_at_null(session: Session):
-    review = _seed(session)
-    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)
+    review = _seed(session)  # seed already submitted F./R.'s copies — use a fresh name
+    svc.add_reviewer_copy(session, review, "T. Panseri", COPY_F, submitted=False)
     session.commit()
-    assert _copy_of(session, review, "F. Miccoli").submitted_at is None
+    assert _copy_of(session, review, "T. Panseri").submitted_at is None
 
 
 def test_add_reviewer_copy_submitted_sets_timestamp(session: Session):
     review = _seed(session)
-    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=True)
-    session.commit()
-    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
+    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None  # seed default
 
 
 def test_add_reviewer_copy_defaults_to_submitted(session: Session):
     # existing callers (legacy import, API submit) rely on the default marking submitted
     review = _seed(session)
-    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F)
+    svc.add_reviewer_copy(session, review, "T. Panseri", COPY_F)
     session.commit()
-    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
+    assert _copy_of(session, review, "T. Panseri").submitted_at is not None
 
 
-def test_save_draft_after_submit_reverts_to_draft(session: Session):
+def test_submitted_copy_refuses_further_writes(session: Session):
+    """v3: Submit is irreversible — editing again needs an approved reopen."""
     review = _seed(session)
-    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=True)
+    with pytest.raises(svc.PhaseError, match="already submitted"):
+        svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)
+
+
+def test_reopen_request_and_approval_revert_to_draft(session: Session):
+    review = _seed(session)
+    svc.request_copy_reopen(session, review, "F. Miccoli")
+    svc.approve_copy_reopen(session, review, "F. Miccoli")
     session.commit()
-    assert _copy_of(session, review, "F. Miccoli").submitted_at is not None
-    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)
-    session.commit()
-    assert _copy_of(session, review, "F. Miccoli").submitted_at is None
+    copy = _copy_of(session, review, "F. Miccoli")
+    assert copy.submitted_at is None and copy.reopen_requested_at is None
+    svc.add_reviewer_copy(session, review, "F. Miccoli", COPY_F, submitted=False)  # unlocked

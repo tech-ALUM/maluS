@@ -171,17 +171,80 @@ def add_reviewer_copy(
     *,
     based_on: Optional[DocumentVersion] = None,
     submitted: bool = True,
+    allow_submitted: bool = False,
 ) -> ReviewerCopy:
     """Persist a reviewer's copy. ``submitted=True`` (default) marks it submitted
     (``submitted_at = now``); ``submitted=False`` saves it as a draft
-    (``submitted_at = None``) so a reviewer can keep editing across sessions."""
+    (``submitted_at = None``) so a reviewer can keep editing across sessions.
+
+    v3: Submit is irreversible — an already-submitted copy refuses further
+    writes until a reopen is approved (``approve_copy_reopen`` or the admin
+    ``reopen_submission``). ``allow_submitted=True`` is the system bypass for
+    internal edits that preserve the submitted state (``retract_comment``)."""
     _require_phase(review, ReviewStatus.IN_REVIEW)
     user = UserRepo(session).get_or_create(reviewer_name)
+    if not allow_submitted:
+        existing = next(
+            (c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None
+        )
+        if existing is not None and existing.submitted_at is not None:
+            raise PhaseError(
+                f"{reviewer_name}'s copy is already submitted — request a reopen to edit it again"
+            )
     base = based_on or VersionRepo(session).baseline(review)
     submitted_at = dt.datetime.now(dt.timezone.utc) if submitted else None
     return ReviewerCopyRepo(session).upsert(
         review, user, content, based_on=base, submitted_at=submitted_at
     )
+
+
+def request_copy_reopen(session: Session, review: Review, reviewer_name: str, *, by=None):
+    """The reviewer asks to edit their SUBMITTED copy again (v3). The owner
+    (or an admin) approves with ``approve_copy_reopen``."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
+    user = UserRepo(session).by_display_name(reviewer_name)
+    copy = (
+        next((c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None)
+        if user
+        else None
+    )
+    if copy is None or copy.submitted_at is None:
+        raise PhaseError(f"{reviewer_name} has no submitted copy to reopen")
+    copy.reopen_requested_at = dt.datetime.now(dt.timezone.utc)
+    session.add(copy)
+    session.flush()
+    AuditRepo(session).log(
+        action="request_copy_reopen",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={"reviewer": reviewer_name},
+    )
+    return copy
+
+
+def approve_copy_reopen(session: Session, review: Review, reviewer_name: str, *, by=None):
+    """The owner (or an admin) approves a pending reopen request: the copy goes
+    back to draft (``submitted_at`` cleared) and the request flag resets."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
+    user = UserRepo(session).by_display_name(reviewer_name)
+    copy = (
+        next((c for c in ReviewerCopyRepo(session).list(review) if c.user_id == user.id), None)
+        if user
+        else None
+    )
+    if copy is None or copy.submitted_at is None or copy.reopen_requested_at is None:
+        raise PhaseError(f"{reviewer_name} has no pending reopen request")
+    copy.submitted_at = None
+    copy.reopen_requested_at = None
+    session.add(copy)
+    session.flush()
+    AuditRepo(session).log(
+        action="approve_copy_reopen",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={"reviewer": reviewer_name},
+    )
+    return copy
 
 
 def save_version(
@@ -276,6 +339,7 @@ def retract_comment(session: Session, review: Review, rid_id: str, *, by=None):
                 row.reviewer.display_name,
                 new_content,
                 submitted=copy.submitted_at is not None,
+                allow_submitted=True,  # system edit: preserves the submitted state
             )
     harvest(session, review, by=by)
     AuditRepo(session).log(action="retract_comment", target=f"rid:{rid_id}", actor=by)
@@ -293,6 +357,7 @@ def reopen_submission(session: Session, review: Review, reviewer_name: str, *, b
     if copy is None:
         raise ValueError(f"no copy for {reviewer_name}")
     copy.submitted_at = None
+    copy.reopen_requested_at = None  # a pending request is consumed by the reopen
     session.add(copy)
     session.flush()
     AuditRepo(session).log(

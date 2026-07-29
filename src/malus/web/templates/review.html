@@ -55,6 +55,7 @@
     <li class="subm-item">
       <span class="subm-name">{{ s.name }}</span>
       <span class="subm-state subm-{{ s.state|replace(' ', '-') }}">{{ s.state }}</span>
+      {% if s.reopen_requested %}<span class="subm-state subm-reopen-req" title="The reviewer asked to edit their submitted copy again">reopen requested</span>{% if role == 'owner' or user.is_admin %}<form method="post" action="/ui/reviews/{{ review.review_id_str }}/approve-reopen/{{ s.name|urlencode }}" class="inline" onsubmit="return confirm('Reopen this submission? The reviewer edits again and must resubmit.')"><button class="linkbtn subm-reopen">Approve</button></form>{% endif %}{% endif %}
       {% if user.is_admin and s.state == 'submitted' %}<form method="post" action="/ui/reviews/{{ review.review_id_str }}/reopen-submission/{{ s.name|urlencode }}" class="inline" onsubmit="return confirm('Re-open this submission so the reviewer can edit again?')"><button class="linkbtn subm-reopen" title="Re-open submission">re-open</button></form>{% endif %}
     </li>
     {% else %}

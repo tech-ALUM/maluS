@@ -20,9 +20,16 @@
   {% endif %}
 </div>
 <p class="muted copy-state">Your copy:
-  {% if data.mySubmitted %}<b>Submitted</b> — you can still edit and resubmit
+  {% if data.mySubmitted and data.myReopenRequested %}<b>Submitted</b> — locked; reopen requested, waiting for the owner
+  {%- elif data.mySubmitted %}<b>Submitted</b> — locked; request a reopen if you need to edit again
   {%- elif data.saved %}<b>Draft</b> — saved, not yet submitted
-  {%- else %}<b>Draft</b>{% endif %}</p>
+  {%- else %}<b>Draft</b>{% endif %}
+  {% if data.mySubmitted and not data.myReopenRequested %}
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/request-reopen" class="inline"
+        onsubmit="return confirm('Ask the owner to reopen your submitted copy for editing?')">
+    <button class="linkbtn">Request reopen</button>
+  </form>
+  {% endif %}</p>
 {% elif data.canDispose %}
 <div class="role-banner role-banner-owner">
   <span class="role role-owner">{% if data.role == 'owner' %}owner{% else %}admin{% endif %}</span>
@@ -67,16 +74,17 @@
       <p id="cp-empty" class="muted">No comments yet.</p>
     </aside>
   </div>
-  {% if data.isReviewer %}
+  {% if data.isReviewer and not data.mySubmitted %}
   <div class="rev-actions">
     <button type="submit" name="action" value="save" class="secondary">Save draft</button>
-    <button type="submit" name="action" value="submit" class="primary">Submit copy</button>
+    <button type="submit" name="action" value="submit" class="primary"
+            onclick="return confirm('Submit your copy? Once submitted it is locked: editing again needs a reopen approved by the owner.') && confirm('Really submit now? This is final.')">Submit copy</button>
   </div>
   {% endif %}
 </form>
 
-{% if data.isReviewer %}
-<!-- selection → comment popover -->
+{% if data.isReviewer and not data.mySubmitted %}
+<!-- selection → comment popover (absent once the copy is submitted: locked) -->
 <!-- v3: comments only — the SUGG kind is no longer offered by the GUI -->
 <div id="cmt-pop" class="cmt-pop" hidden>
   <div id="cmt-comm-fields" class="cmt-pop-row">

@@ -340,7 +340,13 @@ def review_page(
             continue
         copy = copies_by_uid.get(m.user_id)
         state = "submitted" if (copy and copy.submitted_at) else ("draft" if copy else "not started")
-        submissions.append({"name": m.user.display_name, "state": state})
+        submissions.append(
+            {
+                "name": m.user.display_name,
+                "state": state,
+                "reopen_requested": bool(copy and copy.submitted_at and copy.reopen_requested_at),
+            }
+        )
     subm_total = len(submissions)
     subm_done = sum(1 for s in submissions if s["state"] == "submitted")
     ai_proposals = sum(1 for r in rtd.rids if r.ai_drafted and r.status is Status.OPEN)
@@ -587,6 +593,32 @@ def retract_comment(review_id: str, rid: str, request: Request, session: Session
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
+@web.post("/ui/reviews/{review_id}/request-reopen")
+def request_reopen(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """The reviewer asks to edit their submitted copy again (v3)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) != Role.REVIEWER.value:
+        raise HTTPException(status_code=403, detail="only a reviewer may request a reopen")
+    svc.request_copy_reopen(session, review, user.display_name, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document", 303)
+
+
+@web.post("/ui/reviews/{review_id}/approve-reopen/{reviewer}")
+def approve_reopen(review_id: str, reviewer: str, request: Request, session: Session = Depends(get_session)):
+    """The owner (or an admin) approves a pending reopen request (v3)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not user.is_admin and authz.review_role(session, review, user) != Role.OWNER.value:
+        raise HTTPException(status_code=403, detail="only the owner or an admin may approve a reopen")
+    svc.approve_copy_reopen(session, review, reviewer, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
 @web.post("/ui/reviews/{review_id}/reopen-submission/{reviewer}")
 def reopen_submission(review_id: str, reviewer: str, request: Request, session: Session = Depends(get_session)):
     """Admin superuser: un-submit a reviewer's copy (submitted_at → None) so they
@@ -721,6 +753,7 @@ def _document_context(
         "baseline": baseline.content,
         "myCopy": my_copy,
         "mySubmitted": bool(mine and mine.submitted_at) if is_reviewer else False,
+        "myReopenRequested": bool(mine and mine.reopen_requested_at) if is_reviewer else False,
         "reviewers": rtd.meta.reviewers,
         "colors": colors,
         "rids": rids,

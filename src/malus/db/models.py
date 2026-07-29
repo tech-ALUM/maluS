@@ -150,6 +150,9 @@ class ReviewerCopy(SQLModel, table=True):
     )
     content: str = ""
     submitted_at: Optional[dt.datetime] = None
+    # v3: Submit is irreversible — the reviewer requests a reopen, the owner
+    # (or an admin) approves; approval clears both timestamps back to draft.
+    reopen_requested_at: Optional[dt.datetime] = None
 
     review: Optional[Review] = Relationship(back_populates="reviewer_copies")
     user: Optional[User] = Relationship()

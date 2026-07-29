@@ -40,6 +40,9 @@ def test_editor_removing_pristine_comment_hard_deletes_it(mkuser, docs):
     owner, f, _r = _seed(mkuser, docs)
     f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
     assert "SIN-SRS-0001" in _rids(owner)  # harvested
+    # v3: a submitted copy is locked — reopen (request + approval) to edit again
+    f.post(f"/ui/reviews/{R}/request-reopen")
+    owner.post(f"/ui/reviews/{R}/approve-reopen/F. Miccoli")
     # resubmit the copy with the comment removed (back to the bare baseline)
     f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["baseline"], "action": "submit"})
     assert "SIN-SRS-0001" not in _rids(owner)  # gone, not lingering as withdrawn
