@@ -389,9 +389,11 @@
       });
       actions.appendChild(undo);
     }
-    if (r && r.canPurge) { // v2.3: Withdraw — admin-only in the card, amber,
-      // same visual weight as Purge (reviewers manage their own comments
-      // from the editor; the RTD table keeps the v1.8 own+open control)
+    if (r && r.canPurge && phase === "in_review") { // v2.3: Withdraw — admin-only in the
+      // card, amber, same visual weight as Purge (reviewers manage their own comments
+      // from the editor; the RTD table keeps the v1.8 own+open control); in_review only —
+      // retract_comment is phase-gated (the admin any-phase path is reopen_review →
+      // withdraw → start_closeout); Purge stays any-phase (below)
       var withdraw = document.createElement("button");
       withdraw.type = "button";
       withdraw.className = "warn cp-withdraw";

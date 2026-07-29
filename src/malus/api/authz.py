@@ -74,7 +74,7 @@ def require_own_copy(session: Session, review: Review, user: User, target: str) 
 
 
 def require_verify(session: Session, review: Review, user: User, rid: RID) -> bool:
-    """Authorize verify/reopen; returns True if acting as moderator (on behalf)."""
+    """Authorize accept/request-changes/verify/reopen; returns True if acting as moderator (on behalf)."""
     if user.is_ai:
         _forbid("AI principals may never verify or reopen a RID")
     if user.is_admin:  # global admin superuser: closure on any RID (v1.10)

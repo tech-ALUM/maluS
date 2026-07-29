@@ -261,7 +261,8 @@ def test_request_changes_sends_implemented_back_to_closed(
 
 # --------------------------------------------------------------------------- #
 # other IN_REVIEW-gated services: add_reviewer_copy, harvest, answer,
-# update_rid, discard_disposition_draft, apply_suggestions, reopen
+# discard_disposition_draft, apply_suggestions, reopen, retract_comment
+# (update_rid is IN_REVIEW|CLOSEOUT — see its own section below)
 # --------------------------------------------------------------------------- #
 
 
@@ -300,6 +301,29 @@ def test_reopen_rid_blocked_outside_in_review(session: Session, review_with_rids
         svc.reopen(session, review, RID_ID, reviewer="F. Miccoli", reason="reconsider")
 
 
+def test_retract_comment_blocked_outside_in_review(session: Session, review_with_rids, owner):
+    """v3 decision (step-close correction): the previously-claimed 'any-phase
+    admin escape hatch' for retract didn't hold — its internals (``harvest``)
+    are IN_REVIEW-gated, so retract itself is gated the same way now."""
+    review = review_with_rids(statuses=["closed"])
+    svc.start_closeout(session, review, by=owner)
+    with pytest.raises(svc.PhaseError):
+        svc.retract_comment(session, review, RID_ID)
+
+
+def test_purge_rid_stays_any_phase(session: Session, review_with_rids, owner):
+    """purge_rid is deliberately NOT phase-gated — the admin hard-delete
+    escape hatch survives the retract-gating decision above."""
+    review = review_with_rids(statuses=["closed"])
+    svc.start_closeout(session, review, by=owner)
+    admin = UserRepo(session).get_or_create("SU Admin")
+    admin.is_admin = True
+    session.add(admin)
+    session.flush()
+    svc.purge_rid(session, review, RID_ID, by=admin)
+    assert RidRepo(session).get(review, RID_ID) is None
+
+
 def test_add_reviewer_copy_blocked_outside_in_review(session: Session, review_with_rids, owner):
     review = review_with_rids(statuses=["closed"])
     svc.start_closeout(session, review, by=owner)
@@ -307,11 +331,23 @@ def test_add_reviewer_copy_blocked_outside_in_review(session: Session, review_wi
         svc.add_reviewer_copy(session, review, "F. Miccoli", "some content")
 
 
-def test_update_rid_blocked_outside_in_review(session: Session, review_with_rids, owner):
+def test_update_rid_works_in_closeout(session: Session, review_with_rids, owner):
+    """v3 plan-table amendment: update_rid is widened to IN_REVIEW|CLOSEOUT so
+    ``resolution`` can be recorded while implementing; dispose-from-open
+    (``answer``) stays IN_REVIEW-only, untouched."""
     review = review_with_rids(statuses=["closed"])
     svc.start_closeout(session, review, by=owner)
+    row = svc.update_rid(session, review, RID_ID, resolution="fixed per commit abc123")
+    assert row.resolution == "fixed per commit abc123"
+
+
+def test_update_rid_blocked_in_finalized(session: Session, review_with_rids, owner):
+    review = review_with_rids(statuses=["verified"])
+    svc.start_closeout(session, review, by=owner)
+    assert svc.finalize(session, review, by=owner) == []
+    assert review.status == ReviewStatus.FINALIZED.value
     with pytest.raises(svc.PhaseError):
-        svc.update_rid(session, review, RID_ID, resolution="done")
+        svc.update_rid(session, review, RID_ID, resolution="too late")
 
 
 def test_discard_disposition_draft_blocked_outside_in_review(

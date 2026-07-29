@@ -149,6 +149,38 @@ def test_start_closeout_forbidden_for_non_owner(app, mkuser):
 
 
 # --------------------------------------------------------------------------- #
+# update_rid widened to in_review|closeout (v3 plan-table amendment)
+# --------------------------------------------------------------------------- #
+
+
+def test_patch_implemented_with_resolution_succeeds_in_closeout(app, mkuser):
+    """update_rid (invoked by the PATCH .../implemented branch to persist
+    reply/resolution before advancing the RID) used to be IN_REVIEW-only,
+    which made recording a resolution at implementation time dead in every
+    real flow: closeout PATCHes 409'd before `implement` ever ran. It is now
+    allowed in_review OR closeout — only `answer`/dispose-from-open stays
+    in_review-only."""
+    owner = mkuser("owner", "A. Boffi")
+    f = mkuser("fmiccoli", "F. Miccoli")
+    mod = mkuser("mod", "M. Mod")
+    rid_id = _review_with_one_rid(owner, f, mod)
+    _answer(owner, rid_id)
+    assert f.post(f"/reviews/{R}/rids/{rid_id}/accept").status_code == 200
+    assert owner.post(f"/reviews/{R}/start-closeout").status_code == 200
+    assert owner.post(
+        f"/reviews/{R}/changes", json={"content": BASELINE + "\nmore\n", "rids": [rid_id]}
+    ).status_code == 200
+
+    resp = owner.patch(
+        f"/reviews/{R}/rids/{rid_id}",
+        json={"status": "implemented", "resolution": "fixed per commit abc123"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "implemented"
+    assert resp.json()["resolution"] == "fixed per commit abc123"
+
+
+# --------------------------------------------------------------------------- #
 # request-changes
 # --------------------------------------------------------------------------- #
 

@@ -252,11 +252,12 @@ def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
     return result
 
 
-# deliberately phase-ungated: reviewer withdraw needs an OPEN rid (impossible in closeout by gate); admin withdraw stays the any-phase escape hatch
+# in_review only: the admin any-phase path is reopen_review → withdraw → start_closeout; purge stays any-phase
 def retract_comment(session: Session, review: Review, rid_id: str, *, by=None):
     """Retract a reviewer's own comment: remove its block from their copy, then
     re-harvest (→ withdraw → purge if pristine). Ownership and OPEN status are
     enforced by the caller (the route)."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     row = RidRepo(session).get(review, rid_id)
     if row is None:
         raise ValueError(f"no such RID: {rid_id}")
@@ -464,8 +465,14 @@ def update_rid(
     disposition: Optional[Disposition] = None,
     by=None,
 ):
-    """Edit a RID's owner-side fields in place (no status transition)."""
-    _require_phase(review, ReviewStatus.IN_REVIEW)
+    """Edit a RID's owner-side fields in place (no status transition).
+
+    Allowed in ``in_review`` OR ``closeout`` (v3 plan-table amendment): this
+    only widens *editing* reply/resolution/disposition on an existing RID —
+    e.g. recording ``resolution`` while implementing, in closeout. Drafting a
+    fresh disposition from ``open`` (``answer``/dispose) stays IN_REVIEW-only,
+    untouched."""
+    _require_phase(review, ReviewStatus.IN_REVIEW, ReviewStatus.CLOSEOUT)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     if reply is not None:

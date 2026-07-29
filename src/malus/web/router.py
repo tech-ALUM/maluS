@@ -891,7 +891,7 @@ def implement_submit(
         if RidRepo(session).get(review, rid) is None:
             continue
         svc.link_change(session, review, rid, version, by=user)
-        try:  # advance accepted+answered RIDs now that a change links them
+        try:  # advance accepted+closed RIDs now that a change links them
             svc.implement(session, review, rid, by=user)
         except ValueError:
             pass  # not eligible to advance (wrong disposition/status) — leave as-is

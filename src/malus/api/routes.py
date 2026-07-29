@@ -414,7 +414,10 @@ def patch_rid(
     else:
         raise HTTPException(
             status_code=422,
-            detail=f"PATCH cannot set status {body.status!r}; use /verify or /reopen",
+            detail=(
+                f"PATCH cannot set status {body.status!r}; "
+                "use /accept, /request-changes, /verify or /reopen"
+            ),
         )
     return RidOut.from_dto(_rid_dto(svc.export(session, review), rid))
 

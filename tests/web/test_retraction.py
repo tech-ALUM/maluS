@@ -95,6 +95,34 @@ def test_table_shows_retract_only_on_own_open_comment(mkuser, docs):
 # --- (c) submissions panel is at the top ------------------------------------ #
 
 
+# --- (d) v3: retract is in_review-only ------------------------------------- #
+
+
+def test_retract_form_hidden_and_gated_in_closeout(admin, mkuser, docs):
+    """v3 decision (step-close correction): retract_comment is gated to
+    in_review only — the RTD-table withdraw control (own-open reviewer OR
+    admin) must disappear once the review moves into closeout, and the route
+    itself refuses (409) rather than silently no-op'ing. The admin any-phase
+    path is reopen_review -> withdraw -> start_closeout; purge stays any-phase."""
+    owner, f, _r = _seed(mkuser, docs)
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
+    owner.patch(
+        f"/reviews/{R}/rids/SIN-SRS-0001",
+        json={"status": "answered", "disposition": "accepted", "reply": "ok"},
+    )
+    assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 200
+    assert owner.post(f"/reviews/{R}/start-closeout").status_code == 200
+
+    # gone from the dashboard for both the owning reviewer and an admin
+    assert "/retract" not in f.get(f"/ui/reviews/{R}").text
+    assert "/retract" not in admin.get(f"/ui/reviews/{R}").text
+
+    # and the route itself now refuses (phase conflict), not a silent no-op
+    resp = admin.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/retract")
+    assert resp.status_code == 409
+
+
 def test_submissions_panel_is_above_the_table(mkuser, docs):
     owner, _f, _r = _seed(mkuser, docs)
     page = owner.get(f"/ui/reviews/{R}").text
