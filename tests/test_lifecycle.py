@@ -263,7 +263,7 @@ def test_request_changes_wrong_reviewer_refused() -> None:
         request_changes_rid(rtd, "SIN-SRS-0042", reviewer="R. Bianchi", reason="regressed")
 
 
-@pytest.mark.parametrize("status", [Status.OPEN, Status.ANSWERED])
+@pytest.mark.parametrize("status", [Status.OPEN, Status.ANSWERED, Status.CLOSED])
 def test_request_changes_wrong_status(status: Status) -> None:
     rid = _rid(status=status)
     rid.disposition = Disposition.ACCEPTED
