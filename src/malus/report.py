@@ -26,7 +26,10 @@ def validate(rtd: RTD) -> list[str]:
                 errors.append(f"{r.rid}: verified but verified_by is empty")
             elif r.verified_by == rtd.meta.owner:
                 errors.append(f"{r.rid}: verified_by is the owner (closure authority violated)")
-        if r.status in (Status.ANSWERED, Status.IMPLEMENTED, Status.VERIFIED) and r.disposition is None:
+        if (
+            r.status in (Status.ANSWERED, Status.CLOSED, Status.IMPLEMENTED, Status.VERIFIED)
+            and r.disposition is None
+        ):
             errors.append(f"{r.rid}: status {r.status.value} requires a disposition")
         if r.master:
             if r.master not in ids:
@@ -61,9 +64,9 @@ def render_report(rtd: RTD) -> str:
         "|---|---|",
     ]
     out += [f"| {s.value} | {count(lambda r, s=s: r.status is s)} |" for s in Status]
-    closed = count(lambda r: r.status in (Status.VERIFIED, Status.WITHDRAWN))
-    pct = round(100 * closed / n) if n else 0
-    out += ["", f"Closed (verified or withdrawn): {closed} / {n} ({pct}%)", ""]
+    settled = count(lambda r: r.status in (Status.CLOSED, Status.VERIFIED, Status.WITHDRAWN))
+    pct = round(100 * settled / n) if n else 0
+    out += ["", f"Settled (closed, verified or withdrawn): {settled} / {n} ({pct}%)", ""]
 
     out += ["## Severity", "", "| Severity | Count |", "|---|---|"]
     out += [f"| {sv.value} | {count(lambda r, sv=sv: r.severity is sv)} |" for sv in Severity]
@@ -71,12 +74,15 @@ def render_report(rtd: RTD) -> str:
     out += [f"| {d.value} | {count(lambda r, d=d: r.disposition is d)} |" for d in Disposition]
     out += [f"| (undecided) | {count(lambda r: r.disposition is None)} |", ""]
 
-    out += ["## Per reviewer", "", "| Reviewer | Raised | Verified | Open |", "|---|---|---|---|"]
+    out += ["## Per reviewer", "", "| Reviewer | Raised | Settled | Open |", "|---|---|---|---|"]
     for name in m.reviewers:
         raised = count(lambda r, x=name: r.reviewer == x)
-        ver = count(lambda r, x=name: r.reviewer == x and r.status is Status.VERIFIED)
+        settled_n = count(
+            lambda r, x=name: r.reviewer == x
+            and r.status in (Status.CLOSED, Status.VERIFIED, Status.WITHDRAWN)
+        )
         opn = count(lambda r, x=name: r.reviewer == x and r.status is Status.OPEN)
-        out.append(f"| {name} | {raised} | {ver} | {opn} |")
+        out.append(f"| {name} | {raised} | {settled_n} | {opn} |")
 
     out += ["", "## Open / deferred register", ""]
     register = [r for r in rids if r.status is Status.OPEN or r.disposition is Disposition.DEFERRED]
