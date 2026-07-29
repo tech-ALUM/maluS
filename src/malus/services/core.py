@@ -28,6 +28,7 @@ from malus.db.models import (
     User,
 )
 from malus.db.rtd_io import export_rtd
+from malus.diffing import html_diff
 from malus.harvest import HarvestResult, build_rtd
 from malus.parser import scan
 from malus.lifecycle import (
@@ -758,6 +759,37 @@ def rid_has_change(session: Session, review: Review, rid_id: str) -> bool:
     matching a query rather than a committing action."""
     row = RidRepo(session).get(review, rid_id)
     return bool(row and _post_baseline_changes(session, review, row))
+
+
+def rid_changes(session: Session, review: Review, rid_id: str) -> list[dict]:
+    """Post-baseline ``RidChange`` rows for ``rid_id``, oldest version first,
+    each paired with a rendered HTML diff against its predecessor version (v3
+    step 03 task 2: feeds the viewer's per-RID change history). An unknown RID
+    yields an empty list, matching a query rather than a committing action."""
+    row = RidRepo(session).get(review, rid_id)
+    if row is None:
+        return []
+    versions = VersionRepo(session)
+    baseline = versions.baseline(review)
+    changes = sorted(
+        _post_baseline_changes(session, review, row), key=lambda c: c.version.ordinal
+    )
+    out = []
+    for c in changes:
+        v = c.version
+        # the direct predecessor should always exist; fall back to the
+        # baseline rather than crash if it is somehow missing
+        prev = versions.by_ordinal(review, v.ordinal - 1) or baseline
+        prev_content = prev.content if prev else ""
+        out.append(
+            {
+                "ordinal": v.ordinal,
+                "created": v.created.isoformat(),
+                "note": c.note,
+                "diff_html": html_diff(prev_content, v.content),
+            }
+        )
+    return out
 
 
 def save_closeout_version(

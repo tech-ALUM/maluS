@@ -205,6 +205,15 @@ class VersionRepo:
             .order_by(DocumentVersion.ordinal.desc())
         ).first()
 
+    def by_ordinal(self, review: Review, ordinal: int) -> Optional[DocumentVersion]:
+        """The version at a specific ordinal (v3 step 03 task 2: the diff
+        predecessor lookup for ``services.core.rid_changes``)."""
+        return self.s.exec(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id == self._document(review).id)
+            .where(DocumentVersion.ordinal == ordinal)
+        ).first()
+
 
 class ReviewerCopyRepo:
     def __init__(self, session: Session) -> None:

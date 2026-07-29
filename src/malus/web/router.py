@@ -742,6 +742,27 @@ def _document_context(
     for r in rids:
         r["history"] = history.get(f"rid:{r['rid']}", [])
 
+    # v3 step 03 task 2: an accepted RID's post-baseline saves, rendered as
+    # diffs — only once the document has left active review (closeout or
+    # finalized), and only for findings the owner's disposition accepted
+    closeout_phases = (ReviewStatus.CLOSEOUT.value, ReviewStatus.FINALIZED.value)
+    for r in rids:
+        show_changes = (
+            review.status in closeout_phases and r["disposition"] == Disposition.ACCEPTED.value
+        )
+        if show_changes:
+            r["changes"] = [
+                {
+                    "ordinal": c["ordinal"],
+                    "created": c["created"],
+                    "note": c["note"],
+                    "diffHtml": c["diff_html"],
+                }
+                for c in svc.rid_changes(session, review, r["rid"])
+            ]
+        else:
+            r["changes"] = []
+
     data = {
         "reviewId": review.review_id_str,
         "phase": review.status,
