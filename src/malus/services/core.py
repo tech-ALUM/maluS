@@ -252,6 +252,7 @@ def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
     return result
 
 
+# deliberately phase-ungated: reviewer withdraw needs an OPEN rid (impossible in closeout by gate); admin withdraw stays the any-phase escape hatch
 def retract_comment(session: Session, review: Review, rid_id: str, *, by=None):
     """Retract a reviewer's own comment: remove its block from their copy, then
     re-harvest (→ withdraw → purge if pristine). Ownership and OPEN status are
@@ -385,6 +386,7 @@ def triage(
     auto_threshold: float = AUTO_THRESHOLD,
     by=None,
 ) -> tuple[list[ClusterProposal], int]:
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     proposals = propose_clusters(rtd, threshold=threshold)
     applied = 0

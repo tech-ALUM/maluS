@@ -286,6 +286,13 @@ def test_apply_suggestions_blocked_outside_in_review(session: Session, review_wi
         svc.apply_suggestions(session, review)
 
 
+def test_triage_blocked_outside_in_review(session: Session, review_with_rids, owner):
+    review = review_with_rids(statuses=["closed"])
+    svc.start_closeout(session, review, by=owner)
+    with pytest.raises(svc.PhaseError):
+        svc.triage(session, review)
+
+
 def test_reopen_rid_blocked_outside_in_review(session: Session, review_with_rids, owner):
     review = review_with_rids(statuses=["closed"])
     svc.start_closeout(session, review, by=owner)
