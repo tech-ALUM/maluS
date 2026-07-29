@@ -235,6 +235,44 @@ def test_accept_disposition_owner_refused() -> None:
         accept_disposition_rid(rtd, "SIN-SRS-0042", reviewer=rtd.meta.owner)
 
 
+def test_accept_disposition_moderator_on_behalf() -> None:
+    rtd = _rtd_answered()
+    rid = accept_disposition_rid(rtd, "SIN-SRS-0042", reviewer="Moderator", moderator=True)
+    assert rid.status is Status.CLOSED
+
+
+def test_request_changes_moderator_on_behalf() -> None:
+    rtd = _rtd_implemented()
+    rid = request_changes_rid(
+        rtd, "SIN-SRS-0042", reviewer="Moderator", reason="fix incomplete", moderator=True
+    )
+    assert rid.status is Status.CLOSED
+
+
+def test_request_changes_owner_refused() -> None:
+    rtd = _rtd_implemented()
+    with pytest.raises(ClosureAuthorityError):
+        request_changes_rid(
+            rtd, "SIN-SRS-0042", reviewer=rtd.meta.owner, reason="fix incomplete"
+        )
+
+
+def test_request_changes_wrong_reviewer_refused() -> None:
+    rtd = _rtd_implemented()  # the RID belongs to F. Miccoli
+    with pytest.raises(ClosureAuthorityError):
+        request_changes_rid(rtd, "SIN-SRS-0042", reviewer="R. Bianchi", reason="regressed")
+
+
+@pytest.mark.parametrize("status", [Status.OPEN, Status.ANSWERED])
+def test_request_changes_wrong_status(status: Status) -> None:
+    rid = _rid(status=status)
+    rid.disposition = Disposition.ACCEPTED
+    rtd = _rtd([rid])
+    with pytest.raises(TransitionError):
+        request_changes_rid(rtd, "SIN-SRS-0042", reviewer="F. Miccoli", reason="too early")
+    assert rid.status is status
+
+
 def test_request_changes_needs_reason() -> None:
     rtd = _rtd_implemented()
     with pytest.raises(ValueError):
@@ -254,6 +292,7 @@ def test_request_changes_reworks_verified() -> None:
     rtd = _rtd_verified()
     rid = request_changes_rid(rtd, "SIN-SRS-0042", reviewer="F. Miccoli", reason="regressed")
     assert rid.status is Status.CLOSED and rid.verified_by is None
+    assert rid.verified_on is None
 
 
 def test_reopen_from_closed() -> None:
