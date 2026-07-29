@@ -33,7 +33,16 @@ def build_server(client=None):
     from mcp.server.fastmcp import FastMCP
 
     client = client if client is not None else _http_client()
-    server = FastMCP("malus")
+    server = FastMCP(
+        "malus",
+        instructions=(
+            "maluS formal-review tools. Typical reviewer flow: list_reviews -> "
+            "get_baseline -> insert {COMM} blocks into the FULL text -> "
+            "submit_reviewer_comments (FINAL: request_reopen to edit again). "
+            "Owner-side setup: create_review -> upload_document. You never "
+            "verify/close findings.\n\n" + tools.COMMENT_SYNTAX
+        ),
+    )
 
     @server.tool()
     def list_reviews() -> list:
@@ -51,10 +60,40 @@ def build_server(client=None):
         return tools.list_rids(client, review_id)
 
     @server.tool()
+    def get_comment_syntax() -> str:
+        """The exact comment-block grammar ({COMM|type=…|sev=…: text}), the
+        freeze rule and a worked example — read this BEFORE writing comments."""
+        return tools.get_comment_syntax()
+
+    @server.tool()
     def submit_reviewer_comments(review_id: str, reviewer: str, content: str) -> dict:
-        """Submit the AI reviewer's copy — comment blocks only. Validated by the
-        parser and harvested server-side; tampering with baseline text is rejected."""
+        """Submit the reviewer's copy: the COMPLETE baseline text with your
+        {COMM|type=<typo|editorial|technical|process>|sev=<minor|major|critical>: text}
+        blocks inserted inline right after the passages they concern (params
+        optional; call get_comment_syntax for the full grammar). INSERTION
+        ONLY — changing baseline text is rejected (422). Submitting is FINAL:
+        editing again requires request_reopen + the owner's approval."""
         return tools.submit_reviewer_comments(client, review_id, reviewer, content)
+
+    @server.tool()
+    def request_reopen(review_id: str, reviewer: str) -> dict:
+        """Ask to edit your already-submitted copy again (the owner must
+        approve; you'll be able to resubmit once unlocked)."""
+        return tools.request_reopen(client, review_id, reviewer)
+
+    @server.tool()
+    def create_review(
+        review_id: str, title: str = "", reviewers: list | None = None, rid_prefix: str = ""
+    ) -> dict:
+        """Create a review (the authenticated account becomes its owner) and
+        register reviewers. Follow with upload_document for the baseline."""
+        return tools.create_review(client, review_id, title, reviewers, rid_prefix)
+
+    @server.tool()
+    def upload_document(review_id: str, content: str) -> dict:
+        """Freeze the review's baseline Markdown (one-shot, immutable). The
+        server refuses this from an AI principal (owner commit) — 403."""
+        return tools.upload_document(client, review_id, content)
 
     @server.tool()
     def propose_triage(review_id: str) -> dict:

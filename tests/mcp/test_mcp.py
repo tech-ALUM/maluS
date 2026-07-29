@@ -102,6 +102,46 @@ def test_disposition_tool_cannot_commit(mkuser, basic_client, docs):
     assert not any("verify" in n or "close" in n for n in tools.TOOL_NAMES)
 
 
+def test_comment_syntax_is_self_describing():
+    """v3: the grammar ships with the server — no trial comment needed."""
+    text = tools.get_comment_syntax()
+    assert "{COMM|type=" in text and "freeze" in text.lower()
+    assert "SUGG" in text  # explicitly warns against the legacy form
+    assert "{COMM|type=technical|sev=major:" in text  # worked example
+
+
+def test_resubmit_locked_then_reopen_flow(mkuser, basic_client, docs):
+    owner = _seed(mkuser, docs)
+    ai = basic_client("aibot", "pw")
+    tools.submit_reviewer_comments(ai, R, "AI Bot", docs["ai_copy"])
+
+    # v3: Submit is final — a second submit is refused
+    r = ai.post(f"/reviews/{R}/copies/AI Bot/submit", json={"content": docs["ai_copy"]})
+    assert r.status_code == 409
+
+    # request a reopen; the human owner approves; the resubmit goes through
+    assert tools.request_reopen(ai, R, "AI Bot")["status"] == "reopen requested"
+    assert owner.post(f"/reviews/{R}/copies/AI Bot/approve-reopen").status_code == 204
+    assert tools.submit_reviewer_comments(ai, R, "AI Bot", docs["ai_copy"])["violations"] == []
+
+
+def test_create_review_and_upload_document(mkuser, basic_client):
+    mkuser("owner2", "O. Wner")
+    mkuser("somerev", "Some Rev")
+    human = basic_client("owner2", "pw")
+    tools.create_review(human, "NEW-R1", title="New doc", reviewers=["Some Rev"])
+    tools.upload_document(human, "NEW-R1", "# New doc\n\nBody.\n")
+    assert "Body." in tools.get_baseline(human, "NEW-R1")
+
+
+def test_upload_document_refused_for_ai_principal(mkuser, basic_client):
+    mkuser("aibot", "AI Bot", is_ai=True)
+    ai = basic_client("aibot", "pw")
+    tools.create_review(ai, "AI-R1")  # creating the shell is allowed
+    r = ai.post("/reviews/AI-R1/freeze", json={"content": "# Doc\n"})
+    assert r.status_code == 403  # freezing commits an owner decision — human only
+
+
 def test_mcp_server_builds_with_expected_tools(mkuser, basic_client, docs):
     pytest.importorskip("mcp")
     _seed(mkuser, docs)

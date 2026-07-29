@@ -283,6 +283,35 @@ def submit_copy(
     )
 
 
+@router.post("/reviews/{review_id}/copies/{user}/request-reopen", status_code=204)
+def request_copy_reopen(
+    review_id: str,
+    user: str,
+    session: Session = Depends(get_session),
+    caller: User = Depends(get_current_user),
+):
+    """The reviewer asks to edit their SUBMITTED copy again (v3: Submit is
+    final; the owner or an admin approves the reopen)."""
+    review = _review_or_404(session, review_id)
+    authz.require_own_copy(session, review, caller, user)
+    svc.request_copy_reopen(session, review, user, by=caller)
+
+
+@router.post("/reviews/{review_id}/copies/{user}/approve-reopen", status_code=204)
+def approve_copy_reopen(
+    review_id: str,
+    user: str,
+    session: Session = Depends(get_session),
+    caller: User = Depends(get_current_user),
+):
+    """The owner (or an admin) approves a pending reopen request (v3). Human
+    only — unlocking a submitted copy is an owner decision an AI may not commit."""
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, caller)
+    authz.forbid_ai_commit(caller)
+    svc.approve_copy_reopen(session, review, user, by=caller)
+
+
 # --------------------------------------------------------------------------- #
 # pipeline: harvest, triage, apply suggestions
 # --------------------------------------------------------------------------- #
