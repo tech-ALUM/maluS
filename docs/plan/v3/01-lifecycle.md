@@ -737,6 +737,14 @@ def reopen_review_action(review_id: str, request: Request, session: Session = De
   is untouched and stays `IN_REVIEW`-only — only the editing helper widened.
 - Task 4: imported already-finalized v0 reviews keep status `finalized`
   (no fixture exercises re-freezing them; importer unchanged).
+- Post-step bugfix wave (2026-07-29, field report): withdraw is legal only
+  from `open` — vanished blocks past `open` refuse the save, admin retract
+  goes through reopen (84b72c5); withdraw UI moved to the dashboard ⋯ menu,
+  card delete only for unsaved comments (e8bf553); draft findings separated
+  (pill/dim/count/facet) and not disposable until the copy is submitted
+  (f38bbbc); dispose form = Disposition + Reply + Save, owner edits a
+  disposition until accepted, settled dispositions immutable (842751d — also
+  closes the loophole originally carried to step 02).
 - Task 7: the brief's dashboard hint (`title="{{ closeout_errors|join('; ') }}"`)
   was changed to a count (`title="{{ closeout_errors|length }} check(s) not yet
   met…"`), dropping the RID names `svc.closeout_gate` embeds in its message —
@@ -757,11 +765,11 @@ def reopen_review_action(review_id: str, request: Request, session: Session = De
 
 ## Definition of Done
 
-- [ ] All deliverables checked; `python -m pytest -q` green.
-- [ ] Manual smoke (`malus serve`): review with 1 comment → dispose → Accept
+- [x] All deliverables checked; `python -m pytest -q` green.
+- [x] Manual smoke (`malus serve`): review with 1 comment → dispose → Accept
   disposition → Start closeout appears → phase flips → verify buttons appear
   only in closeout.
-- [ ] No new runtime dependencies (`pyproject.toml` untouched).
+- [x] No new runtime dependencies (`pyproject.toml` untouched).
 
 ## Out of scope (later steps)
 
