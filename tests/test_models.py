@@ -178,3 +178,11 @@ def test_v3_reviewer_closes_own_rid(answered_rid: RID) -> None:
     transition(answered_rid, Status.CLOSED, actor_role=Role.REVIEWER,
                actor_name=answered_rid.reviewer)
     assert answered_rid.status is Status.CLOSED
+
+
+def test_v3_reviewer_may_not_close_others_rid(answered_rid: RID) -> None:
+    assert answered_rid.reviewer != "B"
+    with pytest.raises(ClosureAuthorityError, match="'closed'"):
+        transition(answered_rid, Status.CLOSED, actor_role=Role.REVIEWER,
+                   actor_name="B")
+    assert answered_rid.status is Status.ANSWERED  # left untouched

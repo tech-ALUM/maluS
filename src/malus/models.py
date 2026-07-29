@@ -311,7 +311,7 @@ def transition(
             and actor_name != rid.reviewer
         ):
             raise ClosureAuthorityError(
-                f"reviewer {actor_name!r} may not close a RID owned by {rid.reviewer!r}"
+                f"reviewer {actor_name!r} may not set {target.value!r} on a RID owned by {rid.reviewer!r}"
             )
 
     if target is Status.WITHDRAWN:
