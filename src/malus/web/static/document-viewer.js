@@ -305,15 +305,17 @@
       });
       actions.appendChild(del);
     }
-    if (c) { // own comment: private note
+    if (data.role || data.isAdmin) { // v3: every member gets a private note on
+      // any comment (e.g. the owner annotates a draft they cannot dispose yet)
+      var noteKey = String(c ? c.offset : r.offset);
       var noteLabel = document.createElement("label");
       noteLabel.className = "cp-note-label";
       noteLabel.textContent = "My private note";
       var note = document.createElement("textarea");
       note.className = "cp-note";
-      note.value = notes[c.offset] || "";
+      note.value = notes[noteKey] || "";
       note.addEventListener("click", function (ev) { ev.stopPropagation(); });
-      note.addEventListener("input", debounce(function () { saveNote(String(c.offset), note.value); }, 500));
+      note.addEventListener("input", debounce(function () { saveNote(noteKey, note.value); }, 500));
       noteLabel.appendChild(note);
       card.appendChild(noteLabel);
     }
@@ -652,7 +654,7 @@
 
   /* ---------------- private notes (reviewer) ---------------------------- */
   function loadNotes() {
-    if (!data.isReviewer) return;
+    if (!data.role && !data.isAdmin) return; // any member (v3), not just reviewers
     fetch(base + "/my-notes", { credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : {}; })
       .then(function (d) { notes = d || {}; refresh(false); })

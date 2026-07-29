@@ -157,7 +157,8 @@ class ReviewerCopy(SQLModel, table=True):
 
 
 class ReviewerNote(SQLModel, table=True):
-    """A reviewer's PRIVATE note on one of their comments (v1.4).
+    """A member's PRIVATE note on a comment (v1.4; any-member since v3 — e.g.
+    the owner annotates a draft comment they cannot dispose yet).
 
     Never harvested, never shared: it is scoped to (review, user) and keyed by a
     stable ``anchor_key`` (the comment's baseline character offset). Personal

@@ -39,6 +39,18 @@ def test_empty_body_clears_a_note(mkuser):
     assert f.get(f"/ui/reviews/{R}/my-notes").json() == {}
 
 
-def test_my_notes_requires_reviewer_role(mkuser):
-    owner, _f, _g = _review_with_reviewers(mkuser)
-    assert owner.get(f"/ui/reviews/{R}/my-notes").status_code == 403  # owner is not a reviewer
+def test_owner_has_private_notes_too(mkuser):
+    """v3: private notes belong to every member — the owner annotates a draft
+    comment they cannot dispose yet."""
+    owner, f, _g = _review_with_reviewers(mkuser)
+    assert owner.put(
+        f"/ui/reviews/{R}/my-notes", data={"anchor_key": "42", "body": "ask F about this"}
+    ).status_code == 204
+    assert owner.get(f"/ui/reviews/{R}/my-notes").json() == {"42": "ask F about this"}
+    assert f.get(f"/ui/reviews/{R}/my-notes").json() == {}  # still per-user
+
+
+def test_my_notes_requires_membership(mkuser):
+    _owner, _f, _g = _review_with_reviewers(mkuser)
+    outsider = mkuser("nobody", "No Body")
+    assert outsider.get(f"/ui/reviews/{R}/my-notes").status_code == 403

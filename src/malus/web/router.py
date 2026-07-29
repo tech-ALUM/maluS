@@ -802,21 +802,23 @@ def submit_copy(
     return RedirectResponse(f"/ui/reviews/{review_id}/document?saved=1", 303)
 
 
-def _require_reviewer(session: Session, request: Request, review_id: str):
-    """(user, review) for a reviewer of the review, or a redirect/403."""
+def _require_member(session: Session, request: Request, review_id: str):
+    """(user, review) for any member of the review (or a global admin), else
+    a redirect/403. v3: private notes belong to every seat, not just reviewers
+    — e.g. the owner annotates a draft comment they cannot dispose yet."""
     user = _current(request, session)
     if not user:
         return None, None, _LOGIN
     review = _review_or_404(session, review_id)
-    if authz.review_role(session, review, user) != Role.REVIEWER.value:
-        raise HTTPException(status_code=403, detail="only a reviewer has private notes here")
+    if authz.review_role(session, review, user) is None and not user.is_admin:
+        raise HTTPException(status_code=403, detail="only review members have private notes here")
     return user, review, None
 
 
 @web.get("/ui/reviews/{review_id}/my-notes")
 def my_notes(review_id: str, request: Request, session: Session = Depends(get_session)):
-    """The current reviewer's private notes for this review: {anchor_key: body}."""
-    user, review, redirect = _require_reviewer(session, request, review_id)
+    """The current member's private notes for this review: {anchor_key: body}."""
+    user, review, redirect = _require_member(session, request, review_id)
     if redirect is not None:
         return redirect
     return JSONResponse(ReviewerNoteRepo(session).map_for(review, user))
@@ -830,8 +832,8 @@ def save_my_note(
     body: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    """Upsert one private note (empty body clears it). Scoped to the reviewer."""
-    user, review, redirect = _require_reviewer(session, request, review_id)
+    """Upsert one private note (empty body clears it). Scoped to the member."""
+    user, review, redirect = _require_member(session, request, review_id)
     if redirect is not None:
         return redirect
     ReviewerNoteRepo(session).upsert(review, user, anchor_key, body)
