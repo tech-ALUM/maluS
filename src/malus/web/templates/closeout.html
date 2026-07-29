@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set nav_active = 'dashboard' %}
+{% block title %}Closeout — {{ review.review_id_str }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
+<h1>Closeout workspace</h1>
+<p class="muted">Implement each accepted finding: edit the document, tick the RIDs the edit
+resolves, save — then mark the finding implemented so its reviewer can verify it.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div class="closeout-grid">
+  <aside class="closeout-queue">
+    {% for group, label in [("rework", "Rework requested"), ("todo", "To implement"),
+                            ("awaiting", "Awaiting verification"), ("done", "Verified")] %}
+    <section class="cq-group cq-{{ group }}">
+      <h2>{{ label }} <span class="badge">{{ queue[group]|length }}</span></h2>
+      {% for r in queue[group] %}
+      <div class="cq-item">
+        <a href="/ui/reviews/{{ review.review_id_str }}/document?focus={{ r.rid }}">{{ r.rid }}</a>
+        <span class="cmt">{{ (r.comment or '')|truncate(64) }}</span>
+        {% if group == "rework" %}<span class="cq-reason">{{ (r.reply or '').split('[changes requested by')[-1]|truncate(96) }}</span>{% endif %}
+        {% if r.resolution %}<span class="cq-resolution">✓ {{ r.resolution }}</span>{% endif %}
+        {% if group in ("todo", "rework") and r.rid in changed_rids %}
+        <form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/implement" class="inline">
+          <input type="text" name="resolution" placeholder="what was done (resolution)">
+          <button class="secondary">Mark implemented</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}<p class="muted">—</p>{% endfor %}
+    </section>
+    {% endfor %}
+  </aside>
+
+  <form method="post" action="/ui/reviews/{{ review.review_id_str }}/closeout" class="stack closeout-editor">
+    <div class="editor-grid">
+      <textarea id="editor" name="content" rows="24" spellcheck="false">{{ content }}</textarea>
+      <div id="preview" class="preview"></div>
+    </div>
+    <fieldset class="rid-picker">
+      <legend>This edit resolves</legend>
+      {% for r in eligible %}
+      <label class="chk"><input type="checkbox" name="rids" value="{{ r.rid }}"> {{ r.rid }} — {{ (r.comment or '')|truncate(56) }}</label>
+      {% else %}<p class="muted">Nothing left to implement.</p>{% endfor %}
+    </fieldset>
+    <button class="primary">Save version &amp; link</button>
+  </form>
+</div>
+<script src="/static/vendor/marked.min.js?v={{ asset_v }}"></script>
+<script src="/static/editor.js?v={{ asset_v }}" defer></script>
+{% endblock %}

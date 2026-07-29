@@ -63,15 +63,22 @@ def test_full_multi_user_review_to_finalize(app, mkuser, basic_client, docs):
     assert owner.post(f"/ui/reviews/{R}/start-closeout", follow_redirects=False).status_code == 303
     assert owner.get(f"/reviews/{R}").json()["status"] == "closeout"
 
-    # --- owner implements the accepted finding via the editor (GUI) -> version + RID link ---
-    # (the rejected AI finding stays 'closed' — only an accepted RID may be implemented)
+    # --- owner saves the edit in the closeout workspace (GUI) -> version + RID link ---
+    # (the rejected AI finding stays 'closed' — only an accepted RID may be implemented;
+    #  v3: saving links the change but no longer auto-advances the RID's status)
     assert owner.post(
-        f"/ui/reviews/{R}/implement",
+        f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"] + "\nThe timeout is bounded to 30s.\n", "rids": [human_rid]},
         follow_redirects=False,
     ).status_code == 303
-    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "implemented"
+    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "closed"
     assert human_rid in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
+
+    # --- owner explicitly marks the finding implemented (GUI) ---
+    assert owner.post(
+        f"/ui/reviews/{R}/rids/{human_rid}/implement", follow_redirects=False
+    ).status_code == 303
+    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "implemented"
 
     # --- verification: the human verifies their own finding (GUI, closeout-only) ---
     assert human.post(f"/ui/reviews/{R}/rids/{human_rid}/verify", follow_redirects=False).status_code == 303

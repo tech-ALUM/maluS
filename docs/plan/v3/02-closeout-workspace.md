@@ -32,7 +32,7 @@ same services + authz. Depends on step 01 (phases, `closed` status).
 
 ## Deliverables
 
-- [ ] `save_closeout_version` service (link-only save with validation)
+- [x] `save_closeout_version` service (link-only save with validation)
 - [ ] Closeout page: work queue + editor + per-RID Mark implemented
 - [ ] `/implement` route replaced (301/303 to `/closeout`)
 - [ ] Dashboard + viewer link to the workspace in closeout phase

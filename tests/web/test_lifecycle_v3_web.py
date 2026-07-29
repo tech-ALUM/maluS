@@ -188,7 +188,8 @@ def test_dashboard_shows_closeout_workspace_link_and_admin_back_to_review(mkuser
 
 
 # --------------------------------------------------------------------------- #
-# implement: phase-gated to closeout only (v3)
+# closeout workspace: phase-gated to closeout only (v3) — see also the
+# dedicated tests/web/test_closeout_page.py for the full route surface.
 # --------------------------------------------------------------------------- #
 
 
@@ -196,9 +197,9 @@ def test_implement_page_blocked_outside_closeout(mkuser, docs):
     owner, f, _mod = _seed_answered(mkuser, docs)
     f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")  # closed, but still in_review
 
-    assert owner.get(f"/ui/reviews/{R}/implement").status_code == 409
+    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 409
     r = owner.post(
-        f"/ui/reviews/{R}/implement",
+        f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"], "rids": []},
         follow_redirects=False,
     )
@@ -208,4 +209,4 @@ def test_implement_page_blocked_outside_closeout(mkuser, docs):
 def test_implement_page_allowed_in_closeout(mkuser, docs):
     owner, f, mod = _seed_answered(mkuser, docs)
     _to_closeout(owner, f, mod)
-    assert owner.get(f"/ui/reviews/{R}/implement").status_code == 200
+    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 200

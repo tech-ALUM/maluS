@@ -30,7 +30,7 @@
     <span class="muted" title="{{ closeout_errors|length }} check{{ 's' if closeout_errors|length != 1 else '' }} not yet met — see the findings table below">Closeout unlocks when every comment is closed.</span>
     {% endif %}
   {% elif phase == 'closeout' %}
-    <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/implement">Closeout workspace</a>
+    <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/closeout">Closeout workspace</a>
     {% if user.is_admin %}
     <form method="post" action="/ui/reviews/{{ review.review_id_str }}/reopen-review" class="inline"
           onsubmit="return confirm('Reopen the review phase? Reviewers can comment again.')">

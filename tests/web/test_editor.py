@@ -59,26 +59,30 @@ def test_owner_implement_creates_version_and_links_rid(mkuser, docs):
         json={"status": "answered", "disposition": "accepted", "reply": "ok"},
     )
 
-    # v3: implement is closeout-only — blocked while still in_review
-    assert owner.get(f"/ui/reviews/{R}/implement").status_code == 409
+    # v3: the closeout workspace is closeout-only — blocked while still in_review
+    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 409
 
     # the reviewer accepts the disposition, then the owner starts closeout
     assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 200
     assert owner.post(f"/reviews/{R}/start-closeout").status_code == 200
 
-    page = owner.get(f"/ui/reviews/{R}/implement")
+    page = owner.get(f"/ui/reviews/{R}/closeout")
     assert page.status_code == 200 and "SIN-SRS-0001" in page.text
 
+    # v3: saving links the version to the ticked RID but no longer auto-advances it
     r = owner.post(
-        f"/ui/reviews/{R}/implement",
+        f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"] + "\nbounded.\n", "rids": ["SIN-SRS-0001"]},
         follow_redirects=False,
     )
     assert r.status_code == 303
-
-    # the accepted RID is now implemented with a linked change (traceability)
-    assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "implemented"
+    assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "closed"
     assert "SIN-SRS-0001" in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
+
+    # Mark implemented is now an explicit per-RID action
+    r = owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/implement", follow_redirects=False)
+    assert r.status_code == 303
+    assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "implemented"
 
     # and its reviewer can verify it
     assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/verify").status_code == 200

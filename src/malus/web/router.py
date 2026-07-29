@@ -909,38 +909,47 @@ def delete_review_submit(review_id: str, request: Request, session: Session = De
     return RedirectResponse("/ui/reviews", 303)
 
 
-@web.get("/ui/reviews/{review_id}/implement", response_class=HTMLResponse)
-def implement_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+def _closeout_context(session: Session, request: Request, user: User, review, *, error=None):
+    """Build the closeout workspace's template context: the accepted-findings
+    work queue (bucketed by status + whether a post-baseline change already
+    links them) plus the current document content for the editor (v3 step 02
+    task 2 — replaces the v2 ``implement.html`` context)."""
+    latest = VersionRepo(session).latest(review)
+    rtd = svc.export(session, review)
+    accepted = [r for r in rtd.rids if r.disposition is Disposition.ACCEPTED]
+    changed_rids = {  # rids that already have a post-baseline linked change
+        r.rid for r in accepted if svc.rid_has_change(session, review, r.rid)
+    }
+    queue = {
+        "todo": [r for r in accepted if r.status is Status.CLOSED and r.rid not in changed_rids],
+        "rework": [r for r in accepted if r.status is Status.CLOSED and r.rid in changed_rids],
+        "awaiting": [r for r in accepted if r.status is Status.IMPLEMENTED],
+        "done": [r for r in accepted if r.status is Status.VERIFIED],
+    }
+    eligible = queue["todo"] + queue["rework"]  # tickable in the save form
+    return {
+        "user": user, "review": review, "error": error,
+        "content": latest.content if latest else "",
+        "queue": queue, "eligible": eligible, "changed_rids": changed_rids,
+    }
+
+
+@web.get("/ui/reviews/{review_id}/closeout", response_class=HTMLResponse)
+def closeout_page(review_id: str, request: Request, session: Session = Depends(get_session)):
     user = _current(request, session)
     if not user:
         return _LOGIN
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)
     if review.status != ReviewStatus.CLOSEOUT.value:
-        raise HTTPException(
-            status_code=409, detail="implementing findings is only available during closeout"
-        )
-    latest = VersionRepo(session).latest(review)
-    accepted = [
-        r
-        for r in svc.export(session, review).rids
-        if r.disposition is Disposition.ACCEPTED and r.status is Status.CLOSED
-    ]
+        raise HTTPException(status_code=409, detail="the review is not in closeout")
     return templates.TemplateResponse(
-        request,
-        "implement.html",
-        {
-            "user": user,
-            "review": review,
-            "content": latest.content if latest else "",
-            "accepted": accepted,
-            "error": None,
-        },
+        request, "closeout.html", _closeout_context(session, request, user, review)
     )
 
 
-@web.post("/ui/reviews/{review_id}/implement")
-def implement_submit(
+@web.post("/ui/reviews/{review_id}/closeout", response_class=HTMLResponse)
+def closeout_save(
     review_id: str,
     request: Request,
     content: str = Form(...),
@@ -952,17 +961,47 @@ def implement_submit(
         return _LOGIN
     review = _review_or_404(session, review_id)
     authz.require_owner(session, review, user)
-    if review.status != ReviewStatus.CLOSEOUT.value:
-        raise HTTPException(
-            status_code=409, detail="implementing findings is only available during closeout"
-        )
-    version = svc.save_version(session, review, content, by=user)
-    for rid in rids:
-        if RidRepo(session).get(review, rid) is None:
-            continue
-        svc.link_change(session, review, rid, version, by=user)
-        try:  # advance accepted+closed RIDs now that a change links them
-            svc.implement(session, review, rid, by=user)
-        except ValueError:
-            pass  # not eligible to advance (wrong disposition/status) — leave as-is
+    authz.forbid_ai_commit(user)
+    rids = list(dict.fromkeys(rids))  # dedup ticked RIDs (the service links duplicates verbatim)
+    try:
+        svc.save_closeout_version(session, review, content, rid_ids=rids, by=user)
+    except svc.PhaseError:
+        raise HTTPException(status_code=409, detail="the review is not in closeout")
+    except ValueError as exc:
+        ctx = _closeout_context(session, request, user, review, error=str(exc))
+        ctx["content"] = content  # keep the unsaved editor text
+        return templates.TemplateResponse(request, "closeout.html", ctx, status_code=422)
+    return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
+
+
+@web.post("/ui/reviews/{review_id}/rids/{rid}/implement")
+def mark_implemented(
+    review_id: str,
+    rid: str,
+    request: Request,
+    resolution: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    authz.forbid_ai_commit(user)
+    try:
+        # recorded plan deviation (step 02 task 2): the dispose form no longer
+        # carries `resolution` — it's captured here, right before the owner
+        # marks the finding implemented.
+        if resolution:
+            svc.update_rid(session, review, rid, resolution=resolution, by=user)
+        svc.implement(session, review, rid, by=user)
+    except ValueError as exc:  # no linked change / wrong status / no such RID
+        raise HTTPException(status_code=422, detail=str(exc))
+    return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
+
+
+@web.get("/ui/reviews/{review_id}/implement")
+def implement_redirect(review_id: str):
+    """v2's implement page is superseded by the closeout workspace (v3)."""
+    return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
