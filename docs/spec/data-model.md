@@ -79,6 +79,14 @@ run from `create_all` on every startup, promotes any `draft`/`active` review
 that already has a frozen baseline to `in_review`; reviews with no baseline
 yet are left at `draft`, and `closeout`/`finalized` rows are never touched.
 
+**`import_rtd` always creates the review at `draft`** (`src/malus/db/rtd_io.py`),
+regardless of what lifecycle state the imported `rtd.yaml` itself represents
+— it does not infer a phase from the RIDs it imports. A mid-lifecycle import
+(e.g. an `rtd.yaml` already carrying `answered`/`closed` RIDs) therefore
+needs an explicit `freeze_baseline` call afterward to reach `in_review`
+before any RID action is possible (v3 behavior change; no existing fixture
+exercises this path — see `docs/plan/v3/01-lifecycle.md` Task 4 Deviations).
+
 ### `review_members`
 Review-scoped role for a user (RBAC enforcement arrives at Step 4).
 | Column | Type | Null | Notes |

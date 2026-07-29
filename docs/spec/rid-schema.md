@@ -149,10 +149,20 @@ a human-global-admin escape hatch `closeout → in_review`.
 | `closeout` | owner's **Start closeout**; gate: ≥1 non-withdrawn RID and none still `open`/`answered` | `implement`, `verify`, **request changes**, `link_change`; a human global admin may revert to `in_review` |
 | `finalized` | owner's **Finalize**; gate: every RID `verified` or `withdrawn`, or `closed` with disposition `rejected`/`deferred` | terminal — no further RID actions |
 
-Retracting a still-`open` comment (`retract_comment`) and the admin-only
-`purge_rid` escape hatch are deliberately left phase-ungated: an `open` RID
-cannot exist past `in_review` (the closeout gate forbids it), so the
-restriction is structural rather than enforced in code.
+Retracting a still-`open` comment (`retract_comment`) is gated to `in_review`
+only (`_require_phase`, `src/malus/services/core.py`) — not phase-ungated: an
+earlier draft of this spec claimed an "any-phase admin escape hatch" for
+retract, but that never held, since `retract_comment`'s own internals
+(re-harvesting) call `harvest`, which is itself `in_review`-gated. In
+practice an `open` RID cannot exist past `in_review` anyway (the closeout
+gate forbids it), so a plain reviewer withdraw was never reachable outside
+`in_review`; what changed is the admin path, which is now explicit rather
+than implicit: an admin who needs to withdraw a comment once the review has
+left `in_review` uses `reopen_review` (`closeout → in_review`), then
+`retract_comment`, then `start_closeout` again. The admin-only `purge_rid`
+hard-delete escape hatch remains phase-ungated (any phase) — it is a
+distinct, more drastic action from retract and was not part of this
+correction.
 
 Backward moves (`src/malus/lifecycle.py` helpers — direct field assignment,
 **not** edges in the forward graph above; both require a mandatory reason
@@ -160,8 +170,15 @@ appended to the RID's `reply` thread):
 
 | Helper | From → To | Actor | Phase |
 |--------|-----------|-------|-------|
-| `reopen` | `answered` \| `closed` → `open` | the RID's **reviewer**, or moderator on their behalf | `in_review` only |
+| `reopen` | `answered` \| `closed` \| `implemented` \| `verified` → `open` | the RID's **reviewer**, or moderator on their behalf | `in_review` only |
 | `request-changes` | `implemented` \| `verified` → `closed` | the RID's **reviewer**, or moderator on their behalf | `closeout` only — the closeout-phase analogue of `reopen`; appends `"[changes requested by <reviewer>: <reason>]"` and clears `verified_by`/`verified_on` |
+
+`reopen`'s helper (`reopen_rid`) accepts the full `answered | closed |
+implemented | verified` set as its allowed-from statuses, but the *service*
+wrapping it (`svc.reopen`) is itself `in_review`-only — so in practice an
+`implemented`/`verified` RID can only be reopened after an admin
+`reopen_review` has returned the review to `in_review` (those two statuses
+cannot otherwise coexist with the `in_review` phase).
 
 `verified` and `withdrawn` are terminal. `closed` is terminal in practice for
 a `rejected`/`deferred` RID — the only forward edge out of `closed` requires

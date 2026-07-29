@@ -715,10 +715,26 @@ def reopen_review_action(review_id: str, request: Request, session: Session = De
 
 - Task 4 (review follow-up): `triage` gained an `IN_REVIEW` phase gate — the
   spec's phase table did not enumerate it, but triage is a review-phase
-  activity by process definition. `retract_comment` stays deliberately
-  ungated: a reviewer withdraw needs an OPEN rid (impossible in closeout by
-  gate), admin withdraw remains the any-phase escape hatch. To be ratified by
-  Alberto at step close.
+  activity by process definition.
+- Task 4 (step-close correction, ratified 2026-07-29): the original claim
+  above that `retract_comment` "stays deliberately ungated" with "admin
+  withdraw remains the any-phase escape hatch" did not hold — `retract_comment`
+  re-harvests, and `harvest` is itself `IN_REVIEW`-gated, so the admin path was
+  never actually reachable outside `in_review`. Gated it honestly:
+  `retract_comment` now calls `_require_phase(review, ReviewStatus.IN_REVIEW)`
+  like every other reviewer-side mutation. The real admin any-phase path is
+  `reopen_review` → `retract_comment` (withdraw) → `start_closeout`; the
+  admin-only `purge_rid` hard-delete escape hatch is unaffected and remains
+  phase-ungated (any phase). Web wiring (`document-viewer.js`'s admin Withdraw
+  button, `review.html`'s RTD-table withdraw form) gated to `phase ==
+  'in_review'` to match.
+- Task 4 (plan-table amendment, ratified 2026-07-29): `update_rid` widened
+  from `IN_REVIEW`-only to `IN_REVIEW | CLOSEOUT`. As written, `update_rid`
+  being IN_REVIEW-only made recording `resolution` at implementation time
+  impossible and left the API `PATCH {"status":"implemented","resolution":…}`
+  branch dead in every real flow (it 409'd before `implement` ever ran, since
+  a review reaches `implement` only in closeout). `answer` (dispose-from-open)
+  is untouched and stays `IN_REVIEW`-only — only the editing helper widened.
 - Task 4: imported already-finalized v0 reviews keep status `finalized`
   (no fixture exercises re-freezing them; importer unchanged).
 - Task 7: the brief's dashboard hint (`title="{{ closeout_errors|join('; ') }}"`)
