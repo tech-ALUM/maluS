@@ -27,6 +27,7 @@ from malus.api.deps import get_session
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
 from malus.db.models import ReviewStatus, User
+from malus.diffing import html_diff
 from malus.harvest import FreezeViolation, WithdrawViolation, build_rtd, validate_insertion_only
 from malus.parser import ParseError
 from malus.repo import (
@@ -804,6 +805,35 @@ def document_page(
         raise HTTPException(status_code=404, detail=f"no such RID: {focus}")
     ctx = _document_context(session, request, user, review, saved=saved, focus=focus)
     return templates.TemplateResponse(request, "document.html", ctx)
+
+
+@web.get("/ui/reviews/{review_id}/diff", response_class=HTMLResponse)
+def diff_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Full-document diff, baseline vs latest version (v3 step 03 task 4):
+    same word-level renderer as the per-RID Changes section (task 3), same
+    membership authz as ``document_page`` — any review member or a global
+    admin, regardless of review phase."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) is None and not user.is_admin:
+        raise HTTPException(status_code=403, detail="only review members may open the diff")
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    latest = VersionRepo(session).latest(review)
+    return templates.TemplateResponse(
+        request,
+        "diff.html",
+        {
+            "user": user,
+            "review": review,
+            "baseline": baseline,
+            "latest": latest,
+            "diff_html": html_diff(baseline.content, latest.content),
+        },
+    )
 
 
 @web.get("/ui/reviews/{review_id}/edit-copy")

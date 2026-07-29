@@ -31,6 +31,7 @@
     {% endif %}
   {% elif phase == 'closeout' %}
     <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/closeout">Closeout workspace</a>
+    <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a>
     {% if user.is_admin %}
     <form method="post" action="/ui/reviews/{{ review.review_id_str }}/reopen-review" class="inline"
           onsubmit="return confirm('Reopen the review phase? Reviewers can comment again.')">
@@ -83,6 +84,13 @@
   {% if draft_count %}<span class="st st-draft" title="Comments from copies not yet submitted">{{ draft_count }} draft{{ '' if draft_count == 1 else 's' }}</span>{% endif %}
   {% if ai_proposals %}<span class="badge ai-badge">{{ ai_proposals }} AI proposal{{ '' if ai_proposals == 1 else 's' }}</span>{% endif %}
 </section>
+
+{% if phase in ('closeout', 'finalized') %}
+{# v3 step 03 task 4: every member (not just the owner) can open the full
+   diff once closeout starts — the owner-actions block above already links
+   it, but reviewers/moderators need their own visible copy. #}
+<p class="actions"><a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a></p>
+{% endif %}
 
 <div class="filter-bar" aria-label="Filters">
   <form method="get" class="filter-builder">

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% set nav_active = 'dashboard' %}
+{% block title %}Full diff — {{ review.review_id_str }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
+<h1>Full diff — baseline v{{ baseline.ordinal }} → v{{ latest.ordinal }}</h1>
+{% if diff_html %}
+{{ diff_html | safe }}
+{% else %}
+<p class="muted">No changes yet.</p>
+{% endif %}
+{% endblock %}
