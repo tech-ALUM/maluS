@@ -39,6 +39,7 @@ class Status(str, Enum):
 
     OPEN = "open"
     ANSWERED = "answered"
+    CLOSED = "closed"  # v3: the reviewer accepted the owner's disposition
     IMPLEMENTED = "implemented"
     VERIFIED = "verified"
     WITHDRAWN = "withdrawn"
@@ -69,7 +70,8 @@ DEFAULT_SEVERITY: Severity = Severity.MINOR
 # enforced on top of this in ``malus.models.transition``.
 TRANSITIONS: dict[Status, frozenset[Status]] = {
     Status.OPEN: frozenset({Status.ANSWERED, Status.WITHDRAWN}),
-    Status.ANSWERED: frozenset({Status.IMPLEMENTED, Status.VERIFIED}),
+    Status.ANSWERED: frozenset({Status.CLOSED}),
+    Status.CLOSED: frozenset({Status.IMPLEMENTED}),
     Status.IMPLEMENTED: frozenset({Status.VERIFIED}),
     Status.VERIFIED: frozenset(),
     Status.WITHDRAWN: frozenset(),

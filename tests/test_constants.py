@@ -24,6 +24,7 @@ def test_status_values() -> None:
     assert {s.value for s in Status} == {
         "open",
         "answered",
+        "closed",
         "implemented",
         "verified",
         "withdrawn",
@@ -37,7 +38,8 @@ def test_comm_defaults_match_spec() -> None:
 
 def test_transition_graph_matches_spec() -> None:
     assert TRANSITIONS[Status.OPEN] == frozenset({Status.ANSWERED, Status.WITHDRAWN})
-    assert TRANSITIONS[Status.ANSWERED] == frozenset({Status.IMPLEMENTED, Status.VERIFIED})
+    assert TRANSITIONS[Status.ANSWERED] == frozenset({Status.CLOSED})
+    assert TRANSITIONS[Status.CLOSED] == frozenset({Status.IMPLEMENTED})
     assert TRANSITIONS[Status.IMPLEMENTED] == frozenset({Status.VERIFIED})
     assert TRANSITIONS[Status.VERIFIED] == frozenset()
     assert TRANSITIONS[Status.WITHDRAWN] == frozenset()
@@ -52,3 +54,16 @@ def test_is_allowed_transition() -> None:
     assert is_allowed_transition(Status.IMPLEMENTED, Status.VERIFIED)
     assert not is_allowed_transition(Status.OPEN, Status.VERIFIED)
     assert not is_allowed_transition(Status.VERIFIED, Status.OPEN)
+
+
+def test_v3_closed_status_exists():
+    assert Status("closed") is Status.CLOSED
+
+
+def test_v3_forward_graph():
+    assert is_allowed_transition(Status.ANSWERED, Status.CLOSED)
+    assert is_allowed_transition(Status.CLOSED, Status.IMPLEMENTED)
+    assert is_allowed_transition(Status.IMPLEMENTED, Status.VERIFIED)
+    # v2 paths removed: no direct answered→verified/implemented
+    assert not is_allowed_transition(Status.ANSWERED, Status.VERIFIED)
+    assert not is_allowed_transition(Status.ANSWERED, Status.IMPLEMENTED)
