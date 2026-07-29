@@ -486,10 +486,16 @@ def update_rid(
     only widens *editing* reply/resolution/disposition on an existing RID —
     e.g. recording ``resolution`` while implementing, in closeout. Drafting a
     fresh disposition from ``open`` (``answer``/dispose) stays IN_REVIEW-only,
-    untouched."""
+    untouched. A disposition is editable only while ``open``/``answered``:
+    once the reviewer accepted it (``closed`` and beyond) it is settled and
+    changes only through the formal reopen."""
     _require_phase(review, ReviewStatus.IN_REVIEW, ReviewStatus.CLOSEOUT)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
+    if disposition is not None and rid.status not in (Status.OPEN, Status.ANSWERED):
+        raise TransitionError(
+            f"{rid_id} is {rid.status.value}; a settled disposition changes only through reopen"
+        )
     if reply is not None:
         rid.reply = reply
     if resolution is not None:

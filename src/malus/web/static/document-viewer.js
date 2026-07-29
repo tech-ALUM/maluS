@@ -335,6 +335,24 @@
       card.appendChild(dform);
     }
 
+    if (r && data.canDispose && r.status === "answered" && phase === "in_review") {
+      // v3: until the reviewer accepts it, the owner may still fix or change
+      // the disposition (typo in the reply, changed mind) — same form, no
+      // status transition; from "closed" onward it is settled (reopen only)
+      var editToggle = document.createElement("button");
+      editToggle.type = "button";
+      editToggle.className = "secondary cp-dispose-toggle";
+      editToggle.textContent = "Edit disposition…";
+      var eform = disposeForm(r);
+      eform.hidden = true;
+      editToggle.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        eform.hidden = !eform.hidden;
+      });
+      actions.appendChild(editToggle);
+      card.appendChild(eform);
+    }
+
     if (r && r.canVerify && phase === "in_review" && r.status === "answered") {
       var accept = document.createElement("button");
       accept.type = "button";
@@ -466,12 +484,13 @@
     var opts = ["accepted", "rejected", "deferred"].map(function (d) {
       return '<option value="' + d + '"' + (r.disposition === d ? " selected" : "") + ">" + d + "</option>";
     }).join("");
+    // v3: no Resolution here — it records what was implemented (closeout);
+    // a dispose is Disposition + Reply, one Save button
     f.innerHTML =
       (r.aiProposal ? '<p class="flash ai-proposal">🤖 AI-drafted — confirm to commit, or discard.</p>' : "") +
       "<label>Disposition <select name=\"disposition\" required>" + opts + "</select></label>" +
       '<label>Reply <textarea name="reply" rows="2">' + esc(r.reply || "") + "</textarea></label>" +
-      '<label>Resolution <textarea name="resolution" rows="2">' + esc(r.resolution || "") + "</textarea></label>" +
-      '<button class="primary">' + (r.aiProposal ? "Confirm disposition" : "Save disposition") + "</button>";
+      '<button class="primary">' + (r.aiProposal ? "Confirm disposition" : "Save") + "</button>";
     if (r.aiProposal) {
       var discard = document.createElement("button");
       discard.type = "button";

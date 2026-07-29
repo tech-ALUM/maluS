@@ -180,6 +180,13 @@ wrapping it (`svc.reopen`) is itself `in_review`-only — so in practice an
 `reopen_review` has returned the review to `in_review` (those two statuses
 cannot otherwise coexist with the `in_review` phase).
 
+Owner-side edits (**v3**, `svc.update_rid`): `reply`/`resolution` are editable
+in `in_review` and `closeout`; the `disposition` is editable only while the
+finding is `open`/`answered` — once its reviewer accepted it (`closed` and
+beyond) it is **settled** and changes only through the formal reopen. A
+disposition may only be recorded at all once the finding's reviewer has
+**submitted** their copy (a `draft` comment can still change).
+
 `verified` and `withdrawn` are terminal. `closed` is terminal in practice for
 a `rejected`/`deferred` RID — the only forward edge out of `closed` requires
 `disposition = accepted` — but it is not itself in `TERMINAL_STATUSES`: an

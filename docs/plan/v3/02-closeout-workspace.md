@@ -17,11 +17,9 @@ same services + authz. Depends on step 01 (phases, `closed` status).
 
 ## Carried from step 01's final review
 
-- Close the disposition-edit loophole: `svc.update_rid` still accepts a
-  `disposition` change on a RID past `answered` (an owner could flip
-  accepted→rejected on a `closed` RID in closeout, dodging implementation).
-  Refuse disposition edits once status is past `answered` — changing a settled
-  disposition must go through the formal reopen.
+- ~~Close the disposition-edit loophole~~ — **done in the post-step-01 bugfix
+  wave**: `svc.update_rid` refuses `disposition` changes once status is past
+  `answered` (settled dispositions change only through reopen).
 
 ## Global constraints
 
