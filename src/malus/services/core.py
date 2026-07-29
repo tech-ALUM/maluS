@@ -750,6 +750,54 @@ def link_change(
     return change
 
 
+def rid_has_change(session: Session, review: Review, rid_id: str) -> bool:
+    """True if ``rid_id`` is already linked to a post-baseline version (v3
+    closeout workspace, Task 2: lets the UI show which accepted RIDs still
+    need a save before ``implement`` will accept them). A public wrapper
+    over the same check ``implement`` gates on; an unknown RID reads False,
+    matching a query rather than a committing action."""
+    row = RidRepo(session).get(review, rid_id)
+    return bool(row and _post_baseline_changes(session, review, row))
+
+
+def save_closeout_version(
+    session: Session,
+    review: Review,
+    content: str,
+    *,
+    rid_ids: list[str],
+    by=None,
+) -> DocumentVersion:
+    """One closeout edit: a new version linked to the accepted RIDs it resolves
+    (v3). Traceability by construction: no RIDs → no save; unchanged text → no
+    save. Never advances a RID's status (Mark implemented is explicit)."""
+    _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.CLOSEOUT)
+    if not rid_ids:
+        raise ValueError("a closeout save must resolve at least one accepted RID")
+    latest = VersionRepo(session).latest(review)
+    if latest is not None and latest.content == content:
+        raise ValueError("no changes to save")
+    rows = []
+    for rid_id in rid_ids:
+        row = RidRepo(session).get(review, rid_id)
+        if row is None:
+            raise ValueError(f"no such RID: {rid_id}")
+        if row.disposition != Disposition.ACCEPTED.value:
+            raise ValueError(f"{rid_id} is not an accepted finding")
+        rows.append(row)
+    version = VersionRepo(session).add_version(review, content, by=by)
+    for row in rows:
+        RidRepo(session).add_change(row, version)
+    AuditRepo(session).log(
+        action="save_closeout_version",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={"ordinal": version.ordinal, "rids": [r.rid_str for r in rows]},
+    )
+    return version
+
+
 def check_traceability(session: Session, review: Review) -> TraceabilityReport:
     rids, versions = RidRepo(session), VersionRepo(session)
     baseline = versions.baseline(review)
