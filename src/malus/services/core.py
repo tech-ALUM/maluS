@@ -32,12 +32,14 @@ from malus.harvest import HarvestResult, build_rtd
 from malus.parser import scan
 from malus.lifecycle import (
     TraceabilityReport,
+    accept_disposition_rid,
     pending_for_reviewer,
     reopen_rid,
+    request_changes_rid,
     verify_rid,
 )
 from malus.models import RID as RidDTO
-from malus.models import RTD, ClosureAuthorityError, transition
+from malus.models import RTD, ClosureAuthorityError, TransitionError, transition
 from malus.report import render_report, validate
 from malus.repo import (
     AuditRepo,
@@ -64,6 +66,19 @@ def _find(rtd: RTD, rid_id: str) -> RidDTO:
         if rid.rid == rid_id:
             return rid
     raise ValueError(f"no such RID: {rid_id}")
+
+
+class PhaseError(TransitionError):
+    """The review is not in the phase this action requires (v3) → HTTP 409."""
+
+
+def _require_phase(review: Review, *phases: ReviewStatus) -> None:
+    if review.status not in {p.value for p in phases}:
+        allowed = " | ".join(p.value for p in phases)
+        raise PhaseError(
+            f"review {review.review_id_str} is in phase {review.status!r}; "
+            f"this action requires {allowed}"
+        )
 
 
 def _forbid_ai_commit(by) -> None:
@@ -136,7 +151,9 @@ def freeze_baseline(
     session: Session, review: Review, content: str, *, by=None
 ) -> DocumentVersion:
     _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.DRAFT)
     version = VersionRepo(session).freeze(review, content, by=by)
+    ReviewRepo(session).set_status(review, ReviewStatus.IN_REVIEW.value)
     AuditRepo(session).log(
         action="freeze",
         target=f"review:{review.review_id_str}",
@@ -158,6 +175,7 @@ def add_reviewer_copy(
     """Persist a reviewer's copy. ``submitted=True`` (default) marks it submitted
     (``submitted_at = now``); ``submitted=False`` saves it as a draft
     (``submitted_at = None``) so a reviewer can keep editing across sessions."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     user = UserRepo(session).get_or_create(reviewer_name)
     base = based_on or VersionRepo(session).baseline(review)
     submitted_at = dt.datetime.now(dt.timezone.utc) if submitted else None
@@ -216,6 +234,7 @@ def _purge_retracted(session: Session, review: Review) -> None:
 
 
 def harvest(session: Session, review: Review, *, by=None) -> HarvestResult:
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     baseline = VersionRepo(session).baseline(review)
     if baseline is None:
         raise ValueError("cannot harvest before the baseline is frozen")
@@ -390,6 +409,7 @@ def apply_suggestions(
     session: Session, review: Review, *, by=None
 ) -> tuple[DocumentVersion, list[SuggResult]]:
     _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     baseline = VersionRepo(session).baseline(review)
     rtd = export_rtd(session, review)
     new_text, results = apply_suggs(baseline.content, rtd)
@@ -418,6 +438,7 @@ def answer(
     by=None,
 ):
     _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     rid.disposition = disposition
@@ -442,6 +463,7 @@ def update_rid(
     by=None,
 ):
     """Edit a RID's owner-side fields in place (no status transition)."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     if reply is not None:
@@ -471,6 +493,7 @@ def discard_disposition_draft(session: Session, review: Review, rid_id: str, *, 
     """Discard an AI-drafted proposal, clearing it back to a plain OPEN finding
     (v1.7). The RID keeps its identity; only the drafted owner-fields and the
     ``ai_drafted`` flag are cleared."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     rid.disposition = None
@@ -499,6 +522,7 @@ def implement(session: Session, review: Review, rid_id: str, *, by=None):
     least one ``RidChange`` linking the RID to a version newer than the baseline.
     """
     _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.CLOSEOUT)
     row = RidRepo(session).get(review, rid_id)
     if row is None:
         raise ValueError(f"no such RID: {rid_id}")
@@ -523,6 +547,7 @@ def verify(
     moderator: bool = False,
     on: Optional[dt.date] = None,
 ):
+    _require_phase(review, ReviewStatus.CLOSEOUT)
     rtd = export_rtd(session, review)
     verify_rid(rtd, rid_id, reviewer=reviewer, moderator=moderator, on=on)
     sync_rtd_to_review(session, review, rtd)
@@ -544,11 +569,61 @@ def reopen(
     reason: str,
     moderator: bool = False,
 ):
+    _require_phase(review, ReviewStatus.IN_REVIEW)
     rtd = export_rtd(session, review)
     reopen_rid(rtd, rid_id, reviewer=reviewer, reason=reason, moderator=moderator)
     sync_rtd_to_review(session, review, rtd)
     AuditRepo(session).log(
         action="reopen",
+        target=f"rid:{rid_id}",
+        actor=UserRepo(session).get_or_create(reviewer),
+        detail={"reason": reason},
+    )
+    return RidRepo(session).get(review, rid_id)
+
+
+def accept_disposition(
+    session: Session,
+    review: Review,
+    rid_id: str,
+    *,
+    reviewer: str,
+    moderator: bool = False,
+):
+    """The reviewer closes a finding: they accept the owner's disposition
+    (v3). The review-phase endpoint of a discussion; verification of the
+    actual document edit happens later, in closeout, for accepted RIDs only."""
+    _require_phase(review, ReviewStatus.IN_REVIEW)
+    rtd = export_rtd(session, review)
+    accept_disposition_rid(rtd, rid_id, reviewer=reviewer, moderator=moderator)
+    sync_rtd_to_review(session, review, rtd)
+    AuditRepo(session).log(
+        action="accept_disposition",
+        target=f"rid:{rid_id}",
+        actor=UserRepo(session).get_or_create(reviewer),
+        detail={"moderator": moderator},
+    )
+    return RidRepo(session).get(review, rid_id)
+
+
+def request_changes(
+    session: Session,
+    review: Review,
+    rid_id: str,
+    *,
+    reviewer: str,
+    reason: str,
+    moderator: bool = False,
+):
+    """Send an implemented (or verified) RID back to ``closed`` for rework
+    (v3), with a mandatory reason appended to its thread. Closeout-only: the
+    review-level analogue of ``reopen`` once the review has left IN_REVIEW."""
+    _require_phase(review, ReviewStatus.CLOSEOUT)
+    rtd = export_rtd(session, review)
+    request_changes_rid(rtd, rid_id, reviewer=reviewer, reason=reason, moderator=moderator)
+    sync_rtd_to_review(session, review, rtd)
+    AuditRepo(session).log(
+        action="request_changes",
         target=f"rid:{rid_id}",
         actor=UserRepo(session).get_or_create(reviewer),
         detail={"reason": reason},
@@ -569,6 +644,7 @@ def link_change(
     note: Optional[str] = None,
     by=None,
 ) -> RidChange:
+    _require_phase(review, ReviewStatus.CLOSEOUT)
     row = RidRepo(session).get(review, rid_id)
     if row is None:
         raise ValueError(f"no such RID: {rid_id}")
@@ -602,6 +678,50 @@ def check_traceability(session: Session, review: Review) -> TraceabilityReport:
 
 
 # --------------------------------------------------------------------------- #
+# review phases: closeout gate, start/reopen (v3)
+# --------------------------------------------------------------------------- #
+
+
+def closeout_gate(session: Session, review: Review) -> list[str]:
+    """Empty list when closeout may start (spec §Closeout entry): ≥1
+    non-withdrawn finding and none still open/answered (legacy v2
+    implemented/verified rows pass)."""
+    rows = RidRepo(session).list(review)
+    errors: list[str] = []
+    live = [r for r in rows if r.status != Status.WITHDRAWN.value]
+    if not live:
+        errors.append("closeout needs at least one non-withdrawn finding")
+    stuck = [r.rid_str for r in live if r.status in (Status.OPEN.value, Status.ANSWERED.value)]
+    if stuck:
+        errors.append("findings not yet closed: " + ", ".join(sorted(stuck)))
+    return errors
+
+
+def start_closeout(session: Session, review: Review, *, by=None) -> Review:
+    _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.IN_REVIEW)
+    errors = closeout_gate(session, review)
+    if errors:
+        raise PhaseError("; ".join(errors))
+    ReviewRepo(session).set_status(review, ReviewStatus.CLOSEOUT.value)
+    AuditRepo(session).log(
+        action="start_closeout", target=f"review:{review.review_id_str}", actor=by
+    )
+    return review
+
+
+def reopen_review(session: Session, review: Review, *, by=None) -> Review:
+    """Admin escape hatch: closeout → in_review (spec §Closeout entry)."""
+    _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.CLOSEOUT)
+    ReviewRepo(session).set_status(review, ReviewStatus.IN_REVIEW.value)
+    AuditRepo(session).log(
+        action="reopen_review", target=f"review:{review.review_id_str}", actor=by
+    )
+    return review
+
+
+# --------------------------------------------------------------------------- #
 # report, finalize
 # --------------------------------------------------------------------------- #
 
@@ -616,13 +736,22 @@ def finalize(
     session: Session, review: Review, *, final_content: Optional[str] = None, by=None
 ) -> list[str]:
     _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.CLOSEOUT)
     rtd = export_rtd(session, review)
     errors: list[str] = []
-    open_rids = [
-        r.rid for r in rtd.rids if r.status not in (Status.VERIFIED, Status.WITHDRAWN)
+    blocking = [
+        r.rid
+        for r in rtd.rids
+        if not (
+            r.status in (Status.VERIFIED, Status.WITHDRAWN)
+            or (
+                r.status is Status.CLOSED
+                and r.disposition in (Disposition.REJECTED, Disposition.DEFERRED)
+            )
+        )
     ]
-    if open_rids:
-        errors.append("findings not yet verified/withdrawn: " + ", ".join(open_rids))
+    if blocking:
+        errors.append("findings not yet verified/closed: " + ", ".join(blocking))
     errors += validate(rtd)
     if errors:
         return errors

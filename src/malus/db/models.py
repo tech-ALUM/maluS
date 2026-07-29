@@ -30,16 +30,26 @@ def _utcnow() -> dt.datetime:
 
 
 class ReviewStatus(str, Enum):
-    """Provisional review-level lifecycle.
+    """A review's lifecycle phase (v3): ``DRAFT -> IN_REVIEW -> CLOSEOUT ->
+    FINALIZED``. Kept out of ``malus.constants`` (the frozen per-RID
+    vocabulary) since this is the review-level phase, enforced by
+    ``services.core._require_phase``.
 
-    Step 1 needs only a stored, typed review status; the full phase model
-    (freeze → harvest → triage → disposition → … → finalize) is refined by the
-    API/lifecycle steps. Kept out of ``malus.constants`` so the frozen v0
-    vocabulary is not touched.
+    - ``DRAFT``: before the baseline is frozen.
+    - ``IN_REVIEW``: reviewers comment, the owner answers, and reviewers
+      accept the disposition (or the owner's answer is reopened) — see
+      ``services.core.accept_disposition``.
+    - ``CLOSEOUT``: accepted findings are implemented and verified, or sent
+      back for rework via ``services.core.request_changes``; an admin may
+      still ``reopen_review`` back to ``IN_REVIEW`` (``closeout_gate`` governs
+      entry — see ``services.core``).
+    - ``FINALIZED``: terminal — the closing document + minutes are produced
+      (``services.core.finalize``).
     """
 
     DRAFT = "draft"
-    ACTIVE = "active"
+    IN_REVIEW = "in_review"
+    CLOSEOUT = "closeout"
     FINALIZED = "finalized"
 
 

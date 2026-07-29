@@ -47,11 +47,15 @@ def test_pipeline_over_imported_v0_review(session: Session):
     errors, md = svc.report(session, review)
     assert errors == [] and "SIN-SRS-R1" in md
 
-    # close out: owner rejects each, its reviewer verifies, then finalize
+    # close out: owner rejects each, its reviewer accepts (closes) the
+    # disposition, then closeout starts and finalize succeeds (v3: a
+    # rejected/deferred RID terminates at "closed", never implemented/verified)
     for r in RidRepo(session).list(review):
         svc.answer(session, review, r.rid_str, disposition=Disposition.REJECTED, reply="n/a")
     session.commit()
     for r in RidRepo(session).list(review):
-        svc.verify(session, review, r.rid_str, reviewer=r.reviewer.display_name)
+        svc.accept_disposition(session, review, r.rid_str, reviewer=r.reviewer.display_name)
+    session.commit()
+    svc.start_closeout(session, review)
     session.commit()
     assert svc.finalize(session, review) == []

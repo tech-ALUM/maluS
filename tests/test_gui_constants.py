@@ -19,7 +19,8 @@ def test_block_has_markers() -> None:
 def test_transitions_match_constants() -> None:
     transitions = _data(render_block())["TRANSITIONS"]
     assert transitions["open"] == ["answered", "withdrawn"]
-    assert transitions["answered"] == ["implemented", "verified"]
+    assert transitions["answered"] == ["closed"]
+    assert transitions["closed"] == ["implemented"]
     assert transitions["implemented"] == ["verified"]
     assert transitions["verified"] == []
     assert transitions["withdrawn"] == []
@@ -27,7 +28,14 @@ def test_transitions_match_constants() -> None:
 
 def test_enums_present() -> None:
     data = _data(render_block())
-    assert data["STATUSES"] == ["open", "answered", "implemented", "verified", "withdrawn"]
+    assert data["STATUSES"] == [
+        "open",
+        "answered",
+        "closed",
+        "implemented",
+        "verified",
+        "withdrawn",
+    ]
     assert data["TYPES"] == ["typo", "editorial", "technical", "process"]
     assert data["SEVERITIES"] == ["minor", "major", "critical"]
     assert data["DISPOSITIONS"] == ["accepted", "rejected", "deferred"]

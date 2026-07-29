@@ -30,9 +30,9 @@ services + authz (spec: `docs/plan/v3/00-design.md`).
 
 ## Deliverables
 
-- [ ] `Status.CLOSED` + new forward transition graph (`constants.py`)
-- [ ] `transition()` closure authority extended to `closed` (`models.py`)
-- [ ] `accept_disposition_rid` / `request_changes_rid` helpers; `reopen_rid` extended (`lifecycle.py`)
+- [x] `Status.CLOSED` + new forward transition graph (`constants.py`)
+- [x] `transition()` closure authority extended to `closed` (`models.py`)
+- [x] `accept_disposition_rid` / `request_changes_rid` helpers; `reopen_rid` extended (`lifecycle.py`)
 - [ ] `ReviewStatus` phases + phase-gated services + `start_closeout` / `reopen_review` (`services/core.py`)
 - [ ] Startup migration backfill `draft|active → in_review` (`db/session.py`)
 - [ ] API endpoints: accept, request-changes, start-closeout, reopen-review
@@ -272,7 +272,7 @@ def accept_disposition(session, review, rid_id, *, reviewer, moderator=False)
 def request_changes(session, review, rid_id, *, reviewer, reason, moderator=False)
 ```
 
-- [ ] **Step 1: failing tests** — create `tests/services/test_phases.py` modeled on the
+- [x] **Step 1: failing tests** — create `tests/services/test_phases.py` modeled on the
   existing service tests' session/review fixtures (see `tests/services/` for the pattern):
 
 ```python
@@ -318,8 +318,8 @@ def test_verify_only_in_closeout(session, review_with_rids, reviewer_name):
   comment per requested status via the existing test helpers in
   `tests/services/`, then force-sets RID statuses through the repo. Follow the
   established fixture style you find there — do not invent a parallel one.)
-- [ ] **Step 2:** run → FAIL.
-- [ ] **Step 3: implement** in `services/core.py`:
+- [x] **Step 2:** run → FAIL.
+- [x] **Step 3: implement** in `services/core.py`:
 
 ```python
 class PhaseError(TransitionError):
@@ -437,7 +437,7 @@ def reopen_review(session: Session, review: Review, *, by=None) -> Review:
 
   Update `ReviewStatus` in `db/models.py`: `DRAFT/IN_REVIEW/CLOSEOUT/FINALIZED`
   (delete `ACTIVE`; refresh the docstring — the phase model is no longer provisional).
-- [ ] **Step 4:** `python -m pytest tests/services -q` → PASS. Then the FULL suite:
+- [x] **Step 4:** `python -m pytest tests/services -q` → PASS. Then the FULL suite:
   many existing service/web/api/mcp/e2e tests exercise v2 flows (`verify`
   straight from `answered`, no phases). Update them to the v3 flow using this
   mapping — mechanical, no semantics choices left:
@@ -449,7 +449,33 @@ def reopen_review(session: Session, review: Review, *, by=None) -> Review:
   | `reopen` from `verified` | in closeout use `request_changes`; from `answered/closed` keep `reopen` |
   | review created then acted on | freeze already flips it to `in_review` (web fixtures unaffected) |
   | `finalize` precondition | accepted → `verified`; rejected/deferred → `closed` |
-- [ ] **Step 5:** `python -m pytest -q` → PASS. `git commit -m "feat(services): v3 review phases + accept/request-changes + phase gates"`
+  | legacy v0 GUI constants (`tests/test_gui_constants.py`, `tests/test_gui.py::test_generated_constants_in_sync_with_python`) | regenerate the JS constants block in `gui/rtd.html` from `malus.gui_constants` so it matches the v3 `Status`/`TRANSITIONS` |
+- [x] **Step 5:** `python -m pytest -q` → 354 passed, 6 failed (unchanged from
+  before this task — `tests/api/test_api.py::test_full_pipeline_over_http`,
+  `tests/e2e/test_v1_e2e.py`, `tests/web/test_admin_superuser.py`,
+  `tests/web/test_document_viewer.py`, `tests/web/test_editor.py`,
+  `tests/web/test_web.py`; all four owned by Task 6/Task 7, not yet done).
+  `git commit -m "feat(services): v3 review phases + accept/request-changes + phase gates"`
+
+#### Deviations
+
+- `tests/services/` did not exist yet; added `tests/services/conftest.py`
+  (mirrors `tests/db/conftest.py`'s `engine`/`session` fixtures verbatim) so
+  `test_phases.py` has a session to run against.
+- `test_phases.py` implements the brief's 6 illustrative tests plus ~21 more,
+  one per phase-gated service in the table above (both the "blocked outside
+  its phase" and one representative happy path each), since this is the
+  pivotal task of the cycle and the gate table has no other test coverage.
+- The legacy importer (`legacy/importer.py`) needed **no change**: it calls
+  `create_review` (→ `DRAFT`) then `freeze_baseline`, which now flips the
+  phase to `IN_REVIEW` on its own. A v0 import with an already-finalized
+  review isn't exercised by any fixture (`tests/fixtures/sample-review` has
+  no RIDs), so that case is deferred to whoever needs it (no fixture forces a
+  decision either way).
+- `stale __pycache__` directories left over from an earlier checkout at a
+  different path (`ALUM/code/maluS`) were baking wrong `co_filename`s into
+  cached bytecode and were deleted repo-wide before running any tests (not a
+  code change, just build-cache hygiene).
 
 ### Task 5: startup migration backfill
 

@@ -135,6 +135,21 @@ def test_owner_answer_then_reviewer_verify(session: Session):
     session.commit()
     assert RidRepo(session).get(review, "SIN-SRS-0001").status == Status.ANSWERED.value
 
+    # the reviewer accepts the disposition (v3: answered -> closed)
+    svc.accept_disposition(session, review, "SIN-SRS-0001", reviewer="F. Miccoli")
+    session.commit()
+    assert RidRepo(session).get(review, "SIN-SRS-0001").status == Status.CLOSED.value
+
+    # resolve the other two findings too, so closeout may start
+    svc.answer(session, review, "SIN-SRS-0002", disposition=Disposition.REJECTED, reply="n/a")
+    svc.answer(session, review, "SIN-SRS-0003", disposition=Disposition.REJECTED, reply="n/a")
+    session.commit()
+    svc.accept_disposition(session, review, "SIN-SRS-0002", reviewer="R. Bianchi")
+    svc.accept_disposition(session, review, "SIN-SRS-0003", reviewer="F. Miccoli")
+    session.commit()
+    svc.start_closeout(session, review)
+    session.commit()
+
     # implement requires a linked change to a post-baseline version (traceability gate)
     with pytest.raises(ValueError):
         svc.implement(session, review, "SIN-SRS-0001")
@@ -165,6 +180,18 @@ def test_traceability_flags_accepted_without_change(session: Session):
     assert "SIN-SRS-0001" in report.accepted_unreferenced
     assert not report.ok
 
+    # the reviewer accepts (closes) it, and the other two are resolved too,
+    # so closeout may start (link_change is a CLOSEOUT-only action, v3)
+    svc.accept_disposition(session, review, "SIN-SRS-0001", reviewer="F. Miccoli")
+    svc.answer(session, review, "SIN-SRS-0002", disposition=Disposition.REJECTED, reply="n/a")
+    svc.answer(session, review, "SIN-SRS-0003", disposition=Disposition.REJECTED, reply="n/a")
+    session.commit()
+    svc.accept_disposition(session, review, "SIN-SRS-0002", reviewer="R. Bianchi")
+    svc.accept_disposition(session, review, "SIN-SRS-0003", reviewer="F. Miccoli")
+    session.commit()
+    svc.start_closeout(session, review)
+    session.commit()
+
     v = svc.save_version(session, review, BASELINE + "\nx\n")
     svc.link_change(session, review, "SIN-SRS-0001", v)
     session.commit()
@@ -173,16 +200,36 @@ def test_traceability_flags_accepted_without_change(session: Session):
 
 
 def test_reopen_clears_verification(session: Session):
+    """v3: a verified RID is reopened via ``request_changes`` (closeout-only —
+    ``reopen`` itself is gated to IN_REVIEW, see ``services.core``)."""
     review = _seed(session)
     svc.harvest(session, review)
-    svc.answer(session, review, "SIN-SRS-0002", disposition=Disposition.REJECTED, reply="no")
+    svc.answer(session, review, "SIN-SRS-0002", disposition=Disposition.ACCEPTED, reply="ok")
+    session.commit()
+    svc.accept_disposition(session, review, "SIN-SRS-0002", reviewer="R. Bianchi")
+    session.commit()
+
+    # resolve the other two findings too, so closeout may start
+    svc.answer(session, review, "SIN-SRS-0001", disposition=Disposition.REJECTED, reply="n/a")
+    svc.answer(session, review, "SIN-SRS-0003", disposition=Disposition.REJECTED, reply="n/a")
+    session.commit()
+    svc.accept_disposition(session, review, "SIN-SRS-0001", reviewer="F. Miccoli")
+    svc.accept_disposition(session, review, "SIN-SRS-0003", reviewer="F. Miccoli")
+    session.commit()
+    svc.start_closeout(session, review)
+    session.commit()
+
+    v = svc.save_version(session, review, BASELINE + "\nbounded.\n")
+    svc.link_change(session, review, "SIN-SRS-0002", v)
+    svc.implement(session, review, "SIN-SRS-0002")
     session.commit()
     svc.verify(session, review, "SIN-SRS-0002", reviewer="R. Bianchi")
     session.commit()
-    svc.reopen(session, review, "SIN-SRS-0002", reviewer="R. Bianchi", reason="reconsider")
+
+    svc.request_changes(session, review, "SIN-SRS-0002", reviewer="R. Bianchi", reason="reconsider")
     session.commit()
     row = RidRepo(session).get(review, "SIN-SRS-0002")
-    assert row.status == Status.OPEN.value
+    assert row.status == Status.CLOSED.value
     assert row.verified_by_id is None
 
 
@@ -190,16 +237,22 @@ def test_finalize_refuses_until_closed_then_succeeds(session: Session):
     review = _seed(session)
     svc.harvest(session, review)
     session.commit()
-    errors = svc.finalize(session, review)
-    assert errors  # findings still open
 
-    # reject + verify every RID (rejected/deferred go answered -> verified)
+    # finalize is a CLOSEOUT-only action (v3)
+    with pytest.raises(svc.PhaseError):
+        svc.finalize(session, review)
+
+    # reject every RID; the reviewer accepts (closes) each disposition —
+    # rejected/deferred findings terminate at "closed" (v3: they never reach
+    # implemented/verified, since only an accepted RID may be implemented)
     for rid in RidRepo(session).list(review):
         svc.answer(session, review, rid.rid_str, disposition=Disposition.REJECTED, reply="n/a")
     session.commit()
     for rid in RidRepo(session).list(review):
-        reviewer = rid.reviewer.display_name
-        svc.verify(session, review, rid.rid_str, reviewer=reviewer)
+        svc.accept_disposition(session, review, rid.rid_str, reviewer=rid.reviewer.display_name)
+    session.commit()
+
+    svc.start_closeout(session, review)
     session.commit()
     assert svc.finalize(session, review) == []
     from malus.db.models import ReviewStatus

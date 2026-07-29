@@ -105,6 +105,7 @@ const MALUS = {
   "STATUSES": [
     "open",
     "answered",
+    "closed",
     "implemented",
     "verified",
     "withdrawn"
@@ -140,8 +141,10 @@ const MALUS = {
       "withdrawn"
     ],
     "answered": [
-      "implemented",
-      "verified"
+      "closed"
+    ],
+    "closed": [
+      "implemented"
     ],
     "implemented": [
       "verified"
