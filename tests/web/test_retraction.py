@@ -45,11 +45,22 @@ def test_editor_removing_pristine_comment_hard_deletes_it(mkuser, docs):
     assert "SIN-SRS-0001" not in _rids(owner)  # gone, not lingering as withdrawn
 
 
-def test_disposed_comment_retracted_stays_withdrawn(mkuser, docs):
+def test_disposed_comment_withdraws_only_via_reopen(mkuser, docs):
+    """v3: a disposed comment cannot vanish by editing the copy (the save is
+    refused); the legal path is reopen -> retract, which keeps its history."""
     owner, f, _r = _seed(mkuser, docs)
     f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["copy_f"], "action": "submit"})
     owner.patch(f"/reviews/{R}/rids/SIN-SRS-0001", json={"status": "answered", "disposition": "rejected", "reply": "no"})
-    f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["baseline"], "action": "submit"})
+
+    # editing the block away is refused outright
+    resp = f.post(f"/ui/reviews/{R}/edit-copy", data={"content": docs["baseline"], "action": "submit"})
+    assert resp.status_code == 422
+    assert _rids(owner)["SIN-SRS-0001"]["status"] == "answered"
+
+    # legal v3 path: reopen (reason) then retract -> kept as withdrawn
+    f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/reopen", data={"reason": "retracting it"})
+    resp = f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/retract", follow_redirects=False)
+    assert resp.status_code == 303
     rids = _rids(owner)
     assert "SIN-SRS-0001" in rids and rids["SIN-SRS-0001"]["status"] == "withdrawn"  # history kept
 

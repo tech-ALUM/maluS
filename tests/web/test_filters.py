@@ -62,6 +62,8 @@ def test_withdrawn_hidden_unless_selected(admin, mkuser):
     owner, _f = _seed(mkuser)
     owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose", data={"disposition": "rejected", "reply": "no"})
     admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+    # v3: an admin too withdraws only an OPEN comment — reopen on behalf first
+    admin.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/reopen", data={"reason": "cleanup"})
     admin.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/retract")
 
     assert "SIN-SRS-0001" not in owner.get(f"/ui/reviews/{R}").text

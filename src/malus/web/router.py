@@ -27,7 +27,7 @@ from malus.api.deps import get_session
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
 from malus.db.models import ReviewStatus, User
-from malus.harvest import FreezeViolation, validate_insertion_only
+from malus.harvest import FreezeViolation, WithdrawViolation, build_rtd, validate_insertion_only
 from malus.parser import ParseError
 from malus.repo import (
     AuditRepo,
@@ -551,12 +551,12 @@ def retract_comment(review_id: str, rid: str, request: Request, session: Session
     if row is None:
         raise HTTPException(status_code=404, detail=f"no such RID: {rid}")
     role = authz.review_role(session, review, user)
-    if user.is_admin:
-        pass  # global superuser: retract any comment, any status (v1.10)
-    elif role != Role.REVIEWER.value or row.reviewer_id != user.id:
+    # an admin bypasses ownership, never status: v3 allows withdraw only from
+    # 'open' (a disposed comment is reopened first, keeping its history)
+    if not user.is_admin and (role != Role.REVIEWER.value or row.reviewer_id != user.id):
         raise HTTPException(status_code=403, detail="you may only retract your own comment")
-    elif row.status != Status.OPEN.value:
-        raise HTTPException(status_code=409, detail="only an open comment can be retracted")
+    if row.status != Status.OPEN.value:
+        raise HTTPException(status_code=409, detail="only an open comment can be retracted; reopen it first")
     svc.retract_comment(session, review, rid, by=user)
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
@@ -749,13 +749,20 @@ def submit_copy(
         raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
     try:  # server-side freeze-rule check (authoritative) — for Save and Submit
         validate_insertion_only(baseline.content, content)
-    except (FreezeViolation, ParseError) as exc:
+        # dry-run the harvest BEFORE persisting anything: a vanished block for a
+        # finding past 'open' must refuse the save (WithdrawViolation), and a
+        # handled 422 would otherwise still commit the copy write (v3).
+        rtd = svc.export(session, review)
+        copies = {c.user.display_name: c.content for c in ReviewerCopyRepo(session).list(review)}
+        copies[user.display_name] = content
+        build_rtd(baseline.content, rtd.meta, copies, existing=rtd)
+    except (FreezeViolation, WithdrawViolation, ParseError) as exc:
         ctx = _document_context(
             session,
             request,
             user,
             review,
-            error=f"Rejected — freeze rule / parse: {exc}",
+            error=f"Rejected — {exc}",
             my_copy_override=content,  # keep what they typed
         )
         return templates.TemplateResponse(request, "document.html", ctx, status_code=422)

@@ -5,7 +5,12 @@ import datetime as dt
 import pytest
 
 from malus.constants import CommentType, Disposition, Kind, Severity, Status
-from malus.harvest import FreezeViolation, build_rtd, validate_insertion_only
+from malus.harvest import (
+    FreezeViolation,
+    WithdrawViolation,
+    build_rtd,
+    validate_insertion_only,
+)
 from malus.models import RTD, Meta
 
 BASELINE = (
@@ -141,6 +146,27 @@ def test_vanished_comment_becomes_withdrawn_not_deleted() -> None:
     first = build_rtd(BASELINE, meta, {"F. Miccoli": _copy_a()}).rtd
     second = build_rtd(BASELINE, meta, {"F. Miccoli": BASELINE}, existing=first).rtd
     assert len(second.rids) == len(first.rids)
+    assert all(r.status is Status.WITHDRAWN for r in second.rids)
+
+
+def test_vanished_answered_comment_is_refused() -> None:
+    """v3: removing the block of a finding past 'open' is an integrity
+    violation, not a silent withdraw (the disposition would vanish with it)."""
+    meta = _meta()
+    first = build_rtd(BASELINE, meta, {"F. Miccoli": _copy_a()}).rtd
+    answered = first.rids[0]
+    answered.disposition = Disposition.ACCEPTED
+    answered.status = Status.ANSWERED
+    with pytest.raises(WithdrawViolation) as err:
+        build_rtd(BASELINE, meta, {"F. Miccoli": BASELINE}, existing=first)
+    assert answered.rid in str(err.value)
+
+
+def test_vanished_open_comment_still_withdraws() -> None:
+    meta = _meta()
+    first = build_rtd(BASELINE, meta, {"F. Miccoli": _copy_a()}).rtd
+    assert all(r.status is Status.OPEN for r in first.rids)
+    second = build_rtd(BASELINE, meta, {"F. Miccoli": BASELINE}, existing=first).rtd
     assert all(r.status is Status.WITHDRAWN for r in second.rids)
 
 

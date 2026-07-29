@@ -31,6 +31,15 @@ class FreezeViolation(Exception):
         super().__init__(message)
 
 
+class WithdrawViolation(ValueError):
+    """A comment block vanished for a finding already past ``open`` (v3).
+
+    Withdrawing is only legal from ``open`` (the transition graph has no other
+    edge into ``withdrawn``); silently dropping an answered/closed finding
+    would erase the owner's disposition. The save must be refused and the
+    finding reopened first."""
+
+
 @dataclass
 class Violation:
     """A per-copy harvest failure (freeze rule broken or a malformed block)."""
@@ -277,8 +286,18 @@ def build_rtd(
         )
         seen_ids.add(rid_id)
 
+    vanished_past_open = sorted(
+        rid.rid
+        for rid in existing_rids
+        if rid.rid not in seen_ids and rid.status not in (Status.OPEN, Status.WITHDRAWN)
+    )
+    if vanished_past_open:
+        raise WithdrawViolation(
+            "these findings are past 'open' and cannot be withdrawn by removing "
+            "their comment block (reopen them first): " + ", ".join(vanished_past_open)
+        )
     for rid in existing_rids:
-        if rid.rid not in seen_ids and rid.status is not Status.WITHDRAWN:
+        if rid.rid not in seen_ids and rid.status is Status.OPEN:
             rid.status = Status.WITHDRAWN
 
     ordered = sorted(
