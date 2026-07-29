@@ -275,17 +275,17 @@ def transition(
     Three gates must pass (rid-schema.md §3):
 
     1. **Status graph** — ``rid.status -> target`` must be in
-       :data:`malus.constants.TRANSITIONS`.
+       :data:`malus.constants.TRANSITIONS` (v3: ``open → {answered, withdrawn}
+       → closed → implemented → verified``).
     2. **Actor authority** — the closure-authority invariant (D3):
 
        * only the RID's own reviewer, or a moderator on their behalf, may set
-         ``verified``; the owner never may, and an AI never may regardless of
-         seat;
+         ``closed`` or ``verified``; the owner never may, and an AI never may
+         regardless of seat;
        * only the RID's own reviewer may ``withdraw`` (from ``open`` only,
          which the status graph already enforces).
     3. **Disposition routing** — a disposition is required to ``answer``; an
-       accepted RID goes ``answered → implemented → verified`` while a rejected
-       or deferred one goes ``answered → verified``.
+       accepted RID goes ``answered → closed → implemented → verified``.
 
     On a successful verify the RID is stamped with ``verified_by``/
     ``verified_on``. Raises :class:`TransitionError` without mutating ``rid``
@@ -296,14 +296,14 @@ def transition(
             f"illegal transition {rid.status.value} -> {target.value}"
         )
 
-    if target is Status.VERIFIED:
+    if target in (Status.VERIFIED, Status.CLOSED):
         if actor_is_ai:
             raise ClosureAuthorityError(
-                "an AI may never set 'verified' (closure-authority invariant)"
+                f"an AI may never set {target.value!r} (closure-authority invariant)"
             )
         if actor_role is Role.OWNER:
             raise ClosureAuthorityError(
-                "the owner may never set 'verified'; closure belongs to the reviewer"
+                f"the owner may never set {target.value!r}; closure belongs to the reviewer"
             )
         if (
             actor_role is Role.REVIEWER
@@ -311,7 +311,7 @@ def transition(
             and actor_name != rid.reviewer
         ):
             raise ClosureAuthorityError(
-                f"reviewer {actor_name!r} may not verify a RID owned by {rid.reviewer!r}"
+                f"reviewer {actor_name!r} may not close a RID owned by {rid.reviewer!r}"
             )
 
     if target is Status.WITHDRAWN:
@@ -321,18 +321,11 @@ def transition(
             raise ClosureAuthorityError("only the RID's own reviewer may withdraw it")
 
     # Disposition routing (rid-schema.md §3): a decision is required to answer;
-    # accepted RIDs are implemented before verified, rejected/deferred ones are
-    # verified straight from answered.
+    # an accepted RID is implemented before verified.
     if target is Status.ANSWERED and rid.disposition is None:
         raise TransitionError("answering a RID requires a disposition")
     if target is Status.IMPLEMENTED and rid.disposition is not Disposition.ACCEPTED:
         raise TransitionError("only an accepted RID may become 'implemented'")
-    if (
-        target is Status.VERIFIED
-        and rid.status is Status.ANSWERED
-        and rid.disposition not in (Disposition.REJECTED, Disposition.DEFERRED)
-    ):
-        raise TransitionError("answered → verified is only for rejected or deferred RIDs")
 
     rid.status = target
     if target is Status.VERIFIED:

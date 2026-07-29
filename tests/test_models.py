@@ -2,8 +2,10 @@
 
 import datetime as dt
 
-from malus.constants import CommentType, Kind, Severity, Status
-from malus.models import RID, RTD, Anchor, Meta
+import pytest
+
+from malus.constants import CommentType, Disposition, Kind, Role, Severity, Status
+from malus.models import RID, RTD, Anchor, ClosureAuthorityError, Meta, transition
 
 
 def _sample_rtd() -> RTD:
@@ -144,3 +146,35 @@ def test_ai_drafted_optional_round_trip() -> None:
 
 def test_ai_drafted_omitted_when_false() -> None:
     assert "ai_drafted" not in _sample_rtd().to_yaml()
+
+
+# --- v3 closure authority: `closed` shares the same guard as `verified` ---
+
+
+@pytest.fixture
+def answered_rid() -> RID:
+    return RID(
+        rid="SIN-SRS-0042",
+        reviewer="F. Miccoli",
+        created=dt.date(2026, 7, 3),
+        kind=Kind.COMM,
+        status=Status.ANSWERED,
+        disposition=Disposition.ACCEPTED,
+    )
+
+
+def test_v3_owner_may_never_close(answered_rid: RID) -> None:
+    with pytest.raises(ClosureAuthorityError):
+        transition(answered_rid, Status.CLOSED, actor_role=Role.OWNER, actor_name="own")
+
+
+def test_v3_ai_may_never_close(answered_rid: RID) -> None:
+    with pytest.raises(ClosureAuthorityError):
+        transition(answered_rid, Status.CLOSED, actor_role=Role.REVIEWER,
+                   actor_name=answered_rid.reviewer, actor_is_ai=True)
+
+
+def test_v3_reviewer_closes_own_rid(answered_rid: RID) -> None:
+    transition(answered_rid, Status.CLOSED, actor_role=Role.REVIEWER,
+               actor_name=answered_rid.reviewer)
+    assert answered_rid.status is Status.CLOSED
