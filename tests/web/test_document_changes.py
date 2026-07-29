@@ -79,3 +79,12 @@ def test_closeout_accepted_rid_gets_diff_after_linked_save_rejected_stays_empty(
     assert "<ins>slow</ins>" in change["diffHtml"]
     assert isinstance(change["created"], str) and change["created"]
     assert change["note"] is None
+
+
+def test_served_js_renders_the_changes_section(mkuser):
+    # cheap smoke that the card-side Changes renderer (task 3) shipped —
+    # the payload assertions above already cover ``changes`` end-to-end.
+    owner = mkuser("owner", "A. Boffi")
+    js = owner.get("/static/document-viewer.js").text
+    assert "cp-changes" in js
+    assert "DOMPurify" in js  # sanitized before injecting server diffHtml

@@ -289,6 +289,31 @@
       if (r.history && r.history.length) card.appendChild(historyEl(r));
     }
 
+    if (r && r.changes && r.changes.length) {
+      var chWrap = document.createElement("div");
+      chWrap.className = "cp-changes";
+      var chTitle = document.createElement("div");
+      chTitle.className = "cp-changes-title";
+      chTitle.textContent = "Changes (" + r.changes.length + ")";
+      chWrap.appendChild(chTitle);
+      r.changes.forEach(function (ch) {
+        var block = document.createElement("div");
+        block.className = "cp-change";
+        var head = document.createElement("div");
+        head.className = "cp-change-head";
+        head.textContent = "v" + ch.ordinal + (ch.note ? " — " + ch.note : "");
+        block.appendChild(head);
+        var body = document.createElement("div");
+        // server-built, escaped diff; DOMPurify pass = defense in depth
+        body.innerHTML = window.DOMPurify
+          ? window.DOMPurify.sanitize(ch.diffHtml)
+          : ch.diffHtml;
+        block.appendChild(body);
+        chWrap.appendChild(block);
+      });
+      card.appendChild(chWrap);
+    }
+
     var actions = document.createElement("div");
     actions.className = "cp-actions";
 
