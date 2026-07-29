@@ -64,7 +64,11 @@ def create_all(engine: Engine) -> None:
     ``in_review`` instead of stuck at ``draft``/``active``. This is the one
     init path shared by the CLI (``malus import``/``serve``) and the API
     factory (``create_app``), so wiring the backfill in here — rather than in
-    each caller — is enough to cover both."""
+    each caller — is enough to cover both.
+
+    NOT schema-only: this opens a short-lived session and COMMITS the backfill,
+    so callers must not invoke it while unrelated uncommitted work is pending
+    in another session on the same engine."""
     from malus.db import models  # noqa: F401  ensure tables are registered on metadata
 
     SQLModel.metadata.create_all(engine)
