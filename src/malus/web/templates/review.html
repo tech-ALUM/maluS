@@ -145,14 +145,14 @@
   <tbody>
   {% for r in rids %}
     <tr{% if r.rid in draft_rids %} class="row-draft"{% endif %}>
-      <td><a href="/ui/reviews/{{ review.review_id_str }}/document?focus={{ r.rid }}">{{ r.rid }}</a>{% if r.ai_drafted and r.status.value == 'open' %} <span class="badge ai-badge">AI</span>{% endif %}</td>
+      <td>{% if r.status.value == 'open' and ((role == 'reviewer' and r.reviewer == user.display_name) or user.is_admin) and phase == 'in_review' %}<form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="linkbtn rid-trash retract-btn" title="Withdraw comment" aria-label="Withdraw {{ r.rid }}">🗑</button></form> {% endif %}<a href="/ui/reviews/{{ review.review_id_str }}/document?focus={{ r.rid }}">{{ r.rid }}</a>{% if r.ai_drafted and r.status.value == 'open' %} <span class="badge ai-badge">AI</span>{% endif %}</td>
       <td><span class="rev-chip rev-{{ reviewer_names.index(r.reviewer) % 8 if r.reviewer in reviewer_names else 0 }}"{% if colors.get(r.reviewer) %} style="--rev-color: {{ colors[r.reviewer] }}"{% endif %}>{{ r.reviewer }}</span></td>
       <td>{{ r.kind.value }}</td>
       <td>{{ r.type.value if r.type else '' }}</td>
       <td>{{ r.severity.value if r.severity else '' }}</td>
       <td><span class="st st-{{ r.status.value }}">{{ r.status.value }}</span>{% if r.rid in draft_rids %} <span class="st st-draft" title="The reviewer has not submitted their copy yet">draft</span>{% endif %}</td>
       <td>{{ r.disposition.value if r.disposition else '' }}</td>
-      <td class="cmt">{{ (r.comment or '')|truncate(64) }}{% if r.status.value == 'open' and ((role == 'reviewer' and r.reviewer == user.display_name) or user.is_admin) and phase == 'in_review' %} <details class="menu rid-menu"><summary aria-label="Comment actions">⋯</summary><div class="menu-items"><form method="post" action="/ui/reviews/{{ review.review_id_str }}/rids/{{ r.rid }}/retract" class="inline retract-form" onsubmit="return confirm('Withdraw {{ r.rid }}? A pristine comment is deleted; an acted-upon one is kept as withdrawn.')"><button class="menu-danger linkbtn retract-btn" title="Withdraw comment">Withdraw</button></form></div></details>{% endif %}</td>
+      <td class="cmt">{{ (r.comment or '')|truncate(64) }}</td>
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">No findings match.</td></tr>

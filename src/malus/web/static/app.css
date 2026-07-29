@@ -489,3 +489,7 @@ button.compact, .btn.compact { font-size: .78rem; padding: .28rem .6rem; }
 tr.row-draft td { opacity: .55; }
 tr.row-draft td .st { opacity: 1; }
 .rid-menu { margin-left: .3rem; }
+
+/* v3: trash withdraw sits left of the RID id in the findings table */
+.rid-trash { padding: 0 .15rem; font-size: .85em; line-height: 1; opacity: .7; }
+.rid-trash:hover { opacity: 1; }

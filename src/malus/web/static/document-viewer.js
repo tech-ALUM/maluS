@@ -321,40 +321,58 @@
     }
 
     if (r && data.canDispose && r.status === "open" && phase === "in_review" && !r.draft) {
-      // owner/admin dispose an OPEN finding (v2.3: an answered one is changed
-      // only through the formal reopen, which brings it back to open)
-      var toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "secondary cp-dispose-toggle";
-      // v3 naming: no disposition yet → "Save disposition…"; an answered one
-      // (present but not yet accepted) gets "Edit disposition…" below
-      toggle.textContent = r.aiProposal ? "Review AI draft…" : "Save disposition…";
+      // ONE button (v3): the dispose form sits inline on an open finding and
+      // its single submit reads "Save disposition". Only the special
+      // AI-proposal flow keeps a disclosure toggle (confirm/discard pair).
       var dform = disposeForm(r);
-      dform.hidden = true;
-      toggle.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        dform.hidden = !dform.hidden;
-      });
-      actions.appendChild(toggle);
+      if (r.aiProposal) {
+        var toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "secondary cp-dispose-toggle";
+        toggle.textContent = "Review AI draft…";
+        dform.hidden = true;
+        toggle.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          dform.hidden = !dform.hidden;
+        });
+        actions.appendChild(toggle);
+      }
       card.appendChild(dform);
     }
 
     if (r && data.canDispose && r.status === "answered" && phase === "in_review") {
       // v3: until the reviewer accepts it, the owner may still fix or change
-      // the disposition (typo in the reply, changed mind) — same form, no
-      // status transition; from "closed" onward it is settled (reopen only)
+      // the disposition (typo in the reply, changed mind) — one "Edit
+      // disposition" button that reveals the prefilled form; from "closed"
+      // onward it is settled (reopen only)
       var editToggle = document.createElement("button");
       editToggle.type = "button";
       editToggle.className = "secondary cp-dispose-toggle";
-      editToggle.textContent = "Edit disposition…";
+      editToggle.textContent = "Edit disposition";
       var eform = disposeForm(r);
       eform.hidden = true;
       editToggle.addEventListener("click", function (ev) {
         ev.stopPropagation();
         eform.hidden = !eform.hidden;
+        editToggle.hidden = !eform.hidden;  // never two dispose buttons at once
       });
       actions.appendChild(editToggle);
       card.appendChild(eform);
+    }
+
+    if (r && r.mine && data.isReviewer && r.status === "open" && phase === "in_review") {
+      // the reviewer withdraws their own open comment right from the viewer
+      // (same server route as the dashboard trash icon)
+      var wd = document.createElement("button");
+      wd.type = "button";
+      wd.className = "warn cp-withdraw";
+      wd.textContent = "🗑 Withdraw";
+      wd.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {},
+          "Withdraw " + r.rid + "? A pristine comment is deleted; an acted-upon one is kept as withdrawn.");
+      });
+      actions.appendChild(wd);
     }
 
     if (r && r.canVerify && phase === "in_review" && r.status === "answered") {
@@ -494,7 +512,7 @@
       (r.aiProposal ? '<p class="flash ai-proposal">🤖 AI-drafted — confirm to commit, or discard.</p>' : "") +
       "<label>Disposition <select name=\"disposition\" required>" + opts + "</select></label>" +
       '<label>Reply <textarea name="reply" rows="2">' + esc(r.reply || "") + "</textarea></label>" +
-      '<button class="primary">' + (r.aiProposal ? "Confirm disposition" : "Save") + "</button>";
+      '<button class="primary">' + (r.aiProposal ? "Confirm disposition" : "Save disposition") + "</button>";
     if (r.aiProposal) {
       var discard = document.createElement("button");
       discard.type = "button";
