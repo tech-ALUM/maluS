@@ -37,7 +37,7 @@ services + authz (spec: `docs/plan/v3/00-design.md`).
 - [x] Startup migration backfill `draft|active → in_review` (`db/session.py`)
 - [x] API endpoints: accept, request-changes, start-closeout, reopen-review
 - [x] Web wiring: routes + viewer buttons (Accept disposition / Verify / Request changes) + dashboard phase actions
-- [ ] Spec docs updated (`docs/spec/rid-schema.md` §3, `docs/spec/data-model.md`)
+- [x] Spec docs updated (`docs/spec/rid-schema.md` §3, `docs/spec/data-model.md`)
 - [x] Full suite green
 
 ---
