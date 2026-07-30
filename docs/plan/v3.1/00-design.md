@@ -79,7 +79,7 @@ a non-member.
 | 2 | `02-terminate-reopen.md` | `Terminate review` label + document toolbar placement, `svc.reopen_finalized`, admin route + `⋯` entry | v3 04 |
 | 3 | `03-diff-views.md` | `html_diff(context=None, line_numbers=…)`, `?view=` toggle, delete the duplicate dashboard button | v3 03 |
 | 4 | `04-downloads.md` | `baseline.md` + `diff.html` routes, dashboard row, `⋯` menu in the reviews list | 3 (diff renderer) |
-| 5 | `05-one-schema-authority.md` | Alembic as the sole production schema authority: `create_all` confined to tests, backfills moved into revisions, idempotent-revision convention | — |
+| 5 | `05-one-schema-authority.md` | Alembic becomes the single schema authority: serving path stops creating schema, backfills move into revisions, models↔migrations parity guard. Added 2026-07-30 after the production incident of that day; not part of the original UX wave. | — |
 
 Steps 2–4 are independent of each other and of step 1; step 1 is the large one.
 Implemented in order, one at a time, per `CLAUDE.md`.

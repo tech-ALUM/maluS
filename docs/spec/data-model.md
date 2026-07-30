@@ -73,11 +73,13 @@ stays phase-agnostic (`docs/spec/rid-schema.md` §3 documents both the per-RID
 graph and the phase gate table together).
 
 **Migration/backfill:** pre-v3 databases have rows stuck at `draft` (no phase
-column existed before) or at the removed `active` value. A one-time,
-idempotent backfill (`migrate_review_phases`, `src/malus/db/session.py`),
-run from `create_all` on every startup, promotes any `draft`/`active` review
-that already has a frozen baseline to `in_review`; reviews with no baseline
-yet are left at `draft`, and `closeout`/`finalized` rows are never touched.
+column existed before) or at the removed `active` value. Alembic revision
+`c4d5e6f7a8b9` (`alembic/versions/c4d5e6f7a8b9_v3_phase_backfill.py`) promotes
+any `draft`/`active` review that already has a frozen baseline to `in_review`,
+**once**, inside the version chain; reviews with no baseline yet are left at
+`draft`, and `closeout`/`finalized` rows are never touched. It was a Python
+function re-run on every startup (`migrate_review_phases`) until v3.1 step 05
+made Alembic the single schema authority.
 
 **`import_rtd` always creates the review at `draft`** (`src/malus/db/rtd_io.py`),
 regardless of what lifecycle state the imported `rtd.yaml` itself represents
@@ -215,10 +217,13 @@ both directions) in `tests/db/test_db_mapping.py`.
 - Indexes: `users.username`, `reviews.review_id_str`, `rids.rid_str`.
 - SQLite runs with `PRAGMA foreign_keys=ON` (enforced) and WAL for file-based
   databases (`src/malus/db/session.py`).
-- The schema is created for production via `alembic upgrade head`; tests use
-  `SQLModel.metadata.create_all`. The initial migration is verified to apply on
-  a fresh SQLite file and to match the model metadata exactly
-  (`tests/db/test_db_migration.py`).
+- The schema is owned by Alembic: `alembic upgrade head`, run by
+  `docker-entrypoint.sh` before the server starts. `SQLModel.metadata.create_all`
+  is a test helper (and the `malus init-db` bootstrap, which stamps head in the
+  same call). `tests/db/test_db_migration.py` verifies that the chain applies on
+  a fresh SQLite file and matches the model metadata **column by column**
+  (`alembic.autogenerate.compare_metadata` → no differences), and that a
+  drifted pre-v3.1 database converges on `upgrade head`.
 
 ## 6. Out of scope (later steps)
 
@@ -248,7 +253,11 @@ from (Step 2).
   (approved by Alberto Boffi, 2026-07-29) and implementation plan for the
   `reviews.status` phase state machine, the `ACTIVE` removal, and the
   migration backfill.
-- `src/malus/db/session.py` (`migrate_review_phases`, `create_all`),
+- `src/malus/db/session.py` (`create_all`, `bootstrap_schema`),
   `src/malus/services/core.py` (`_require_phase`, `closeout_gate`,
   `start_closeout`, `reopen_review`, `finalize`) — the v3 phase implementation
   this update was checked against.
+- `docs/plan/v3.1/05-one-schema-authority.md` and `src/malus/db/migrations.py`
+  — Alembic as the single schema authority (v3.1, after the 2026-07-30
+  incident): the serving path creates no schema, the phase backfill became
+  revision `c4d5e6f7a8b9`, and `bootstrap_schema` stamps head on create.

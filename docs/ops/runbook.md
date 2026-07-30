@@ -34,6 +34,37 @@ docker compose up -d --build      # entrypoint re-runs `alembic upgrade head`
 Roll back by checking out the previous tag and re-running; restore a DB backup
 first if a migration is not backward-compatible.
 
+## Schema authority
+
+`alembic upgrade head` is the **only** thing that changes the schema of a
+deployed database. The entrypoint (`docker-entrypoint.sh`) runs it before the
+server starts and `set -e` aborts the boot if it fails; `malus serve` itself
+creates nothing and exits 2 with an actionable message if the database has no
+schema.
+
+- Where are we? `docker compose exec app alembic current`
+- What is pending? `docker compose exec app alembic history --indicate-current`
+- Fresh local database (development only): `malus init-db --db sqlite:///malus.db`
+  — creates and stamps at head in one call.
+
+Rules for anyone writing a revision:
+
+1. **Idempotent.** Inspect before you create (`sa.inspect(op.get_bind())`);
+   SQLite DDL is non-transactional, so a half-applied revision leaves objects
+   behind and the retry must survive them.
+2. **Never edit an applied revision.** Add a new one on top.
+3. **Data migrations are revisions too**, written as set-based SQLAlchemy Core
+   statements (portable across SQLite and Postgres), never through the ORM —
+   the models will move on and the revision must not.
+4. **Never `alembic stamp` a populated database** to escape a failed upgrade:
+   it skips every pending migration and recreates the drift that took the
+   service down on 2026-07-30. Restore a backup and fix the revision.
+
+**Recovering a database that is unstamped but populated** (a pre-v3.1 volume):
+compare its objects with the revision that should have created them, `alembic
+stamp <that revision>`, then `alembic upgrade head`. Take a backup first
+(§Backup & restore).
+
 ## Backup & restore
 
 ```sh

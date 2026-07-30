@@ -44,6 +44,17 @@ every review, incl. closure, since v1.10).
   reference the RIDs they resolve (e.g. `fix(doc): clarify timing — SIN-SRS-0042`).
 - No third-party runtime dependencies beyond PyYAML and Typer without
   a recorded decision.
+- **Alembic is the single schema authority.** `alembic upgrade head` (run by
+  `docker-entrypoint.sh` before the server starts) owns the production schema;
+  `create_app` creates nothing. `SQLModel.metadata.create_all` is for tests and
+  for `malus init-db`, which stamps head in the same call so a database is
+  never left unstamped. A model change without a revision is a bug —
+  `tests/db/test_db_migration.py::test_migrations_match_the_models_exactly`
+  fails on it (the 2026-07-30 incident).
+- **Every Alembic revision is idempotent**: inspect before you create
+  (`sa.inspect(op.get_bind())` — see `b9e4d5f6a701`), and data migrations are
+  written as set-based SQLAlchemy Core statements, never through the ORM.
+  Enforced by `tests/db/test_revision_conventions.py`.
 
 ## Layout
 
