@@ -897,6 +897,33 @@ def reopen_review(session: Session, review: Review, *, by=None) -> Review:
     return review
 
 
+def reopen_finalized(session: Session, review: Review, *, by=None) -> Review:
+    """Admin escape hatch (v3.1): ``finalized -> closeout``.
+
+    Terminating a review is no longer a dead end — a **human global admin**
+    (never the owner, never an AI principal: the ``is_ai`` bar is absolute) can
+    put it back into closeout so the owner fixes what a late read found. This is
+    a *phase* action, not a closure verdict: no RID changes status, so the
+    ``finalize_gate`` still holds and the review can be terminated again. The
+    superseded ``is_final`` version stays in history; re-terminating adds a new
+    final version and a new ``pdf`` artifact — ``VersionRepo.latest`` orders by
+    ordinal and ``ArtifactRepo.get`` by ``created`` desc, so the newest wins.
+
+    The route gates on the same rule; re-checked here (defense-in-depth), like
+    ``purge_rid``."""
+    _forbid_ai_commit(by)
+    if by is None or not getattr(by, "is_admin", False):
+        raise ClosureAuthorityError(
+            "only a human global admin may reopen a terminated review"
+        )
+    _require_phase(review, ReviewStatus.FINALIZED)
+    ReviewRepo(session).set_status(review, ReviewStatus.CLOSEOUT.value)
+    AuditRepo(session).log(
+        action="reopen_finalized", target=f"review:{review.review_id_str}", actor=by
+    )
+    return review
+
+
 # --------------------------------------------------------------------------- #
 # report, finalize
 # --------------------------------------------------------------------------- #

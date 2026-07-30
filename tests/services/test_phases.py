@@ -11,12 +11,13 @@ from __future__ import annotations
 import datetime as dt
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from malus import services as svc
 from malus.constants import Disposition, Status
-from malus.db.models import ReviewStatus
-from malus.repo import ReviewRepo, RidRepo, UserRepo
+from malus.db.models import AuditLog, ReviewStatus
+from malus.models import ClosureAuthorityError
+from malus.repo import ReviewRepo, RidRepo, UserRepo, VersionRepo
 
 RID_ID = "SIN-SRS-0001"
 
@@ -390,3 +391,96 @@ def test_finalize_accepts_verified_and_rejected_closed(session: Session, review_
     svc.start_closeout(session, review, by=owner)
     assert svc.finalize(session, review) == []
     assert review.status == ReviewStatus.FINALIZED.value
+
+
+# --------------------------------------------------------------------------- #
+# reopen_finalized (v3.1 step 02): the admin undo of Terminate, FINALIZED ->
+# CLOSEOUT. A phase action, not a closure verdict — but the is_ai bar is the
+# same absolute one.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def human_admin(session: Session):
+    user = UserRepo(session).get_or_create("SU Admin")
+    user.is_admin = True
+    session.add(user)
+    session.flush()
+    return user
+
+
+@pytest.fixture
+def ai_admin(session: Session):
+    user = UserRepo(session).get_or_create("AI Admin")
+    user.is_admin = True
+    user.is_ai = True
+    session.add(user)
+    session.flush()
+    return user
+
+
+def _terminated(session: Session, review_with_rids, owner):
+    review = review_with_rids(statuses=["verified"])
+    svc.start_closeout(session, review, by=owner)
+    assert svc.finalize(session, review, by=owner) == []
+    assert review.status == ReviewStatus.FINALIZED.value
+    return review
+
+
+def test_reopen_finalized_returns_to_closeout(session, review_with_rids, owner, human_admin):
+    review = _terminated(session, review_with_rids, owner)
+    svc.reopen_finalized(session, review, by=human_admin)
+    assert review.status == ReviewStatus.CLOSEOUT.value
+
+
+def test_reopen_finalized_requires_finalized_phase(session, review_with_rids, owner, human_admin):
+    review = review_with_rids(statuses=["verified"])
+    svc.start_closeout(session, review, by=owner)
+    with pytest.raises(svc.PhaseError):
+        svc.reopen_finalized(session, review, by=human_admin)
+    assert review.status == ReviewStatus.CLOSEOUT.value
+
+
+def test_reopen_finalized_refuses_the_owner(session, review_with_rids, owner):
+    review = _terminated(session, review_with_rids, owner)
+    with pytest.raises(ClosureAuthorityError):
+        svc.reopen_finalized(session, review, by=owner)
+    assert review.status == ReviewStatus.FINALIZED.value
+
+
+def test_reopen_finalized_refuses_an_ai_admin(session, review_with_rids, owner, ai_admin):
+    review = _terminated(session, review_with_rids, owner)
+    with pytest.raises(ClosureAuthorityError):
+        svc.reopen_finalized(session, review, by=ai_admin)
+    assert review.status == ReviewStatus.FINALIZED.value
+
+
+def test_reopen_finalized_refuses_an_anonymous_caller(session, review_with_rids, owner):
+    review = _terminated(session, review_with_rids, owner)
+    with pytest.raises(ClosureAuthorityError):
+        svc.reopen_finalized(session, review)  # by=None
+    assert review.status == ReviewStatus.FINALIZED.value
+
+
+def test_reopen_finalized_is_audited(session, review_with_rids, owner, human_admin):
+    review = _terminated(session, review_with_rids, owner)
+    svc.reopen_finalized(session, review, by=human_admin)
+    entry = session.exec(select(AuditLog).where(AuditLog.action == "reopen_finalized")).one()
+    assert entry.target == f"review:{review.review_id_str}"
+    assert entry.actor.display_name == "SU Admin"
+
+
+def test_re_terminate_after_reopen_adds_a_second_final_version(
+    session, review_with_rids, owner, human_admin
+):
+    """The superseded final version stays in history; `latest` (ordinal desc)
+    and `ArtifactRepo.get` (created desc) both serve the newest."""
+    review = _terminated(session, review_with_rids, owner)
+    svc.reopen_finalized(session, review, by=human_admin)
+    svc.save_closeout_version(
+        session, review, "# doc after the reopen\n", rid_ids=[RID_ID], by=owner
+    )
+    assert svc.finalize(session, review, by=owner) == []
+    assert review.status == ReviewStatus.FINALIZED.value
+    latest = VersionRepo(session).latest(review)
+    assert latest.is_final and latest.content == "# doc after the reopen\n"

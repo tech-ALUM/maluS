@@ -43,8 +43,9 @@ class ReviewStatus(str, Enum):
       back for rework via ``services.core.request_changes``; an admin may
       still ``reopen_review`` back to ``IN_REVIEW`` (``closeout_gate`` governs
       entry — see ``services.core``).
-    - ``FINALIZED``: terminal — the closing document + minutes are produced
-      (``services.core.finalize``).
+    - ``FINALIZED``: the closing document + minutes are produced
+      (``services.core.finalize``). Terminal for everyone except a human global
+      admin, who may ``reopen_finalized`` back to ``CLOSEOUT`` (v3.1).
     """
 
     DRAFT = "draft"
