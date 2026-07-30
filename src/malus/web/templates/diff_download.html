@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ review.review_id_str }} — diff v{{ baseline.ordinal }} → v{{ latest.ordinal }}</title>
+<style>
+  /* Standalone export (v3.1 step 04): every rule is inline and every colour is
+     literal — this file is opened from disk, with no access to app.css. */
+  body { margin: 0; padding: 2rem 1.5rem; background: #fff; color: #15181D;
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .hd { border-bottom: 1px solid #dfe4ea; padding-bottom: .8rem; margin-bottom: 1.2rem; }
+  .hd h1 { font-size: 1.2rem; margin: 0 0 .25rem; }
+  .hd .sub { margin: 0; font-size: .85rem; color: #6b7580; }
+  .hd .legend { margin: .55rem 0 0; font-size: .78rem; }
+  .hd .legend span { padding: .05rem .4rem; border-radius: 3px; margin-right: .4rem; }
+  .hd .legend .k-del { background: #fbe3e6; color: #a3142b; }
+  .hd .legend .k-ins { background: #e2f2e8; color: #1d6b45; }
+  .none { color: #6b7580; }
+  .diff { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 13px; white-space: pre-wrap; overflow-x: auto; }
+  .diff-ctx { opacity: .65; }
+  .diff-del { background: #fbe3e6; }
+  .diff-ins { background: #e2f2e8; }
+  .diff del { color: #a3142b; text-decoration: line-through; }
+  .diff ins { color: #1d6b45; text-decoration: none; font-weight: 600; }
+  .diff-skip { text-align: center; opacity: .5; }
+  .diff-ln { display: inline-block; width: 3.2em; text-align: right; padding-right: .6em;
+             color: #9aa4ae; -webkit-user-select: none; user-select: none; }
+  @media print { body { padding: 0; } .diff { font-size: 11px; } }
+</style>
+</head>
+<body>
+<header class="hd">
+  <h1>{{ review.review_id_str }}{% if review.title %} — {{ review.title }}{% endif %}</h1>
+  <p class="sub">Baseline v{{ baseline.ordinal }} → final v{{ latest.ordinal }} · exported from maluS</p>
+  <p class="legend"><span class="k-del">removed</span><span class="k-ins">added</span></p>
+</header>
+{% if diff_html %}
+{{ diff_html | safe }}
+{% else %}
+<p class="none">No changes — the final document is identical to the frozen baseline.</p>
+{% endif %}
+</body>
+</html>

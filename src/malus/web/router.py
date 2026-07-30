@@ -1184,6 +1184,32 @@ def download_final_md(review_id: str, request: Request, session: Session = Depen
     )
 
 
+@web.get("/ui/reviews/{review_id}/download/diff.html")
+def download_diff_html(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Self-contained baseline→final diff (v3.1 step 04): one HTML file, inline
+    CSS, no scripts and no /static references, so it survives being e-mailed or
+    archived beside the PDF. `html_diff` escapes every line before adding
+    markup (v3.1 step 03 supplies context=None / line_numbers)."""
+    _user, review, redirect = _member_finalized(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    versions = VersionRepo(session)
+    baseline, latest = versions.baseline(review), versions.latest(review)
+    if baseline is None or latest is None:  # defensive: a finalized review always has both
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    markup = templates.get_template("diff_download.html").render(
+        review=review,
+        baseline=baseline,
+        latest=latest,
+        diff_html=html_diff(baseline.content, latest.content, context=None, line_numbers=True),
+    )
+    return Response(
+        content=markup,
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{review_id}-diff.html"'},
+    )
+
+
 @web.get("/ui/reviews/{review_id}/download/report.md")
 def download_report_md(review_id: str, request: Request, session: Session = Depends(get_session)):
     _user, review, redirect = _member_finalized(session, request, review_id)

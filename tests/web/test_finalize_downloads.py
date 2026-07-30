@@ -6,8 +6,12 @@ R = "SIN-SRS-R1"
 FINAL_MD = "# Sensor Interface Requirements\n\nThe acquisition timeout shall be bounded.\n"
 
 
-def _to_closeout(mkuser, docs):
-    """Owner+reviewer, one accepted RID implemented and verified in closeout."""
+def _to_closeout(mkuser, docs, final_md: str = FINAL_MD):
+    """Owner+reviewer, one accepted RID implemented and verified in closeout.
+
+    ``final_md`` is the text the closeout save writes (v3.1 step 04 needs a
+    change far from the top of the document); every caller that omits it keeps
+    the original ``FINAL_MD``."""
     owner = mkuser("owner", "A. Boffi")
     f = mkuser("fmiccoli", "F. Miccoli")
     mod = mkuser("mod", "M. Mod")
@@ -27,7 +31,7 @@ def _to_closeout(mkuser, docs):
         owner.post(f"/ui/reviews/{R}/start-closeout", follow_redirects=False),
         owner.post(
             f"/ui/reviews/{R}/closeout",
-            data={"content": FINAL_MD, "rids": ["SIN-SRS-0001"]},
+            data={"content": final_md, "rids": ["SIN-SRS-0001"]},
             follow_redirects=False,
         ),
         owner.post(
@@ -278,3 +282,48 @@ def test_baseline_download_gate(mkuser, docs):
     owner.post(f"/ui/reviews/{R}/finalize")
     outsider = mkuser("nobody", "No Body")
     assert outsider.get(f"/ui/reviews/{R}/download/baseline.md").status_code == 403
+
+
+def test_diff_download_is_a_self_contained_html_file(mkuser, docs):
+    owner, f = _to_closeout(mkuser, docs)
+    owner.post(f"/ui/reviews/{R}/finalize")
+
+    for client in (owner, f):
+        r = client.get(f"/ui/reviews/{R}/download/diff.html")
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("text/html")
+        assert r.headers["content-disposition"] == f'attachment; filename="{R}-diff.html"'
+        body = r.text
+        assert body.lstrip().lower().startswith("<!doctype html>")
+        assert R in body                      # header: review id…
+        # …and the version ordinals. The baseline is always v1; the final one is
+        # v3, not v2 — `svc.finalize` stamps a *new* is_final version on top of
+        # the closeout save (v1 frozen, v2 saved, v3 final).
+        assert "Baseline v1 → final v3" in body
+        assert "<style>" in body               # CSS is inline…
+        assert "<script" not in body           # …there is no JS…
+        assert "/static/" not in body          # …and nothing is loaded from the app
+        assert "<ins>" in body and "<del>" in body
+
+
+def test_diff_download_is_the_whole_document_with_line_numbers(mkuser, docs):
+    # a change in the LAST line: with the compact ±3-line view the title 8
+    # lines above would be elided, so its presence pins context=None
+    tail_edit = docs["baseline"].replace(
+        "All measurements are written to disk in CSV format.",
+        "All measurements are written to disk in CSV format, one file per run.",
+    )
+    owner, _f = _to_closeout(mkuser, docs, final_md=tail_edit)
+    owner.post(f"/ui/reviews/{R}/finalize")
+
+    body = owner.get(f"/ui/reviews/{R}/download/diff.html").text
+    assert "# Sensor Interface Requirements" in body     # whole document
+    assert "diff-ln" in body                             # line-number gutters
+
+
+def test_diff_download_gate(mkuser, docs):
+    owner, _f = _to_closeout(mkuser, docs)
+    assert owner.get(f"/ui/reviews/{R}/download/diff.html").status_code == 409
+    owner.post(f"/ui/reviews/{R}/finalize")
+    outsider = mkuser("nobody", "No Body")
+    assert outsider.get(f"/ui/reviews/{R}/download/diff.html").status_code == 403
