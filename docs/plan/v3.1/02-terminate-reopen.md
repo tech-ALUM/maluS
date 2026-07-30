@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** make the end of a review reachable. The owner's button reads
 **Terminate review** (dashboard and, once step 01 lands, the document's closeout
@@ -56,14 +56,14 @@ v3.1 step 01 — see its header.
 
 ## Deliverables
 
-- [ ] Dashboard button relabelled `Terminate review` + new confirm text (`review.html`)
-- [ ] `svc.reopen_finalized` — `finalized → closeout`, human-global-admin-only, audited
-- [ ] `POST /ui/reviews/{review_id}/reopen-terminated` — 303 admin / 403 owner /
+- [x] Dashboard button relabelled `Terminate review` + new confirm text (`review.html`)
+- [x] `svc.reopen_finalized` — `finalized → closeout`, human-global-admin-only, audited
+- [x] `POST /ui/reviews/{review_id}/reopen-terminated` — 303 admin / 403 owner /
       403 AI admin / 409 wrong phase
-- [ ] `⋯`-menu entry on a terminated review, human admin only, double confirm
-- [ ] `Terminate review` in the document closeout toolbar when the gate holds
+- [x] `⋯`-menu entry on a terminated review, human admin only, double confirm
+- [x] `Terminate review` in the document closeout toolbar when the gate holds
       (**needs step 01** — skippable, see Task 5)
-- [ ] Full suite green
+- [x] Full suite green
 
 ---
 
@@ -73,7 +73,7 @@ v3.1 step 01 — see its header.
 - Modify: `src/malus/web/templates/review.html` (the owner actions block, lines 35-40)
 - Modify: `tests/web/test_finalize_downloads.py` (existing assertions at lines 61 and 69)
 
-- [ ] **Step 1: failing test** — in `tests/web/test_finalize_downloads.py`, first
+- [x] **Step 1: failing test** — in `tests/web/test_finalize_downloads.py`, first
   retarget the two existing label assertions:
 
 ```python
@@ -100,9 +100,9 @@ def test_dashboard_button_reads_terminate_review(mkuser, docs):
     assert f'action="/ui/reviews/{R}/finalize"' in page    # route unchanged
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
+- [x] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
   (3 failures: the page still says "Finalize review").
-- [ ] **Step 3: implement** — replace lines 35-40 of
+- [x] **Step 3: implement** — replace lines 35-40 of
   `src/malus/web/templates/review.html` with:
 
 ```html
@@ -116,8 +116,8 @@ def test_dashboard_button_reads_terminate_review(mkuser, docs):
 
   Nothing else moves: `finalize_ready` still comes from `router.py:336-338`, the
   form still posts to `/finalize`.
-- [ ] **Step 4:** `python -m pytest -q` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(web): the owner's button reads \"Terminate review\""`
+- [x] **Step 4:** `python -m pytest -q` → PASS.
+- [x] **Step 5:** `git commit -m "feat(web): the owner's button reads \"Terminate review\""`
 
 ### Task 2: `svc.reopen_finalized`
 
@@ -134,7 +134,7 @@ def reopen_finalized(session: Session, review: Review, *, by=None) -> Review
     """finalized -> closeout. Human global admin only; audited."""
 ```
 
-- [ ] **Step 1: failing tests** — extend the imports at the top of
+- [x] **Step 1: failing tests** — extend the imports at the top of
   `tests/services/test_phases.py`:
 
 ```python
@@ -243,9 +243,9 @@ def test_re_terminate_after_reopen_adds_a_second_final_version(
   The last test also needs `VersionRepo` in the repo import at line 19:
   `from malus.repo import ReviewRepo, RidRepo, UserRepo, VersionRepo`.
 
-- [ ] **Step 2:** `python -m pytest -q tests/services/test_phases.py` → FAIL
+- [x] **Step 2:** `python -m pytest -q tests/services/test_phases.py` → FAIL
   (`AttributeError: module 'malus.services' has no attribute 'reopen_finalized'`).
-- [ ] **Step 3: implement** — in `src/malus/services/core.py`, immediately after
+- [x] **Step 3: implement** — in `src/malus/services/core.py`, immediately after
   `reopen_review` (i.e. after line 897, before the `report, finalize` banner):
 
 ```python
@@ -294,8 +294,8 @@ def reopen_finalized(session: Session, review: Review, *, by=None) -> Review:
       admin, who may ``reopen_finalized`` back to ``CLOSEOUT`` (v3.1).
 ```
 
-- [ ] **Step 4:** `python -m pytest -q` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(svc): reopen_finalized — human-admin undo of a terminated review"`
+- [x] **Step 4:** `python -m pytest -q` → PASS.
+- [x] **Step 5:** `git commit -m "feat(svc): reopen_finalized — human-admin undo of a terminated review"`
 
 ### Task 3: the route
 
@@ -306,7 +306,7 @@ def reopen_finalized(session: Session, review: Review, *, by=None) -> Review:
 **Interfaces produced:** `POST /ui/reviews/{review_id}/reopen-terminated` —
 human global admin only; 303 → `/ui/reviews/{review_id}`.
 
-- [ ] **Step 1: failing tests** — append to `tests/web/test_finalize_downloads.py`:
+- [x] **Step 1: failing tests** — append to `tests/web/test_finalize_downloads.py`:
 
 ```python
 def test_reopen_terminated_is_human_admin_only(mkuser, docs):
@@ -380,9 +380,9 @@ def test_re_terminate_after_reopen_supersedes_final_and_pdf(app, mkuser, docs, a
             assert len(pdfs) == 2
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
+- [x] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
   (405/404 on the unknown route).
-- [ ] **Step 3: implement** — in `src/malus/web/router.py`, after `finalize_action`
+- [x] **Step 3: implement** — in `src/malus/web/router.py`, after `finalize_action`
   (line 1094):
 
 ```python
@@ -409,8 +409,8 @@ def reopen_terminated_action(
 
   Mirrors `reopen_review_action` (`router.py:535`) exactly; the 409 comes for
   free from the `TransitionError` handler.
-- [ ] **Step 4:** `python -m pytest -q` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(web): POST /reopen-terminated — admin route back to closeout"`
+- [x] **Step 4:** `python -m pytest -q` → PASS.
+- [x] **Step 5:** `git commit -m "feat(web): POST /reopen-terminated — admin route back to closeout"`
 
 ### Task 4: the `⋯`-menu entry
 
@@ -418,7 +418,7 @@ def reopen_terminated_action(
 - Modify: `src/malus/web/templates/review.html` (the `<details class="menu">` block, lines 48-54)
 - Test: `tests/web/test_finalize_downloads.py` (extend)
 
-- [ ] **Step 1: failing test** — append to `tests/web/test_finalize_downloads.py`:
+- [x] **Step 1: failing test** — append to `tests/web/test_finalize_downloads.py`:
 
 ```python
 def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser, docs, admin):
@@ -438,8 +438,8 @@ def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser
     assert "/reopen-terminated" not in ai_admin.get(f"/ui/reviews/{R}").text  # is_ai bar
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL.
-- [ ] **Step 3: implement** — in `src/malus/web/templates/review.html`, inside
+- [x] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL.
+- [x] **Step 3: implement** — in `src/malus/web/templates/review.html`, inside
   `<div class="menu-items">` (line 50), between the "Copy review link" button and
   the "Delete review" link:
 
@@ -457,8 +457,8 @@ def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser
   HTML attribute. The surrounding `<p class="actions">` is already gated on
   `role == 'owner' or user.is_admin` (line 18), so a plain reviewer never
   reaches the menu at all.
-- [ ] **Step 4:** `python -m pytest -q` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(web): reopen a terminated review from the dashboard ⋯ menu"`
+- [x] **Step 4:** `python -m pytest -q` → PASS.
+- [x] **Step 5:** `git commit -m "feat(web): reopen a terminated review from the dashboard ⋯ menu"`
 
 ### Task 5: Terminate in the document closeout toolbar — **depends on step 01**
 
@@ -473,7 +473,7 @@ def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser
 - Modify: `src/malus/web/templates/document.html` (step 01's closeout toolbar)
 - Test: `tests/web/test_finalize_downloads.py` (extend)
 
-- [ ] **Step 1: failing tests** — append to `tests/web/test_finalize_downloads.py`:
+- [x] **Step 1: failing tests** — append to `tests/web/test_finalize_downloads.py`:
 
 ```python
 def test_document_offers_terminate_when_the_gate_holds(mkuser, docs):
@@ -504,9 +504,9 @@ def test_document_hides_terminate_until_the_gate_holds(mkuser, docs):
     assert "Terminate review" not in owner.get(f"/ui/reviews/{R}/document").text
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
+- [x] **Step 2:** `python -m pytest -q tests/web/test_finalize_downloads.py` → FAIL
   (the document page has no Terminate button).
-- [ ] **Step 3: implement.**
+- [x] **Step 3: implement.**
 
   a) `src/malus/web/router.py` — in `_document_context`, just before the return
   at line 795 (the gate is only computed in closeout, so no cost elsewhere):
@@ -548,25 +548,76 @@ def test_document_hides_terminate_until_the_gate_holds(mkuser, docs):
   `<h1>Document …</h1>` (`document.html:6`), wrapping it in
   `{% if data.phase == 'closeout' %}…{% endif %}` as well. When step 01 lands,
   move the form into its toolbar and delete the wrapper.
-- [ ] **Step 4:** `python -m pytest -q` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(web): Terminate review in the document closeout toolbar"`
+- [x] **Step 4:** `python -m pytest -q` → PASS.
+- [x] **Step 5:** `git commit -m "feat(web): Terminate review in the document closeout toolbar"`
 
 ## Definition of Done
 
-- [ ] Every deliverable above checked (Task 5 may be deferred with step 01 —
+- [x] Every deliverable above checked (Task 5 may be deferred with step 01 —
       record it under `## Deviations` if so).
-- [ ] `python -m pytest -q` green, exit 0.
-- [ ] `grep -rn "Finalize review" src/ docs/adr docs/spec` returns nothing in
+- [x] `python -m pytest -q` green, exit 0.
+- [x] `grep -rn "Finalize review" src/ docs/adr docs/spec` returns nothing in
       `src/`, and `grep -rn "finalize" src/malus/services/core.py` still shows
       the service, gate, route and audit action named `finalize` — the rename is
       label-only.
-- [ ] Manual smoke (browser): a review whose gate holds shows **Terminate
-      review** on the dashboard; terminating flips the badge to `finalized`; the
-      admin's `⋯` menu shows **Reopen terminated review**, asks twice, and lands
-      back on the dashboard in `closeout`; the owner edits and terminates again;
-      `download/final.md` serves the second text and the PDF opens.
-- [ ] No new dependency in `pyproject.toml`, no new file under
+- [x] Manual smoke (browser): **partially run — see `## Deviations` #2.** Done
+      in a real browser against a seeded review: the dashboard shows **Terminate
+      review**; the document's toolbar button fires its confirm, and posting
+      flips the phase to `finalized`. The admin `⋯` reopen, the re-terminate and
+      the downloads were **not** driven by hand — they are plain server-rendered
+      forms with no JS, and each is pinned by an automated test
+      (`test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review`,
+      `test_reopen_terminated_admin_flips_back_to_closeout_and_audits`,
+      `test_re_terminate_after_reopen_supersedes_final_and_pdf`).
+- [x] No new dependency in `pyproject.toml`, no new file under
       `src/malus/web/static/vendor/`.
+
+## Deviations
+
+Agreed with Francesco Miccoli during implementation, 2026-07-30.
+
+**1. Task 5 — Terminate in the document toolbar is a `post()` button, not a
+`<form>`.** The step's snippet nests a `<form>` inside the closeout toolbar, but
+step 01 put `.doc-toolbar` *inside* `<form id="rev-form">`
+(`document.html:68-103`). HTML forbids nested forms: the parser drops the inner
+tag, and the Terminate button would have become a submit button of `#rev-form` —
+posting the **closeout save** instead of finalizing. This is the same limit step
+01 hit with *Mark implemented*, and it is resolved the same way: a
+`<button type="button" id="doc-terminate">` in the toolbar, wired in
+`document-viewer.js` to the existing detached-form `post()` helper.
+
+Everything the step specified is preserved — toolbar placement, the
+`finalize_ready and data.canDispose` gate, the label, the confirm string and the
+`/finalize` route. The confirm text lives in a `data-confirm` attribute rather
+than an `onsubmit=`, so it still sits in the template beside the dashboard's copy
+and stays greppable; `test_document_and_dashboard_share_the_terminate_confirm`
+pins the two byte-identical, and `test_document_terminate_is_not_a_nested_form`
+pins that no `<form>` is ever nested in `#rev-form`.
+
+Options considered and rejected: moving `.doc-toolbar` out of `#rev-form`
+(restructures freshly-landed step 01 markup), and the step's own "01 not merged"
+fallback of a separate `<p class="actions">` (valid, but drops the button out of
+the toolbar the design asked for).
+
+**2. Manual smoke is partial.** Run in a real browser: the dashboard Terminate
+button renders once the gate holds, and the document toolbar button fires its
+confirm and — on accept — posts `/finalize`, flipping the phase to `finalized`.
+That was the point of the exercise: the JS wiring introduced by deviation #1 is
+the one thing this repo's test suite cannot cover (no JS harness, per the kickoff
+prompt). The remaining smoke items (admin `⋯` reopen with its double confirm,
+re-terminate, `download/final.md` serving the second text, PDF) were left to
+their automated tests — all are server-rendered forms with no JavaScript.
+
+Two incidental findings, both **out of scope** for this step and neither a
+regression from it:
+
+- `malus serve` sets `https_only=True` with no override, so a plain-HTTP local
+  session cannot log in through the GUI. Correct by design — production runs
+  behind Caddy TLS (`docker-compose.yml:17`) — but it means a local browser
+  smoke needs `create_app(..., https_only=False)`.
+- `pyproject.toml` pins `mcp>=1.2`, which now resolves to `mcp` 2.x, where
+  `mcp.server.fastmcp` no longer exists; a clean `pip install -e ".[dev,mcp]"`
+  leaves `tests/mcp/test_mcp.py` failing until `mcp<2` is pinned.
 
 ## Out of scope
 
