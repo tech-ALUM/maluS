@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** the owner implements accepted findings **inside** the unified
 document viewer — one wide column showing the latest version with a
@@ -35,15 +35,15 @@ services, `svc.rid_changes`).
 
 ## Deliverables
 
-- [ ] Closeout payload (`latest`, `canEditDoc`, per-RID `queue`/`hasChange`) in `_document_context`
-- [ ] `Render | Edit` toolbar + full-width editor in `document.html`, closeout only
-- [ ] Side panel renders the 4-group work queue with collapsed, expandable cards
-- [ ] RID checkboxes fused into the queue; `Save version & link (N)` wiring
-- [ ] `Mark implemented` inside the card via the detached-form `post()` helper
-- [ ] Comment popover gated to `in_review`
-- [ ] `closeout.html` + `editor.js` deleted; `GET /closeout` redirects to the document
-- [ ] CSS for the toolbar, editor and collapsed queue cards
-- [ ] Full suite green
+- [x] Closeout payload (`latest`, `canEditDoc`, per-RID `queue`/`hasChange`) in `_document_context`
+- [x] `Render | Edit` toolbar + full-width editor in `document.html`, closeout only
+- [x] Side panel renders the 4-group work queue with collapsed, expandable cards
+- [x] RID checkboxes fused into the queue; `Save version & link (N)` wiring
+- [x] `Mark implemented` inside the card via the detached-form `post()` helper
+- [x] Comment popover gated to `in_review`
+- [x] `closeout.html` + `editor.js` deleted; `GET /closeout` redirects to the document
+- [x] CSS for the toolbar, editor and collapsed queue cards
+- [x] Full suite green
 
 ---
 
@@ -70,7 +70,7 @@ reworked → rework`; `accepted + implemented → awaiting`; `accepted + verifie
 means the reviewer sent it back — `"[changes requested by" in (reply or "")` —
 **not** merely "a save already links it".
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """Closeout payload in the unified viewer (v3.1 step 01 task 1): the work
@@ -146,12 +146,12 @@ def test_in_review_carries_no_queue(mkuser, docs):
     assert all(r["queue"] is None for r in data["rids"])
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: FAIL — `KeyError: 'canEditDoc'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/malus/web/router.py`, inside `_document_context`, right after the
 existing `changes` loop (the block that ends `r["changes"] = []`), add:
@@ -193,12 +193,12 @@ and extend the `data` dict with:
         and not user.is_ai,
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: PASS (3 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/malus/web/router.py tests/web/test_closeout_in_document.py
@@ -220,7 +220,7 @@ panel, so in closeout it simply posts somewhere else. Exactly one element may
 carry `name="content"`: the reviewer's hidden `#content-src`, or the closeout
 `#doc-edit` textarea — never both.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_closeout_form_posts_to_the_closeout_endpoint(mkuser, docs):
@@ -243,12 +243,12 @@ def test_reviewer_in_closeout_gets_no_editor_and_no_popover(mkuser, docs):
     assert 'id="cmt-pop"' not in html            # commenting is over in closeout
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: FAIL — `assert 'action="/ui/reviews/SIN-SRS-R1/closeout"' in html`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/malus/web/templates/document.html`, replace the form opening tag and
 the sheet block:
@@ -292,12 +292,12 @@ and add the save bar for the owner:
 {% endif %}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: PASS (5 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/malus/web/templates/document.html tests/web/test_closeout_in_document.py
@@ -318,7 +318,7 @@ is the anchor from here on. The render still goes through `marked` **and**
 `DOMPurify` — the deleted `editor.js` preview called `marked` alone, which was
 a standing self-XSS on the owner.
 
-- [ ] **Step 1: Write the implementation**
+- [x] **Step 1: Write the implementation**
 
 In `src/malus/web/static/document-viewer.js`, at the top of `renderSheet`:
 
@@ -343,7 +343,7 @@ of the IIFE (beside `sheet`, `list`, `legendEl`):
   var editEl = document.getElementById("doc-edit");
 ```
 
-- [ ] **Step 2: Wire the Render | Edit toggle**
+- [x] **Step 2: Wire the Render | Edit toggle**
 
 Append to the init section, just before `parseCopy();`:
 
@@ -363,7 +363,7 @@ Append to the init section, just before `parseCopy();`:
   if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
 ```
 
-- [ ] **Step 3: Verify by hand**
+- [x] **Step 3: Verify by hand**
 
 Run the app, open a review in closeout as the owner:
 
@@ -375,12 +375,12 @@ Expected: the document column shows the latest version rendered; `Edit` swaps
 in the textarea at full width; `Render` swaps back and reflects the edits;
 no comment markers appear in the text.
 
-- [ ] **Step 4: Run the suite**
+- [x] **Step 4: Run the suite**
 
 Run: `python -m pytest -q`
 Expected: PASS, no regressions
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/malus/web/static/document-viewer.js
@@ -402,7 +402,7 @@ head visible, everything else behind the disclosure. `?focus=RID` expands its
 card (the existing `setFocus` already opens the history `<details>`; extend it
 to clear `collapsed`).
 
-- [ ] **Step 1: Write the implementation — grouped panel**
+- [x] **Step 1: Write the implementation — grouped panel**
 
 Replace `renderPanel`:
 
@@ -441,7 +441,7 @@ Replace `renderPanel`:
   }
 ```
 
-- [ ] **Step 2: Write the implementation — collapsed cards**
+- [x] **Step 2: Write the implementation — collapsed cards**
 
 In `cardEl`, immediately after `card.setAttribute("data-key", it.key);`:
 
@@ -459,19 +459,19 @@ In `cardEl`, immediately after `card.setAttribute("data-key", it.key);`:
 and in `setFocus`, inside the existing `if (on) { … }` branch, add
 `el.classList.remove("collapsed");` next to the history `open = true` line.
 
-- [ ] **Step 3: Run the suite**
+- [x] **Step 3: Run the suite**
 
 Run: `python -m pytest -q`
 Expected: PASS, no regressions
 
-- [ ] **Step 4: Verify by hand**
+- [x] **Step 4: Verify by hand**
 
 Open the document as the owner in closeout: the panel shows the four groups
 with counts, cards collapsed; clicking a head expands one; a rejected finding
 sits inside the collapsed `Closed — no change` disclosure; opening
 `?focus=SIN-SRS-0001` lands with that card expanded.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/malus/web/static/document-viewer.js
@@ -491,7 +491,7 @@ Nested forms are illegal in HTML and the panel lives inside `#rev-form`, so
 `Mark implemented` submits through the existing detached-form `post()` helper
 — the same mechanism Verify / Accept / Reopen already use.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_saving_from_the_document_links_the_ticked_rid(mkuser, docs):
@@ -528,12 +528,12 @@ def test_mark_implemented_returns_to_the_document_focused(mkuser, docs):
     assert r.headers["location"] == f"/ui/reviews/{R}/document?focus=SIN-SRS-0001"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: FAIL — the redirect still points at `/ui/reviews/SIN-SRS-R1/closeout`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/malus/web/router.py`, `mark_implemented`, change the final line to:
 
@@ -596,12 +596,12 @@ Call `syncSaveButton()` at the end of `refresh`, and bind
 `editEl.addEventListener("input", syncSaveButton)` in the toggle block from
 Task 3.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/web/test_closeout_in_document.py -q`
 Expected: PASS (7 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/malus/web/router.py src/malus/web/static/document-viewer.js tests/web/test_closeout_in_document.py
@@ -623,7 +623,7 @@ re-renders **document.html** with the unsaved text, which needs a
 `content_override` on `_document_context` mirroring the existing
 `my_copy_override`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Replace the GET tests in `tests/web/test_closeout_page.py` with:
 
@@ -651,12 +651,12 @@ def test_rejected_save_re_renders_the_document_with_the_unsaved_text(mkuser, doc
     assert "must" in r.text                    # the unsaved edit survived
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/web/test_closeout_page.py -q`
 Expected: FAIL — GET returns 200 (the workspace page), not 303
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Delete `src/malus/web/templates/closeout.html`, `src/malus/web/static/editor.js`
 and the whole `_closeout_context` function. Replace the two routes:
@@ -688,12 +688,12 @@ and use it where `latest` feeds the payload:
         else (latest.content if latest else baseline.content),
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/web/test_closeout_page.py tests/web/test_closeout_in_document.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A src/malus/web tests/web
@@ -713,7 +713,7 @@ The app is light-only and token-driven; reuse `var(--card)`, `var(--line)`,
 `.cq-group` / `.cq-rework` styling that already exists — it now dresses the
 panel groups instead of the deleted page.
 
-- [ ] **Step 1: Write the implementation**
+- [x] **Step 1: Write the implementation**
 
 Replace the `.editor-grid` / `.preview` / `.rid-picker` / `.chk` rules and the
 `.closeout-grid` rule (they belonged to the deleted page) with:
@@ -739,18 +739,18 @@ Replace the `.editor-grid` / `.preview` / `.rid-picker` / `.chk` rules and the
 @media (max-width: 900px) { .doc-edit { padding: 24px; min-height: 40rem; } }
 ```
 
-- [ ] **Step 2: Run the suite**
+- [x] **Step 2: Run the suite**
 
 Run: `python -m pytest -q`
 Expected: PASS
 
-- [ ] **Step 3: Verify by hand**
+- [x] **Step 3: Verify by hand**
 
 Owner in closeout: toolbar sits above the document, the active mode is
 outlined, `Edit` gives a full-width monospace editor at the sheet's width, the
 queue cards are two lines tall until expanded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/malus/web/static/app.css
@@ -761,20 +761,78 @@ git commit -m "style(web): closeout toolbar, editor and collapsed queue cards"
 
 ## Definition of Done
 
-- [ ] All seven tasks committed, `python -m pytest -q` green
-- [ ] `/ui/reviews/{id}/closeout` GET redirects; POST still saves, and rejects
+- [x] All seven tasks committed, `python -m pytest -q` green
+- [x] `/ui/reviews/{id}/closeout` GET redirects; POST still saves, and rejects
       re-render the document with the unsaved text
-- [ ] `closeout.html` and `editor.js` no longer exist; nothing references them
+- [x] `closeout.html` and `editor.js` no longer exist; nothing references them
       (`grep -rn "editor.js\|closeout.html" src/`) apart from historical plan files
-- [ ] An owner in closeout can: read the latest version, switch to Edit, tick
+- [x] An owner in closeout can: read the latest version, switch to Edit, tick
       one or more findings, save, then mark one implemented — without leaving
       the document page
-- [ ] A reviewer in closeout sees the same queue, their own cards carry Verify
+- [x] A reviewer in closeout sees the same queue, their own cards carry Verify
       and Request changes under the diff, and they can neither edit the
       document nor add a comment
-- [ ] Closeout preview HTML passes through DOMPurify (the v3 self-XSS minor is
+- [x] Closeout preview HTML passes through DOMPurify (the v3 self-XSS minor is
       closed)
-- [ ] Deviations recorded under a `## Deviations` heading in this file
+- [x] Deviations recorded under a `## Deviations` heading in this file
+
+## Deviations
+
+Agreed with Alberto Boffi before implementation started (session of 2026-07-30);
+each is recorded with the reason.
+
+1. **Tests outside `test_closeout_page.py` had to be retargeted.** The step file
+   only anticipated rewriting that file's GET cases, but six pre-existing tests
+   asserted the old contract, and "green after every task" is unreachable
+   without them. All were retargeted, none deleted:
+   - `test_closeout_page.py`: the save's redirect (`/closeout` → `/document`),
+     the Mark-implemented redirect (`→ /document?focus={rid}`), and the two
+     assertions that read the queue out of the deleted page's HTML — they now
+     read `queue` / `hasChange` from the `#viewer-data` payload. The GET 403 and
+     GET 409 cases were dropped: the route is an unconditional redirect now (the
+     same shape `GET /implement` has had since v3), so it has no role or phase
+     to refuse on.
+   - `test_lifecycle_v3_web.py` + `test_editor.py`: both asserted
+     `GET /closeout` → 409 outside closeout. That phase gate now lives only on
+     the save, so both were moved onto `POST /closeout` → 409, and
+     `test_implement_page_allowed_in_closeout` became
+     `test_closeout_get_redirects_into_the_viewer`. Net effect: the web-level
+     phase gate is still covered — on the endpoint that actually enforces it.
+2. **CSS: the dead `.closeout-queue` / `.cq-item*` rules were removed too**, not
+   just the ones the step file names — they styled only the deleted page.
+   `.cq-group` / `.cq-rework` were kept as instructed, plus one addition:
+   `.cq-group { margin-bottom: .8rem }`, because the group spacing used to come
+   from the deleted `.closeout-queue { display: flex; gap: .8rem }` wrapper.
+3. **`setFocus` also opens the enclosing `<details>`.** The task-4 snippet only
+   cleared `collapsed`, which left a focused card invisible inside the collapsed
+   `Closed — no change` group — so `?focus=<a rejected RID>` looked like a no-op.
+   Two lines added: `el.closest("details.cq-group").open = true`.
+4. **One test added beyond the step file** —
+   `test_unsubmitted_reviewer_cannot_comment_in_closeout`. The step's
+   `test_reviewer_in_closeout_gets_no_editor_and_no_popover` passes vacuously:
+   its reviewer has already submitted, so the popover was hidden by the old
+   `mySubmitted` guard, not by the new phase guard. The added test seeds a
+   second reviewer whose copy is still a draft — the exact defect the design
+   names — and fails without the `phase == 'in_review'` gate.
+5. **Naming only:** in `renderSheet`'s closeout branch the locals are `csrc` /
+   `cout` rather than the snippet's `src` / `out`, to avoid shadowing the
+   module-level `src` (the reviewer's `#content-src` handle).
+6. **Environment:** the suite was run as `.venv/bin/python -m pytest`
+   (`python` is not on PATH on this machine). 468 tests green.
+
+Observations for the next steps, not changed here:
+
+- `GET /implement` still redirects to `/closeout`, which now redirects again to
+  `/document` — a harmless 303 chain, and the existing test documents it. Worth
+  collapsing whenever that route is next touched.
+- In closeout a reviewer sees a toolbar holding the version chip and a lone,
+  already-active `Render` button (the `Edit` button is correctly owner-only).
+  It is what the design specifies; if the bare button reads as noise, gate the
+  whole `.doc-toolbar` on `canEditDoc` and keep the version chip.
+- Screenshots could not be captured in this environment (the preview renderer
+  produced no frames). The manual verification blocks were satisfied against a
+  seeded review on a live server — computed geometry, styles, the accessibility
+  tree and real clicks — but no image was recorded.
 
 ## Out of scope
 
