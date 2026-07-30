@@ -12,6 +12,7 @@ from malus.db.models import (
     RidChange,
     User,
 )
+from malus.db.migrations import current_revision, stamp_head, upgrade_head
 from malus.db.rtd_io import export_rtd, import_rtd
 from malus.db.session import DEFAULT_URL, create_all, make_engine
 
@@ -31,4 +32,7 @@ __all__ = [
     "DEFAULT_URL",
     "create_all",
     "make_engine",
+    "current_revision",
+    "stamp_head",
+    "upgrade_head",
 ]

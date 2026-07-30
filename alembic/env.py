@@ -18,8 +18,10 @@ import malus.db.models  # noqa: F401  register every table on SQLModel.metadata
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# an injected connection (malus.db.migrations) must not have the caller's
+# logging configuration torn down and rebuilt under it
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = SQLModel.metadata
 
@@ -40,19 +42,31 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _run(connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
+    """Run migrations against an injected connection when the caller supplies
+    one through ``config.attributes["connection"]`` (``malus.db.migrations``),
+    otherwise build an engine from the URL. The injected connection wins over
+    every URL source: a stray ``MALUS_DB_URL`` in the environment must never
+    redirect a programmatic upgrade or stamp to another database."""
+    injected = config.attributes.get("connection")
+    if injected is not None:
+        _run(injected)
+        return
     section = config.get_section(config.config_ini_section, {})
     section["sqlalchemy.url"] = _get_url()
     connectable = engine_from_config(section, prefix="sqlalchemy.", poolclass=pool.NullPool)
-
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+        _run(connection)
 
 
 if context.is_offline_mode():
