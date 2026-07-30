@@ -25,6 +25,7 @@
   var legendEl = document.getElementById("legend");
   var form = document.getElementById("rev-form");
   var src = document.getElementById("content-src");
+  var editEl = document.getElementById("doc-edit"); // v3.1: closeout editor
   var pop = document.getElementById("cmt-pop");
 
   var S = "\uE000"; // sentinel (Unicode private use)
@@ -155,6 +156,15 @@
 
   /* ---------------- rendering ------------------------------------------ */
   function renderSheet(its) {
+    if (data.phase === "closeout") {
+      // closeout: the sheet shows the LATEST version, unmarked — comment
+      // offsets belong to the baseline and no longer line up. marked +
+      // DOMPurify, same pipeline as the review-phase sheet.
+      var csrc = editEl ? editEl.value : data.latest;
+      var cout = window.marked ? window.marked.parse(csrc) : esc(csrc);
+      sheet.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(cout) : cout;
+      return;
+    }
     var outSrc = "", prev = 0;
     its.forEach(function (it) {
       var off = Math.max(0, Math.min(it.offset, baseline.length));
@@ -753,6 +763,20 @@
     // re-apply the current focus across re-renders (no scroll jump)
     setFocus(focusKey && itemByKey(focusKey) ? focusKey : null, { scroll: false });
   }
+  /* ---------------- closeout: Render | Edit ----------------------------- */
+  var modeRender = document.getElementById("doc-mode-render");
+  var modeEdit = document.getElementById("doc-mode-edit");
+  function setMode(edit) {
+    if (!editEl) return;
+    editEl.hidden = !edit;
+    sheet.hidden = edit;
+    if (modeEdit) modeEdit.classList.toggle("active", edit);
+    if (modeRender) modeRender.classList.toggle("active", !edit);
+    if (!edit) renderSheet(currentItems);   // re-render from the edited text
+  }
+  if (modeRender) modeRender.addEventListener("click", function () { setMode(false); });
+  if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
+
   parseCopy();
   renderLegend();
   refresh(false);
