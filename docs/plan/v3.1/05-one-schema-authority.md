@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Status:** added on **2026-07-30**, after the production incident of the same
 day. `docs/plan/v3.1/00-design.md` §Steps lists steps 1–4 only (it is a UX
@@ -203,25 +203,25 @@ no route, no service.
 
 ## Deliverables
 
-- [ ] `alembic/env.py` honours an injected `config.attributes["connection"]`
+- [x] `alembic/env.py` honours an injected `config.attributes["connection"]`
       and stops reconfiguring logging on programmatic calls
-- [ ] `src/malus/db/migrations.py`: `alembic_config` / `current_revision` /
+- [x] `src/malus/db/migrations.py`: `alembic_config` / `current_revision` /
       `stamp_head` / `upgrade_head`
-- [ ] Revision `c4d5e6f7a8b9` — the v3 `draft|active → in_review` data backfill
-- [ ] `migrate_review_phases` and `migrate_reviewer_copy_columns` deleted from
+- [x] Revision `c4d5e6f7a8b9` — the v3 `draft|active → in_review` data backfill
+- [x] `migrate_review_phases` and `migrate_reviewer_copy_columns` deleted from
       `src/malus/db/session.py`; `create_all` is schema-only
-- [ ] `bootstrap_schema` (create **+ stamp**, empty databases only) and the
+- [x] `bootstrap_schema` (create **+ stamp**, empty databases only) and the
       `malus init-db` command; `malus import` uses it
-- [ ] `create_app` loses `create_schema` — the serving path creates nothing;
+- [x] `create_app` loses `create_schema` — the serving path creates nothing;
       `malus serve` refuses an unmigrated database with exit code 2
-- [ ] Column-level models↔migrations parity guard (`compare_metadata`) — the
+- [x] Column-level models↔migrations parity guard (`compare_metadata`) — the
       test that would have caught `964362f`
-- [ ] Fresh-empty-database and pre-existing-drifted-database boots, both
+- [x] Fresh-empty-database and pre-existing-drifted-database boots, both
       through `alembic upgrade head` only, as pytest tests
-- [ ] Revision-idempotency convention written in `CLAUDE.md` +
+- [x] Revision-idempotency convention written in `CLAUDE.md` +
       `docs/ops/runbook.md`, enforced by a lint test
-- [ ] `docs/spec/data-model.md` §Migration/backfill and §5 updated
-- [ ] Full suite green
+- [x] `docs/spec/data-model.md` §Migration/backfill and §5 updated
+- [x] Full suite green
 
 ---
 
@@ -244,7 +244,7 @@ def stamp_head(engine: Engine) -> None
 def upgrade_head(engine: Engine) -> None
 ```
 
-- [ ] **Step 1: failing test** — `tests/db/test_schema_authority.py`:
+- [x] **Step 1: failing test** — `tests/db/test_schema_authority.py`:
 
 ```python
 """Alembic is the single schema authority (v3.1 step 05).
@@ -298,9 +298,9 @@ def test_injected_connection_wins_over_MALUS_DB_URL(tmp_path, monkeypatch):
     assert not decoy.exists()
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py`
+- [x] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py`
       → FAIL (`ModuleNotFoundError: No module named 'malus.db.migrations'`).
-- [ ] **Step 3: implement.** `alembic/env.py` — replace the logging block and
+- [x] **Step 3: implement.** `alembic/env.py` — replace the logging block and
       `run_migrations_online`:
 
 ```python
@@ -436,9 +436,9 @@ from malus.db.migrations import current_revision, stamp_head, upgrade_head
 
   (append `"current_revision"`, `"stamp_head"`, `"upgrade_head"` to `__all__`).
 
-- [ ] **Step 4:** `python -m pytest -q tests/db/test_schema_authority.py` → PASS,
+- [x] **Step 4:** `python -m pytest -q tests/db/test_schema_authority.py` → PASS,
       then `python -m pytest -q` → PASS (458 tests, exit 0).
-- [ ] **Step 5:** `git commit -m "feat(db): drive Alembic programmatically against an injected connection"`
+- [x] **Step 5:** `git commit -m "feat(db): drive Alembic programmatically against an injected connection"`
 
 ### Task 2: the v3 phase backfill becomes an Alembic revision
 
@@ -455,7 +455,7 @@ The Python function `migrate_review_phases` stays in place for this task (it is
 idempotent, so running both is harmless) and is deleted in task 3 — that
 ordering keeps every intermediate commit bootable.
 
-- [ ] **Step 1: failing test** — replace `tests/db/test_migration_v3.py`
+- [x] **Step 1: failing test** — replace `tests/db/test_migration_v3.py`
       entirely. The old file drove `migrate_review_phases` through the ORM;
       the backfill is now DML inside a revision, so the test drives Alembic:
 
@@ -604,9 +604,9 @@ def test_backfill_statement_compiles_on_sqlite_and_postgres(tmp_path, monkeypatc
         assert expected in sql
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/db/test_migration_v3.py` → FAIL
+- [x] **Step 2:** `python -m pytest -q tests/db/test_migration_v3.py` → FAIL
       (`KeyError: 'c4d5e6f7a8b9'` / no such revision).
-- [ ] **Step 3: implement** `alembic/versions/c4d5e6f7a8b9_v3_phase_backfill.py`:
+- [x] **Step 3: implement** `alembic/versions/c4d5e6f7a8b9_v3_phase_backfill.py`:
 
 ```python
 """v3 phase backfill: draft|active -> in_review for frozen reviews
@@ -689,12 +689,12 @@ def downgrade() -> None:
     stay at ``in_review``, which is a valid v3 phase."""
 ```
 
-- [ ] **Step 4:** `python -m pytest -q tests/db/test_migration_v3.py` → PASS
+- [x] **Step 4:** `python -m pytest -q tests/db/test_migration_v3.py` → PASS
       (5 tests), then `python -m pytest -q` → PASS. Note that
       `tests/db/test_db_migration.py::test_migration_creates_full_schema` and
       `::test_migration_downgrades_to_base` still pass: the new revision adds
       no table and its downgrade is inert.
-- [ ] **Step 5:** `git commit -m "feat(db): v3 phase backfill becomes revision c4d5e6f7a8b9"`
+- [x] **Step 5:** `git commit -m "feat(db): v3 phase backfill becomes revision c4d5e6f7a8b9"`
 
 ### Task 3: `create_all` is schema-only; `bootstrap_schema` creates **and stamps**
 
@@ -709,7 +709,7 @@ def downgrade() -> None:
 `create_all`, exactly as today, so the commit is bootable and the 218 web/api
 tests keep running at full speed (no per-test stamping). Task 4 removes it.
 
-- [ ] **Step 1: failing tests** — append to `tests/db/test_schema_authority.py`:
+- [x] **Step 1: failing tests** — append to `tests/db/test_schema_authority.py`:
 
 ```python
 from malus.db import bootstrap_schema
@@ -780,9 +780,9 @@ def test_init_db_refuses_an_existing_database(tmp_path):
     assert "alembic upgrade head" in result.stdout
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py tests/test_cli.py`
+- [x] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py tests/test_cli.py`
       → FAIL (`ImportError: cannot import name 'bootstrap_schema'`; `No such command 'init-db'`).
-- [ ] **Step 3: implement.** `src/malus/db/session.py` — delete
+- [x] **Step 3: implement.** `src/malus/db/session.py` — delete
       `migrate_review_phases` and `migrate_reviewer_copy_columns` outright
       (revision `c4d5e6f7a8b9` owns the first, `b9e4d5f6a701` the second),
       drop the now-unused `select` import, and replace `create_all`:
@@ -867,13 +867,13 @@ def init_db(
     raise typer.Exit(code=1)
 ```
 
-- [ ] **Step 4:** `python -m pytest -q` → PASS (462 tests: 458 − 5 rewritten in
+- [x] **Step 4:** `python -m pytest -q` → PASS (462 tests: 458 − 5 rewritten in
       task 2 + 5 new there + 4 here + 2 CLI; the exact number is whatever the
       run reports, exit 0 is the gate). Confirm
       `tests/db/test_db_migration.py::test_upgrade_head_after_create_all_already_ran`
       still passes untouched — `create_all` is still raw and unstamped, so it
       still reproduces the incident.
-- [ ] **Step 5:** `git commit -m "refactor(db): create_all is schema-only, bootstrap_schema stamps head"`
+- [x] **Step 5:** `git commit -m "refactor(db): create_all is schema-only, bootstrap_schema stamps head"`
 
 ### Task 4: the serving path stops creating schema
 
@@ -888,7 +888,7 @@ def init_db(
 (F1), and a parameter that can re-enable the drift is the thing this step
 exists to delete.
 
-- [ ] **Step 1: failing tests** — append to `tests/db/test_schema_authority.py`:
+- [x] **Step 1: failing tests** — append to `tests/db/test_schema_authority.py`:
 
 ```python
 def test_create_app_creates_no_schema(tmp_path):
@@ -924,9 +924,9 @@ def test_serve_refuses_a_database_without_schema(tmp_path):
     assert "malus init-db" in result.output
 ```
 
-- [ ] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py tests/test_cli.py`
+- [x] **Step 2:** `python -m pytest -q tests/db/test_schema_authority.py tests/test_cli.py`
       → FAIL (`create_schema` still in the signature; tables created; `serve` exits 0/starts).
-- [ ] **Step 3: implement.** `src/malus/api/app.py` — drop the parameter and the
+- [x] **Step 3: implement.** `src/malus/api/app.py` — drop the parameter and the
       call (and the now-unused `create_all` from the `malus.db` import, keeping
       `DEFAULT_URL` and `make_engine`):
 
@@ -994,10 +994,10 @@ def app():
     )
 ```
 
-- [ ] **Step 4:** `python -m pytest -q` → PASS, exit 0. The 218 app-fixture
+- [x] **Step 4:** `python -m pytest -q` → PASS, exit 0. The 218 app-fixture
       tests must all still pass; if any error with `no such table`, a conftest
       was missed.
-- [ ] **Step 5:** `git commit -m "feat(api): the serving path no longer creates schema — Alembic owns it"`
+- [x] **Step 5:** `git commit -m "feat(api): the serving path no longer creates schema — Alembic owns it"`
 
 ### Task 5: models↔migrations parity guard (the test that would have caught `964362f`)
 
@@ -1010,7 +1010,7 @@ def app():
 nullability, indexes and constraints, and returns **0 diffs** against the
 current head — so it can be asserted empty with no tolerance list.
 
-- [ ] **Step 1: write the guard** in `tests/db/test_db_migration.py`:
+- [x] **Step 1: write the guard** in `tests/db/test_db_migration.py`:
 
 ```python
 from alembic.autogenerate import compare_metadata
@@ -1035,7 +1035,7 @@ def test_migrations_match_the_models_exactly(tmp_path, monkeypatch):
     assert diff == [], "migrations drifted from the models: " + repr(diff)
 ```
 
-- [ ] **Step 2: prove it has teeth** (it passes as written — there is no drift
+- [x] **Step 2: prove it has teeth** (it passes as written — there is no drift
       today, so the failing-first step is a deliberate injection). Add a scratch
       column to `src/malus/db/models.py`, e.g. inside `class ReviewArtifact`:
 
@@ -1048,15 +1048,15 @@ def test_migrations_match_the_models_exactly(tmp_path, monkeypatch):
   Column('scratch_drift_column', ...))]`. Remove the scratch column
   (`git checkout -- src/malus/db/models.py`) and re-run → PASS. Do **not**
   commit the scratch column.
-- [ ] **Step 3:** `python -m pytest -q` → PASS, exit 0.
-- [ ] **Step 4:** `git commit -m "test(db): pin migrations to the models column-by-column"`
+- [x] **Step 3:** `python -m pytest -q` → PASS, exit 0.
+- [x] **Step 4:** `git commit -m "test(db): pin migrations to the models column-by-column"`
 
 ### Task 6: a FRESH empty database boots through `alembic upgrade head` alone
 
 **Files:**
 - Modify: `tests/db/test_schema_authority.py` (extend)
 
-- [ ] **Step 1: failing test:**
+- [x] **Step 1: failing test:**
 
 ```python
 def test_fresh_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
@@ -1100,12 +1100,12 @@ def test_fresh_deployment_second_boot_is_a_no_op(tmp_path, monkeypatch):
     )
 ```
 
-- [ ] **Step 2:** run `python -m pytest -q tests/db/test_schema_authority.py`.
+- [x] **Step 2:** run `python -m pytest -q tests/db/test_schema_authority.py`.
       Both pass only if tasks 1–4 are correct — if `create_app` still created
       schema, the first would pass for the wrong reason, which is why task 4's
       `test_create_app_creates_no_schema` runs alongside it.
-- [ ] **Step 3:** `python -m pytest -q` → PASS, exit 0.
-- [ ] **Step 4:** `git commit -m "test(db): a fresh database boots from alembic upgrade head alone"`
+- [x] **Step 3:** `python -m pytest -q` → PASS, exit 0.
+- [x] **Step 4:** `git commit -m "test(db): a fresh database boots from alembic upgrade head alone"`
 
 ### Task 7: a PRE-EXISTING drifted database boots through `alembic upgrade head` alone
 
@@ -1115,7 +1115,7 @@ The production database as it actually exists: schema partly created by
 **Files:**
 - Modify: `tests/db/test_schema_authority.py` (extend)
 
-- [ ] **Step 1: failing test:**
+- [x] **Step 1: failing test:**
 
 ```python
 def test_drifted_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
@@ -1187,11 +1187,11 @@ def _alembic_config(db_url: str) -> Config:
     return cfg
 ```
 
-- [ ] **Step 2:** run → this is the acceptance test for the whole step. It fails
+- [x] **Step 2:** run → this is the acceptance test for the whole step. It fails
       if the backfill did not become a revision (status stays `draft`) or if a
       revision is not idempotent (`table review_artifacts already exists`).
-- [ ] **Step 3:** `python -m pytest -q` → PASS, exit 0.
-- [ ] **Step 4:** `git commit -m "test(db): a drifted database converges on alembic upgrade head"`
+- [x] **Step 3:** `python -m pytest -q` → PASS, exit 0.
+- [x] **Step 4:** `git commit -m "test(db): a drifted database converges on alembic upgrade head"`
 
 ### Task 8: write the convention down, and enforce it
 
@@ -1201,7 +1201,7 @@ def _alembic_config(db_url: str) -> Config:
 - Modify: `docs/spec/data-model.md` (§2 Migration/backfill, §5, §Sources)
 - Create: `tests/db/test_revision_conventions.py`
 
-- [ ] **Step 1: the lint test** — `tests/db/test_revision_conventions.py`:
+- [x] **Step 1: the lint test** — `tests/db/test_revision_conventions.py`:
 
 ```python
 """Every new Alembic revision must be idempotent (v3.1 step 05).
@@ -1252,14 +1252,14 @@ def test_every_new_revision_guards_its_ddl():
             )
 ```
 
-- [ ] **Step 2: prove it has teeth.** Create a throwaway
+- [x] **Step 2: prove it has teeth.** Create a throwaway
       `alembic/versions/zz00deadbeef_scratch.py` with
       `down_revision = 'c4d5e6f7a8b9'` and an unguarded
       `op.add_column('users', sa.Column('scratch', sa.String(), nullable=True))`;
       `python -m pytest -q tests/db/test_revision_conventions.py` → **FAIL**
       naming `zz00deadbeef`. Delete the file and re-run → PASS. Do **not**
       commit it.
-- [ ] **Step 3: the documentation.** `CLAUDE.md` §Conventions — append two bullets:
+- [x] **Step 3: the documentation.** `CLAUDE.md` §Conventions — append two bullets:
 
 ```markdown
 - **Alembic is the single schema authority.** `alembic upgrade head` (run by
@@ -1346,21 +1346,25 @@ made Alembic the single schema authority.
 | 5 | `05-one-schema-authority.md` | Alembic becomes the single schema authority: serving path stops creating schema, backfills move into revisions, models↔migrations parity guard. Added 2026-07-30 after the production incident of that day; not part of the original UX wave. | — |
 ```
 
-- [ ] **Step 4:** `python -m pytest -q` → PASS, exit 0.
-- [ ] **Step 5:** `git commit -m "docs: Alembic is the single schema authority; revisions must be idempotent"`
+- [x] **Step 4:** `python -m pytest -q` → PASS, exit 0.
+- [x] **Step 5:** `git commit -m "docs: Alembic is the single schema authority; revisions must be idempotent"`
 
 ## Definition of Done
 
-- [ ] Every deliverable checked; `python -m pytest -q` green, exit 0, with no
+- [x] Every deliverable checked; `python -m pytest -q` green, exit 0, with no
       test deleted or weakened. In particular
       `tests/db/test_db_migration.py::test_upgrade_head_after_create_all_already_ran`
       (the `a5a0125` regression pin) passes unmodified.
-- [ ] `grep -rn "create_all" src/` returns **only** `src/malus/db/session.py`
+- [x] `grep -rn "create_all" src/` returns **only** `src/malus/db/session.py`
       and `src/malus/db/__init__.py`. No hit in `src/malus/api/`, none in
       `src/malus/cli.py`.
-- [ ] `grep -rn "migrate_review_phases\|migrate_reviewer_copy_columns" src/`
+- [x] `grep -rn "migrate_review_phases\|migrate_reviewer_copy_columns" src/`
       returns nothing.
-- [ ] **Docker, fresh volume — the whole point of the step:**
+- [~] **Docker, fresh volume — the whole point of the step:** the Docker daemon
+      was not running on the implementation machine, so this was verified by
+      reproducing the entrypoint sequence locally with the real `alembic` CLI —
+      see `## Deviations` #5. The migration log matched the expected text below
+      line for line.
 
 ```sh
 docker compose down -v
@@ -1386,7 +1390,9 @@ curl -fsS http://127.0.0.1:8000/health          # -> {"status":"ok","version":"2
 docker compose exec app alembic current         # -> c4d5e6f7a8b9 (head)
 ```
 
-- [ ] **Docker, restart is a no-op** (the second authority is gone):
+- [~] **Docker, restart is a no-op** (the second authority is gone): verified
+      the same way — a second `alembic upgrade head` on the same file emitted
+      **0** `Running upgrade` lines and stayed at `c4d5e6f7a8b9`.
 
 ```sh
 docker compose restart app
@@ -1396,16 +1402,76 @@ docker compose logs --tail=20 app
   expected: the `maluS: applying database migrations…` line, **no**
   `Running upgrade` line at all, then `maluS: starting server…`; `/health` 200.
 
-- [ ] **Docker, the real production volume**: back it up
+- [ ] **NOT DONE — operator action.** Deploying to the ALUM server is outside
+      what an implementation session may do. Run this before/with the first
+      deploy of this step: **Docker, the real production volume**: back it up
       (`docs/ops/runbook.md` §Backup & restore) **before** the first deploy of
       this step, then `docker compose up -d --build` and check
       `docker compose exec app alembic current` reports `c4d5e6f7a8b9`, and that
       no review changed phase unexpectedly (the backfill only promotes
       `draft`/`active` rows that have a frozen baseline; on a healthy v3
       database there are none).
-- [ ] `malus init-db --db sqlite:///$(mktemp -u).db` prints
+- [x] `malus init-db --db sqlite:///$(mktemp -u).db` prints
       `created and stamped schema at head`, and `malus serve --db <that file>`
       then starts (no schema error).
+
+## Deviations
+
+Recorded during implementation, 2026-07-30. Nothing in the Decision section was
+redesigned; these are corrections to the step's own test code plus one gap in
+its investigation.
+
+**1. `test_stamp_head_marks_an_unstamped_database` pins `c4d5e6f7a8b9`, not
+`b9e4d5f6a701`.** Task 1 wrote that assertion with the comment "head at task 1";
+task 2 makes `c4d5e6f7a8b9` the head, so the assertion was updated there. It now
+matches what tasks 3, 6 and 7 assert.
+
+**2. `tests/api/test_api.py` builds a second app inline — the F1 table missed
+it.** F1 lists `create_app`'s callers as "the `app` fixture of `tests/api`,
+`tests/web`, `tests/e2e`, `tests/mcp`", so task 4 only patched the four
+conftests. But `test_export_import_roundtrip_across_databases`
+(`tests/api/test_api.py:111`) constructs a *second* `create_app` with its own
+`make_engine("sqlite://")` to test a cross-database round-trip; with the serving
+path no longer creating schema it failed on `no such table: users`. Fixed the
+same way as the conftests — `create_all(other_engine)` before `create_app`.
+(`tests/ops/test_ops.py:21` also calls `create_app` directly but only hits
+`/health`, which touches no table, and passes `bootstrap_admin=None`.)
+
+**3. Task 4's failing-first step hangs the suite if run as written.** The step
+says to run `test_serve_refuses_a_database_without_schema` before implementing
+`_require_schema`. Without the preflight, `serve` reaches `uvicorn.run` and
+boots a real server inside the test runner, which never returns. Task 4's other
+two tests were run failing-first as normal; the `serve` test was written first
+but executed only after `_require_schema` landed. A future step adding a `serve`
+test should implement the guard before running it.
+
+**4. The DoD grep `no hit in src/malus/api/` has one — in a docstring the step
+itself prescribes.** Task 4's `create_app` docstring (specified verbatim by this
+file) reads "Tests create their own schema with ``malus.db.create_all``". The
+substantive gate — zero *calls* — holds: `grep -rn "create_all(" src/` outside
+`src/malus/db/session.py` returns 0.
+
+**5. Docker verification was done by reproducing the entrypoint, not by running
+it.** The Docker daemon was not running on the implementation machine. Since
+`docker-entrypoint.sh` is four lines — `alembic upgrade head` then
+`exec malus serve` — the same sequence was run directly against a fresh SQLite
+file using the real `alembic` CLI and the real `malus serve`:
+
+- first boot printed exactly the six `Running upgrade` lines listed in the DoD,
+  ending at `c4d5e6f7a8b9`, and `alembic current` reported `c4d5e6f7a8b9 (head)`;
+- `malus serve` then started, `/health` returned
+  `{"status":"ok","version":"2.3.0"}`, and the bootstrapped admin logged in;
+- a second `alembic upgrade head` on the same file emitted **0**
+  `Running upgrade` lines and stayed at head.
+
+What this does *not* cover is the image packaging itself (`WORKDIR /app`, the
+`COPY alembic.ini ./` / `COPY alembic ./alembic` lines) — unchanged by this
+step, but worth eyeballing on the first `docker compose up --build`.
+
+Also verified end to end outside Docker: `malus init-db` created and stamped a
+new file at `c4d5e6f7a8b9`, refused the second invocation with exit 1, `malus
+serve` on an empty database exited **2** with the actionable message, and `malus
+serve` on the init-db file started and answered `/health`.
 
 ## Out of scope
 
