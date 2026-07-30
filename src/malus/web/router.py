@@ -127,16 +127,25 @@ def reviews_page(request: Request, session: Session = Depends(get_session)):
     user = _current(request, session)
     if not user:
         return _LOGIN
+    reviews = ReviewRepo(session)
+    copies = ReviewerCopyRepo(session)
+    pdf_ids = ArtifactRepo(session).review_ids_with("pdf")  # one query for the page
     rows = []
-    for r in ReviewRepo(session).list():
+    for r in reviews.list():
         role = authz.review_role(session, r, user)
         to_comment = False
         if role == Role.REVIEWER.value:  # flag reviews awaiting *my* comment
-            mine = next(
-                (c for c in ReviewerCopyRepo(session).list(r) if c.user_id == user.id), None
-            )
+            mine = next((c for c in copies.list(r) if c.user_id == user.id), None)
             to_comment = mine is None or mine.submitted_at is None
-        rows.append({"review": r, "role": role, "to_comment": to_comment})
+        rows.append(
+            {
+                "review": r,
+                "role": role,
+                "to_comment": to_comment,
+                "status": r.status,
+                "has_pdf": r.id in pdf_ids,
+            }
+        )
     return templates.TemplateResponse(request, "reviews.html", {"user": user, "rows": rows})
 
 

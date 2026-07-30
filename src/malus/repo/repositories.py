@@ -343,6 +343,16 @@ class ArtifactRepo:
             .order_by(ReviewArtifact.created.desc(), ReviewArtifact.id.desc())
         ).first()
 
+    def review_ids_with(self, kind: str) -> set[int]:
+        """Every review id owning an artifact of ``kind``, in ONE query — the
+        reviews list renders every review, so a per-row ``get`` would be an
+        N+1 (v3.1 step 04). It lists all reviews, so no IN-clause scoping."""
+        return set(
+            self.s.exec(
+                select(ReviewArtifact.review_id).where(ReviewArtifact.kind == kind).distinct()
+            ).all()
+        )
+
 
 class AuditRepo:
     def __init__(self, session: Session) -> None:

@@ -19,6 +19,25 @@
     {% if row.role %}<span class="role role-{{ row.role }}">{{ row.role }}</span>{% endif %}
     {% if row.to_comment %}<span class="badge badge-todo">to comment</span>{% endif %}
     {% if row.review.title %}<span class="muted">— {{ row.review.title }}</span>{% endif %}
+    {% if row.status == 'finalized' and (row.role or user.is_admin) %}
+    {# v3.1 step 04: the results are reachable from where a member starts, not
+       only from the dashboard. Members/admin only — the routes 403 otherwise. #}
+    <details class="menu row-menu">
+      <summary aria-label="Downloads for {{ row.review.review_id_str }}">⋯</summary>
+      <div class="menu-items">
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/download/baseline.md">baseline.md</a>
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/download/final.md">final.md</a>
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/download/diff.html">diff.html</a>
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/download/report.md">report.md</a>
+        {% if row.has_pdf %}
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/download/review.pdf">PDF</a>
+        {% else %}
+        <a href="/ui/reviews/{{ row.review.review_id_str }}/print"
+           title="No archived PDF (malus[pdf] not installed at finalize) — use the browser print dialog">Print view</a>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
   </li>
   {% endfor %}
 </ul>

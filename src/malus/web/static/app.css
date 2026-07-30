@@ -181,6 +181,7 @@ button.danger:hover { background: var(--coral); color: #fff; border-color: var(-
 .reviews li { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem 1rem; box-shadow: var(--shadow); transition: box-shadow var(--speed), transform var(--speed), border-color var(--speed); }
 .reviews li:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px); border-color: #d3dae1; }
 .rid-link { font-family: var(--mono); font-weight: 600; font-size: 1rem; }
+.reviews li .row-menu { margin-left: auto; }   /* v3.1: downloads menu sits at the row end */
 
 .empty { text-align: center; color: var(--muted); padding: 2.6rem 1rem; background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); }
 .empty .empty-mark { font-size: 1.6rem; display: block; margin-bottom: .4rem; }
