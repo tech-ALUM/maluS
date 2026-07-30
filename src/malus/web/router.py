@@ -774,6 +774,31 @@ def _document_context(
         else:
             r["changes"] = []
 
+    # v3.1 step 01: the closeout work queue rides in the viewer payload — the
+    # side panel replaces the flat comment list with it (the standalone
+    # workspace page is gone). Grouping lifted verbatim from the v3
+    # _closeout_context so the buckets cannot drift apart.
+    is_closeout = review.status == ReviewStatus.CLOSEOUT.value
+    latest = VersionRepo(session).latest(review)
+    for r in rids:
+        group = None
+        if r["disposition"] in (Disposition.REJECTED.value, Disposition.DEFERRED.value):
+            group = "noChange"
+        elif r["disposition"] == Disposition.ACCEPTED.value:
+            reworked = "[changes requested by" in (r["reply"] or "")
+            if r["status"] == Status.CLOSED.value:
+                group = "rework" if reworked else "todo"
+            elif r["status"] == Status.IMPLEMENTED.value:
+                group = "awaiting"
+            elif r["status"] == Status.VERIFIED.value:
+                group = "done"
+        r["queue"] = group if is_closeout else None
+        r["hasChange"] = (
+            is_closeout
+            and r["disposition"] == Disposition.ACCEPTED.value
+            and svc.rid_has_change(session, review, r["rid"])
+        )
+
     data = {
         "reviewId": review.review_id_str,
         "phase": review.status,
@@ -783,6 +808,11 @@ def _document_context(
         "canDispose": (role == Role.OWNER.value or user.is_admin) and not user.is_ai,
         "me": user.display_name,
         "baseline": baseline.content,
+        "latest": latest.content if latest else baseline.content,
+        "latestOrdinal": latest.ordinal if latest else baseline.ordinal,
+        "canEditDoc": is_closeout
+        and (role == Role.OWNER.value or user.is_admin)
+        and not user.is_ai,
         "myCopy": my_copy,
         "mySubmitted": bool(mine and mine.submitted_at) if is_reviewer else False,
         "myReopenRequested": bool(mine and mine.reopen_requested_at) if is_reviewer else False,
