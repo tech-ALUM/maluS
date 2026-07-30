@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** a member opening `/ui/reviews/{id}/diff` can read the change either
 as **hunks** (today: ±3 lines of context, elided in between) or as the **whole
@@ -50,15 +50,15 @@ below being landed **verbatim**.
 
 ## Deliverables
 
-- [ ] `html_diff(old, new, *, context: int | None = 3, line_numbers: bool = False)`
-- [ ] `context=None` → whole document, no `diff-skip` marker
-- [ ] `line_numbers=True` → two gutter spans per row (old, new)
-- [ ] Golden test: compact output byte-identical to v3
-- [ ] `GET /ui/reviews/{id}/diff?view=compact|full`, unknown value → compact
-- [ ] `Compact | Full` toggle links in `diff.html`, active view marked
-- [ ] `.diff-ln` gutter CSS in `src/malus/web/static/app.css`
-- [ ] Duplicate *Full diff* button deleted (`review.html:34`) + regression test
-- [ ] Full suite green
+- [x] `html_diff(old, new, *, context: int | None = 3, line_numbers: bool = False)`
+- [x] `context=None` → whole document, no `diff-skip` marker
+- [x] `line_numbers=True` → two gutter spans per row (old, new)
+- [x] Golden test: compact output byte-identical to v3
+- [x] `GET /ui/reviews/{id}/diff?view=compact|full`, unknown value → compact
+- [x] `Compact | Full` toggle links in `diff.html`, active view marked
+- [x] `.diff-ln` gutter CSS in `src/malus/web/static/app.css`
+- [x] Duplicate *Full diff* button deleted (`review.html:34`) + regression test
+- [x] Full suite green
 
 ---
 
@@ -80,7 +80,7 @@ def html_diff(old: str, new: str, *, context: int | None = 3,
 - `context=None`: `sm.get_opcodes()` as a single group — every line of the
   document, **no `diff-skip` marker at all**.
 
-- [ ] **Step 1: failing tests** — append to `tests/test_diffing.py`:
+- [x] **Step 1: failing tests** — append to `tests/test_diffing.py`:
 
 ```python
 # --- v3.1 step 03: whole-document mode + the compact-output guard ----------
@@ -126,7 +126,7 @@ def test_context_none_on_equal_texts_is_still_empty():
     assert html_diff("a\nb\n", "a\nb\n", context=None) == ""
 ```
 
-- [ ] **Step 2:** run → FAIL. Note *how* it fails: `context` already exists as a
+- [x] **Step 2:** run → FAIL. Note *how* it fails: `context` already exists as a
   parameter, so passing `None` reaches `difflib.get_grouped_opcodes(None)` and
   raises `TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'`
   (the golden test passes from the start — it is a guard, not a driver):
@@ -135,7 +135,7 @@ def test_context_none_on_equal_texts_is_still_empty():
 python -m pytest -q tests/test_diffing.py
 ```
 
-- [ ] **Step 3: implement** in `src/malus/diffing.py` — replace the `html_diff`
+- [x] **Step 3: implement** in `src/malus/diffing.py` — replace the `html_diff`
   signature and its group loop:
 
 ```python
@@ -170,14 +170,14 @@ def html_diff(old: str, new: str, *, context: int | None = 3) -> str:
   Also update the module docstring's first paragraph to mention the two modes.
   Nothing else in the function changes — that is what keeps the golden test green.
 
-- [ ] **Step 4:** run → PASS.
+- [x] **Step 4:** run → PASS.
 
 ```bash
 python -m pytest -q tests/test_diffing.py
 python -m pytest -q
 ```
 
-- [ ] **Step 5:** `git commit -m "feat(diff): whole-document mode via context=None"`
+- [x] **Step 5:** `git commit -m "feat(diff): whole-document mode via context=None"`
 
 ### Task 2: line-number gutters (`line_numbers=True`)
 
@@ -207,7 +207,7 @@ numbers are 1-based and are Python `int`s — no document text reaches the gutte
 so they need no escaping; the line body keeps going through `html.escape` /
 `_refine` exactly as before.
 
-- [ ] **Step 1: failing tests** — append to `tests/test_diffing.py`:
+- [x] **Step 1: failing tests** — append to `tests/test_diffing.py`:
 
 ```python
 # --- v3.1 step 03: line-number gutters ------------------------------------
@@ -259,14 +259,14 @@ def test_line_numbers_default_off_changes_nothing():
     assert "diff-ln" not in html_diff(_OLD3, _NEW3)
 ```
 
-- [ ] **Step 2:** run → FAIL (`TypeError: html_diff() got an unexpected keyword
+- [x] **Step 2:** run → FAIL (`TypeError: html_diff() got an unexpected keyword
   argument 'line_numbers'`):
 
 ```bash
 python -m pytest -q tests/test_diffing.py
 ```
 
-- [ ] **Step 3: implement** in `src/malus/diffing.py` — a gutter helper beside
+- [x] **Step 3: implement** in `src/malus/diffing.py` — a gutter helper beside
   `_refine`, then thread the row indices through the three branches:
 
 ```python
@@ -342,14 +342,14 @@ def html_diff(
   f-strings collapse to the v3 literals — `test_compact_output_is_byte_identical_to_v3`
   from task 1 is the guard, keep it green.
 
-- [ ] **Step 4:** run → PASS.
+- [x] **Step 4:** run → PASS.
 
 ```bash
 python -m pytest -q tests/test_diffing.py
 python -m pytest -q
 ```
 
-- [ ] **Step 5:** `git commit -m "feat(diff): optional old/new line-number gutters"`
+- [x] **Step 5:** `git commit -m "feat(diff): optional old/new line-number gutters"`
 
 ### Task 3: `?view=compact|full` toggle on the diff page
 
@@ -363,7 +363,7 @@ python -m pytest -q
 hunks ±3, no gutters) and `?view=full` (whole document, line numbers). Authz,
 404 and the 409-before-freeze behaviour are unchanged.
 
-- [ ] **Step 1: failing tests** — append to `tests/web/test_diff_page.py` (reuse
+- [x] **Step 1: failing tests** — append to `tests/web/test_diff_page.py` (reuse
   its `R` constant and fixture style; the existing `docs["baseline"]` is only 9
   lines, too short for ±3 context to elide anything, so this seed pads it):
 
@@ -442,13 +442,13 @@ def test_toggle_is_server_side_only(client):
     # no script tag is introduced by the diff page (zero-JS toggle)
 ```
 
-- [ ] **Step 2:** run → FAIL.
+- [x] **Step 2:** run → FAIL.
 
 ```bash
 python -m pytest -q tests/web/test_diff_page.py
 ```
 
-- [ ] **Step 3: implement.**
+- [x] **Step 3: implement.**
 
   `src/malus/web/router.py` — `diff_page` gains the query parameter:
 
@@ -530,14 +530,14 @@ def diff_page(
 .diff-ln-new { border-right: 1px solid var(--line); margin-right: .7rem; }
 ```
 
-- [ ] **Step 4:** run → PASS.
+- [x] **Step 4:** run → PASS.
 
 ```bash
 python -m pytest -q tests/web/test_diff_page.py
 python -m pytest -q
 ```
 
-- [ ] **Step 5:** `git commit -m "feat(web): Compact | Full toggle on the diff page (?view=)"`
+- [x] **Step 5:** `git commit -m "feat(web): Compact | Full toggle on the diff page (?view=)"`
 
 ### Task 4: one *Full diff* button on the dashboard
 
@@ -550,7 +550,7 @@ The owner-actions block for `phase == 'closeout'` and the all-members block for
 closeout sees it twice (recorded as a deviation in `docs/plan/v3/03-verification.md`
 §Deviations). The all-members block is the one that stays.
 
-- [ ] **Step 1: failing test** — append to `tests/web/test_diff_page.py`:
+- [x] **Step 1: failing test** — append to `tests/web/test_diff_page.py`:
 
 ```python
 def test_dashboard_links_the_diff_exactly_once(mkuser, docs):
@@ -568,13 +568,13 @@ def test_dashboard_links_the_diff_exactly_once(mkuser, docs):
     assert r_page.text.count(f'href="/ui/reviews/{R}/diff"') == 1
 ```
 
-- [ ] **Step 2:** run → FAIL (`assert 2 == 1` for the owner).
+- [x] **Step 2:** run → FAIL (`assert 2 == 1` for the owner).
 
 ```bash
 python -m pytest -q tests/web/test_diff_page.py::test_dashboard_links_the_diff_exactly_once
 ```
 
-- [ ] **Step 3: implement** — in `src/malus/web/templates/review.html`, delete
+- [x] **Step 3: implement** — in `src/malus/web/templates/review.html`, delete
   line 34 from the `{% elif phase == 'closeout' %}` branch:
 
 ```html
@@ -593,30 +593,30 @@ python -m pytest -q tests/web/test_diff_page.py::test_dashboard_links_the_diff_e
   Nothing else moves: the *Closeout workspace* link, the finalize form and the
   admin *Back to review* form stay where they are.
 
-- [ ] **Step 4:** run → PASS.
+- [x] **Step 4:** run → PASS.
 
 ```bash
 python -m pytest -q tests/web/test_diff_page.py
 python -m pytest -q
 ```
 
-- [ ] **Step 5:** `git commit -m "fix(web): render the Full diff button once on the dashboard"`
+- [x] **Step 5:** `git commit -m "fix(web): render the Full diff button once on the dashboard"`
 
 ## Definition of Done
 
-- [ ] Deliverables checked; `python -m pytest -q` green (exit 0), no test removed
+- [x] Deliverables checked; `python -m pytest -q` green (exit 0), no test removed
       or weakened — in particular `tests/test_diffing.py`'s six v3 tests and
       `tests/web/test_diff_page.py`'s six v3 tests still pass untouched.
-- [ ] `html_diff` exposes exactly
+- [x] `html_diff` exposes exactly
       `def html_diff(old: str, new: str, *, context: int | None = 3, line_numbers: bool = False) -> str`
       — step 04 (`04-downloads.md`) calls it with `context=None, line_numbers=True`.
-- [ ] Manual smoke (browser), on a closeout review with at least one saved
+- [x] Manual smoke (browser), on a closeout review with at least one saved
       version: `/ui/reviews/{id}/diff` shows hunks with no gutters and the
       *Compact* button filled; clicking *Full* reloads to `?view=full` with the
       whole document, aligned old/new numbers and no `⋯` marker; the URL is
       copy-pasteable into a new tab and lands on the same view; the dashboard
       shows one *Full diff* button as owner and one as reviewer.
-- [ ] A RID card's *Changes* section renders exactly as before (compact, no
+- [x] A RID card's *Changes* section renders exactly as before (compact, no
       gutters) — visual check on the same review.
 
 ## Out of scope
