@@ -117,3 +117,74 @@ def test_dashboard_button_reads_terminate_review(mkuser, docs):
     assert "Finalize review" not in page
     assert "Terminate the review?" in page                 # new confirm text
     assert f'action="/ui/reviews/{R}/finalize"' in page    # route unchanged
+
+
+def test_reopen_terminated_is_human_admin_only(mkuser, docs):
+    owner, f = _to_closeout(mkuser, docs)
+    ai_admin = mkuser("aiadmin", "AI Admin", is_ai=True, is_admin=True)
+    assert owner.post(f"/ui/reviews/{R}/finalize", follow_redirects=False).status_code == 303
+
+    for client in (owner, f, ai_admin):  # owner: never; AI admin: is_ai is absolute
+        assert client.post(
+            f"/ui/reviews/{R}/reopen-terminated", follow_redirects=False
+        ).status_code == 403
+    assert owner.get(f"/reviews/{R}").json()["status"] == "finalized"  # untouched
+
+
+def test_reopen_terminated_admin_flips_back_to_closeout_and_audits(app, mkuser, docs, admin):
+    owner, _f = _to_closeout(mkuser, docs)
+    owner.post(f"/ui/reviews/{R}/finalize")
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+
+    r = admin.post(f"/ui/reviews/{R}/reopen-terminated", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith(f"/ui/reviews/{R}")
+    assert owner.get(f"/reviews/{R}").json()["status"] == "closeout"
+
+    from sqlmodel import Session, select
+
+    from malus.db.models import AuditLog
+
+    with Session(app.state.engine) as s:
+        entry = s.exec(select(AuditLog).where(AuditLog.action == "reopen_finalized")).one()
+        assert entry.target == f"review:{R}" and entry.actor.username == "admin"
+
+
+def test_reopen_terminated_wrong_phase_is_409(mkuser, docs, admin):
+    _owner, _f = _to_closeout(mkuser, docs)  # closeout, never terminated
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+    assert admin.post(
+        f"/ui/reviews/{R}/reopen-terminated", follow_redirects=False
+    ).status_code == 409
+
+
+def test_re_terminate_after_reopen_supersedes_final_and_pdf(app, mkuser, docs, admin):
+    """The v3.1 design claim, end to end: history keeps both finals, the
+    downloads serve the newest (VersionRepo.latest / ArtifactRepo.get)."""
+    owner, _f = _to_closeout(mkuser, docs)
+    owner.post(f"/ui/reviews/{R}/finalize")
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+    admin.post(f"/ui/reviews/{R}/reopen-terminated")
+
+    second = FINAL_MD + "\nAdded after the reopen.\n"
+    assert owner.post(
+        f"/ui/reviews/{R}/closeout",
+        data={"content": second, "rids": ["SIN-SRS-0001"]},
+        follow_redirects=False,
+    ).status_code == 303
+    assert owner.post(f"/ui/reviews/{R}/finalize", follow_redirects=False).status_code == 303
+    assert owner.get(f"/ui/reviews/{R}/download/final.md").text == second
+
+    from sqlmodel import Session, select
+
+    from malus.db.models import DocumentVersion, ReviewArtifact
+
+    from malus import pdfgen
+
+    with Session(app.state.engine) as s:
+        finals = s.exec(
+            select(DocumentVersion).where(DocumentVersion.is_final == True)  # noqa: E712
+        ).all()
+        assert len(finals) == 2  # the superseded final stays in history
+        if pdfgen.PDF_AVAILABLE:
+            pdfs = s.exec(select(ReviewArtifact).where(ReviewArtifact.kind == "pdf")).all()
+            assert len(pdfs) == 2

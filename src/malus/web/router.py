@@ -1095,6 +1095,27 @@ def finalize_action(review_id: str, request: Request, session: Session = Depends
     return RedirectResponse(f"/ui/reviews/{review_id}", 303)
 
 
+@web.post("/ui/reviews/{review_id}/reopen-terminated")
+def reopen_terminated_action(
+    review_id: str, request: Request, session: Session = Depends(get_session)
+):
+    """Admin escape hatch (v3.1): ``finalized -> closeout``, the undo of
+    Terminate. Reserved to a human global admin — not the owner, not a
+    moderator, never an AI. ``svc.reopen_finalized`` re-checks both bars, and
+    raises ``PhaseError`` (-> 409) when the review is not terminated."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if not (user.is_admin and not user.is_ai):
+        raise HTTPException(
+            status_code=403,
+            detail="reopening a terminated review is a human global-admin-only action",
+        )
+    svc.reopen_finalized(session, review, by=user)
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
 def _member_finalized(session: Session, request: Request, review_id: str):
     user = _current(request, session)
     if not user:
