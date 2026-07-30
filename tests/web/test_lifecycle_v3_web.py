@@ -188,16 +188,18 @@ def test_dashboard_shows_closeout_workspace_link_and_admin_back_to_review(mkuser
 
 
 # --------------------------------------------------------------------------- #
-# closeout workspace: phase-gated to closeout only (v3) — see also the
-# dedicated tests/web/test_closeout_page.py for the full route surface.
+# closeout: the save is phase-gated to closeout only (v3); since v3.1 step 01
+# the workspace GET redirects into the document viewer — see also the dedicated
+# tests/web/test_closeout_page.py for the full route surface.
 # --------------------------------------------------------------------------- #
 
 
-def test_implement_page_blocked_outside_closeout(mkuser, docs):
+def test_closeout_save_blocked_outside_closeout(mkuser, docs):
+    """v3.1 step 01: the GET is a plain redirect into the viewer now, so the
+    phase gate that matters is on the save (the service's ``PhaseError``)."""
     owner, f, _mod = _seed_answered(mkuser, docs)
     f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")  # closed, but still in_review
 
-    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 409
     r = owner.post(
         f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"], "rids": []},
@@ -206,7 +208,11 @@ def test_implement_page_blocked_outside_closeout(mkuser, docs):
     assert r.status_code == 409
 
 
-def test_implement_page_allowed_in_closeout(mkuser, docs):
+def test_closeout_get_redirects_into_the_viewer(mkuser, docs):
     owner, f, mod = _seed_answered(mkuser, docs)
     _to_closeout(owner, f, mod)
-    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 200
+
+    r = owner.get(f"/ui/reviews/{R}/closeout", follow_redirects=False)
+
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/ui/reviews/{R}/document"

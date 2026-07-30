@@ -1,14 +1,29 @@
-"""Closeout workspace page (v3 step 02 task 2): GET/POST
-``/ui/reviews/{id}/closeout`` — the owner's work queue + linked-save editor —
-plus the explicit per-RID ``POST .../rids/{rid}/implement`` action, and the
-legacy v2 ``/implement`` route now redirecting here.
+"""Closeout endpoints (v3 step 02 task 2, amended by v3.1 step 01): ``POST
+/ui/reviews/{id}/closeout`` — the linked save — the explicit per-RID ``POST
+.../rids/{rid}/implement`` action, and the two legacy GETs (``/closeout`` and
+v2's ``/implement``) that now redirect into the unified document viewer, where
+the workspace lives since v3.1.
 
 Mirrors ``tests/web/test_lifecycle_v3_web.py``'s seed-helper style (each test
 module owns its own fixtures over the shared ``mkuser``/``docs`` fixtures)."""
 
 from __future__ import annotations
 
+import json
+
 R = "SIN-SRS-R1"
+
+
+def _payload(page_text: str) -> dict:
+    """The viewer's embedded JSON — the queue lives here since v3.1 step 01."""
+    marker = '<script type="application/json" id="viewer-data">'
+    start = page_text.index(marker) + len(marker)
+    return json.loads(page_text[start : page_text.index("</script>", start)])
+
+
+def _rid(client, rid: str = "SIN-SRS-0001") -> dict:
+    data = _payload(client.get(f"/ui/reviews/{R}/document").text)
+    return next(x for x in data["rids"] if x["rid"] == rid)
 
 
 def _seed_answered(mkuser, docs):
@@ -41,29 +56,27 @@ def _to_closeout(owner, f, mod):
 # --------------------------------------------------------------------------- #
 
 
-def test_get_closeout_page_as_owner_shows_queue_and_editor(mkuser, docs):
+def test_closeout_get_redirects_to_the_document(mkuser, docs):
     owner, f, mod = _seed_answered(mkuser, docs)
     _to_closeout(owner, f, mod)
 
-    page = owner.get(f"/ui/reviews/{R}/closeout")
-    assert page.status_code == 200
-    assert "SIN-SRS-0001" in page.text          # queued finding
-    assert "To implement" in page.text          # queue group label
-    assert 'id="editor"' in page.text and 'id="preview"' in page.text  # editor grid
+    r = owner.get(f"/ui/reviews/{R}/closeout", follow_redirects=False)
+
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/ui/reviews/{R}/document"
 
 
-def test_get_closeout_page_reviewer_is_403(mkuser, docs):
+def test_rejected_save_re_renders_the_document_with_the_unsaved_text(mkuser, docs):
     owner, f, mod = _seed_answered(mkuser, docs)
     _to_closeout(owner, f, mod)
+    edited = docs["baseline"].replace("shall", "must", 1)
 
-    assert f.get(f"/ui/reviews/{R}/closeout").status_code == 403
+    r = owner.post(f"/ui/reviews/{R}/closeout", data={"content": edited, "rids": []})
 
-
-def test_get_closeout_page_blocked_outside_closeout(mkuser, docs):
-    owner, f, _mod = _seed_answered(mkuser, docs)
-    f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")  # closed, but still in_review
-
-    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 409
+    assert r.status_code == 422
+    assert "at least one accepted RID" in r.text
+    assert 'id="doc-edit"' in r.text          # still the document page
+    assert "must" in r.text                    # the unsaved edit survived
 
 
 # --------------------------------------------------------------------------- #
@@ -76,10 +89,10 @@ def test_post_closeout_save_with_ticked_rid_links_version_and_unlocks_mark_imple
 ):
     owner, f, mod = _seed_answered(mkuser, docs)
     _to_closeout(owner, f, mod)
-    mark_action = f'action="/ui/reviews/{R}/rids/SIN-SRS-0001/implement"'
 
-    before = owner.get(f"/ui/reviews/{R}/closeout").text
-    assert mark_action not in before  # nothing linked yet: Mark implemented not offered
+    # nothing linked yet: the card offers no Mark implemented (v3.1 gates it on
+    # hasChange, the same condition the server's implement gate checks)
+    assert _rid(owner)["hasChange"] is False
 
     new_content = docs["baseline"] + "\nbounded.\n"
     r = owner.post(
@@ -88,11 +101,10 @@ def test_post_closeout_save_with_ticked_rid_links_version_and_unlocks_mark_imple
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert r.headers["location"] == f"/ui/reviews/{R}/closeout"
+    assert r.headers["location"] == f"/ui/reviews/{R}/document"
 
     # the RID queue moved: it now carries a linked change, so Mark implemented unlocks
-    after = owner.get(f"/ui/reviews/{R}/closeout").text
-    assert mark_action in after
+    assert _rid(owner)["hasChange"] is True
     assert "SIN-SRS-0001" in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
 
@@ -156,12 +168,7 @@ def test_post_mark_implemented_with_resolution_persists_it(mkuser, docs):
 
     # v3.1 step 01: the queue lives in that payload now (the standalone page is
     # gone) — the RID moved to the "awaiting verification" bucket
-    import json
-
-    payload = json.loads(
-        viewer.split('<script type="application/json" id="viewer-data">')[1].split("</script>")[0]
-    )
-    rid = next(x for x in payload["rids"] if x["rid"] == "SIN-SRS-0001")
+    rid = _rid(owner)
     assert rid["queue"] == "awaiting"
     assert rid["resolution"] == "bounded the timeout to 30s"
 

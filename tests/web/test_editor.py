@@ -59,14 +59,19 @@ def test_owner_implement_creates_version_and_links_rid(mkuser, docs):
         json={"status": "answered", "disposition": "accepted", "reply": "ok"},
     )
 
-    # v3: the closeout workspace is closeout-only — blocked while still in_review
-    assert owner.get(f"/ui/reviews/{R}/closeout").status_code == 409
+    # v3: the closeout save is closeout-only — refused while still in_review
+    # (v3.1 step 01: the workspace GET is a redirect into the viewer, so the
+    # phase gate is asserted on the save itself)
+    assert owner.post(
+        f"/ui/reviews/{R}/closeout",
+        data={"content": docs["baseline"] + "\nx\n", "rids": ["SIN-SRS-0001"]},
+    ).status_code == 409
 
     # the reviewer accepts the disposition, then the owner starts closeout
     assert f.post(f"/reviews/{R}/rids/SIN-SRS-0001/accept").status_code == 200
     assert owner.post(f"/reviews/{R}/start-closeout").status_code == 200
 
-    page = owner.get(f"/ui/reviews/{R}/closeout")
+    page = owner.get(f"/ui/reviews/{R}/document")  # the workspace lives here now
     assert page.status_code == 200 and "SIN-SRS-0001" in page.text
 
     # v3: saving links the version to the ticked RID but no longer auto-advances it

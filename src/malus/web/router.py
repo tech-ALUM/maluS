@@ -684,6 +684,7 @@ def _document_context(
     saved: bool = False,
     error: Optional[str] = None,
     my_copy_override: Optional[str] = None,
+    content_override: Optional[str] = None,
     focus: Optional[str] = None,
 ) -> dict:
     """Template context for the unified document viewer (v2 step 4).
@@ -776,8 +777,8 @@ def _document_context(
 
     # v3.1 step 01: the closeout work queue rides in the viewer payload — the
     # side panel replaces the flat comment list with it (the standalone
-    # workspace page is gone). Grouping lifted verbatim from the v3
-    # _closeout_context so the buckets cannot drift apart.
+    # workspace page is gone). Grouping lifted verbatim from the v3 workspace
+    # context (retired in task 6) so the buckets could not drift apart.
     is_closeout = review.status == ReviewStatus.CLOSEOUT.value
     latest = VersionRepo(session).latest(review)
     for r in rids:
@@ -808,7 +809,11 @@ def _document_context(
         "canDispose": (role == Role.OWNER.value or user.is_admin) and not user.is_ai,
         "me": user.display_name,
         "baseline": baseline.content,
-        "latest": latest.content if latest else baseline.content,
+        # a rejected closeout save re-renders the page with the unsaved text
+        # (v3.1 step 01 task 6 — the workspace's own re-render, moved here)
+        "latest": content_override
+        if content_override is not None
+        else (latest.content if latest else baseline.content),
         "latestOrdinal": latest.ordinal if latest else baseline.ordinal,
         "canEditDoc": is_closeout
         and (role == Role.OWNER.value or user.is_admin)
@@ -1000,47 +1005,10 @@ def delete_review_submit(review_id: str, request: Request, session: Session = De
     return RedirectResponse("/ui/reviews", 303)
 
 
-def _closeout_context(session: Session, request: Request, user: User, review, *, error=None):
-    """Build the closeout workspace's template context: the accepted-findings
-    work queue (bucketed by status + whether a post-baseline change already
-    links them) plus the current document content for the editor (v3 step 02
-    task 2 — replaces the v2 ``implement.html`` context)."""
-    latest = VersionRepo(session).latest(review)
-    rtd = svc.export(session, review)
-    accepted = [r for r in rtd.rids if r.disposition is Disposition.ACCEPTED]
-    changed_rids = {  # rids that already have a post-baseline linked change
-        r.rid for r in accepted if svc.rid_has_change(session, review, r.rid)
-    }
-    # "rework" means a reviewer sent it back (request_changes appends this
-    # marker to the reply) — NOT merely "a save already links it": a RID with
-    # a linked save awaiting its Mark-implemented click is still "to implement".
-    reworked = {r.rid for r in accepted if "[changes requested by" in (r.reply or "")}
-    queue = {
-        "todo": [r for r in accepted if r.status is Status.CLOSED and r.rid not in reworked],
-        "rework": [r for r in accepted if r.status is Status.CLOSED and r.rid in reworked],
-        "awaiting": [r for r in accepted if r.status is Status.IMPLEMENTED],
-        "done": [r for r in accepted if r.status is Status.VERIFIED],
-    }
-    eligible = queue["todo"] + queue["rework"]  # tickable in the save form
-    return {
-        "user": user, "review": review, "error": error,
-        "content": latest.content if latest else "",
-        "queue": queue, "eligible": eligible, "changed_rids": changed_rids,
-    }
-
-
-@web.get("/ui/reviews/{review_id}/closeout", response_class=HTMLResponse)
-def closeout_page(review_id: str, request: Request, session: Session = Depends(get_session)):
-    user = _current(request, session)
-    if not user:
-        return _LOGIN
-    review = _review_or_404(session, review_id)
-    authz.require_owner(session, review, user)
-    if review.status != ReviewStatus.CLOSEOUT.value:
-        raise HTTPException(status_code=409, detail="the review is not in closeout")
-    return templates.TemplateResponse(
-        request, "closeout.html", _closeout_context(session, request, user, review)
-    )
+@web.get("/ui/reviews/{review_id}/closeout")
+def closeout_redirect(review_id: str):
+    """v3's standalone workspace is folded into the viewer (v3.1 step 01)."""
+    return RedirectResponse(f"/ui/reviews/{review_id}/document", 303)
 
 
 @web.post("/ui/reviews/{review_id}/closeout", response_class=HTMLResponse)
@@ -1063,10 +1031,11 @@ def closeout_save(
     except svc.PhaseError:
         raise HTTPException(status_code=409, detail="the review is not in closeout")
     except ValueError as exc:
-        ctx = _closeout_context(session, request, user, review, error=str(exc))
-        ctx["content"] = content  # keep the unsaved editor text
-        return templates.TemplateResponse(request, "closeout.html", ctx, status_code=422)
-    return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
+        ctx = _document_context(
+            session, request, user, review, error=str(exc), content_override=content
+        )
+        return templates.TemplateResponse(request, "document.html", ctx, status_code=422)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/implement")
