@@ -62,11 +62,24 @@
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <p id="freeze-warning" class="error" hidden>You changed baseline text. Only {COMM} / {SUGG} block insertions are allowed.</p>
 
-<form method="post" action="/ui/reviews/{{ review.review_id_str }}/edit-copy" id="rev-form"
-      hx-boost="false" data-review="{{ review.review_id_str }}">
-  <textarea id="content-src" name="content" hidden></textarea>
+{# v3.1: in closeout the owner edits here — the form posts the new version and
+   the ticked RIDs to /closeout. Exactly one element may carry name="content":
+   the reviewer's hidden #content-src, or the closeout #doc-edit textarea. #}
+<form method="post" id="rev-form" hx-boost="false" data-review="{{ review.review_id_str }}"
+      action="/ui/reviews/{{ review.review_id_str }}/{{ 'closeout' if data.canEditDoc else 'edit-copy' }}">
+  {% if not data.canEditDoc %}<textarea id="content-src" name="content" hidden></textarea>{% endif %}
+  {% if data.phase == 'closeout' %}
+  <div class="doc-toolbar">
+    <span class="doc-ver">v{{ data.latestOrdinal }}</span>
+    <button type="button" id="doc-mode-render" class="secondary active">Render</button>
+    {% if data.canEditDoc %}<button type="button" id="doc-mode-edit" class="secondary">Edit</button>{% endif %}
+  </div>
+  {% endif %}
   <div class="workbench">
     <div id="sheet" class="a4-sheet doc-sheet" aria-label="Rendered document"></div>
+    {% if data.canEditDoc %}
+    <textarea id="doc-edit" name="content" class="doc-edit" spellcheck="false" hidden>{{ data.latest }}</textarea>
+    {% endif %}
     <aside class="comments-panel">
       <div id="legend" class="legend" aria-label="Reviewer colors"></div>
       <h2 class="cp-title">Comments <span id="cp-count" class="badge">0</span></h2>
@@ -74,17 +87,24 @@
       <p id="cp-empty" class="muted">No comments yet.</p>
     </aside>
   </div>
-  {% if data.isReviewer and not data.mySubmitted %}
+  {% if data.isReviewer and not data.mySubmitted and data.phase == 'in_review' %}
   <div class="rev-actions">
     <button type="submit" name="action" value="save" class="secondary">Save draft</button>
     <button type="submit" name="action" value="submit" class="primary"
             onclick="return confirm('Submit your copy? Once submitted it is locked: editing again needs a reopen approved by the owner.') && confirm('Really submit now? This is final.')">Submit copy</button>
   </div>
   {% endif %}
+  {% if data.canEditDoc %}
+  <div class="rev-actions">
+    <button type="submit" class="primary" id="closeout-save" disabled>
+      Save version &amp; link (<span id="rid-count">0</span>)</button>
+  </div>
+  {% endif %}
 </form>
 
-{% if data.isReviewer and not data.mySubmitted %}
-<!-- selection → comment popover (absent once the copy is submitted: locked) -->
+{% if data.isReviewer and not data.mySubmitted and data.phase == 'in_review' %}
+<!-- selection → comment popover (absent once the copy is submitted: locked,
+     and absent outside in_review: commenting is over — v3.1) -->
 <!-- v3: comments only — the SUGG kind is no longer offered by the GUI -->
 <div id="cmt-pop" class="cmt-pop" hidden>
   <div id="cmt-comm-fields" class="cmt-pop-row">
