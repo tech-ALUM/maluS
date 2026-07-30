@@ -92,3 +92,52 @@ def test_context_none_still_escapes_every_line():
 
 def test_context_none_on_equal_texts_is_still_empty():
     assert html_diff("a\nb\n", "a\nb\n", context=None) == ""
+
+
+# --- v3.1 step 03: line-number gutters ------------------------------------
+
+def test_line_numbers_render_both_gutters():
+    out = html_diff(_OLD3, _NEW3, line_numbers=True)
+    assert (
+        '<div class="diff-ctx"><span class="diff-ln diff-ln-old">1</span>'
+        '<span class="diff-ln diff-ln-new">1</span>alpha</div>'
+    ) in out
+    # a deleted row carries no new-side number: the span is present but empty
+    assert (
+        '<div class="diff-del"><span class="diff-ln diff-ln-old">2</span>'
+        '<span class="diff-ln diff-ln-new"></span>the <del>quick</del> fox</div>'
+    ) in out
+    # an inserted row is the mirror image
+    assert (
+        '<div class="diff-ins"><span class="diff-ln diff-ln-old"></span>'
+        '<span class="diff-ln diff-ln-new">2</span>the <ins>slow</ins> fox</div>'
+    ) in out
+    assert (
+        '<span class="diff-ln diff-ln-old">3</span>'
+        '<span class="diff-ln diff-ln-new">3</span>omega'
+    ) in out
+
+
+def test_line_numbers_diverge_after_an_unbalanced_insert():
+    out = html_diff("a\nb\nc\n", "a\nX\nb\nc\n", context=None, line_numbers=True)
+    assert (
+        '<div class="diff-ins"><span class="diff-ln diff-ln-old"></span>'
+        '<span class="diff-ln diff-ln-new">2</span><ins>X</ins></div>'
+    ) in out
+    # from there on the old side trails the new side by one line
+    assert (
+        '<span class="diff-ln diff-ln-old">2</span>'
+        '<span class="diff-ln diff-ln-new">3</span>b'
+    ) in out
+
+
+def test_line_numbers_do_not_weaken_escaping():
+    out = html_diff("safe\n", "<script>alert(1)</script>\n",
+                    context=None, line_numbers=True)
+    assert "<script>" not in out and "&lt;script&gt;" in out
+    assert '<span class="diff-ln diff-ln-new">1</span>' in out
+
+
+def test_line_numbers_default_off_changes_nothing():
+    assert html_diff(_OLD3, _NEW3, line_numbers=False) == _GOLDEN_COMPACT
+    assert "diff-ln" not in html_diff(_OLD3, _NEW3)
