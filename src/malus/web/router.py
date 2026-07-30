@@ -1094,7 +1094,9 @@ def mark_implemented(
         raise HTTPException(status_code=409, detail="the review is not in closeout")
     except ValueError as exc:  # no linked change / wrong status / no such RID
         raise HTTPException(status_code=422, detail=str(exc))
-    return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
+    # v3.1 step 01: back to the card that was just marked, in the viewer where
+    # the owner now works (the standalone workspace is gone)
+    return RedirectResponse(f"/ui/reviews/{review_id}/document?focus={rid}", 303)
 
 
 @web.get("/ui/reviews/{review_id}/implement")

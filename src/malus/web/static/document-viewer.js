@@ -504,6 +504,37 @@
       });
       actions.appendChild(purge);
     }
+    if (r && data.canEditDoc && (r.queue === "todo" || r.queue === "rework")) {
+      // the edit↔RID picker IS the queue: tick the findings this save resolves
+      var pick = document.createElement("label");
+      pick.className = "cq-pick";
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.name = "rids";
+      box.value = r.rid;
+      box.addEventListener("change", syncSaveButton);
+      pick.appendChild(box);
+      pick.appendChild(document.createTextNode(" this edit resolves it"));
+      card.appendChild(pick);
+
+      if (r.hasChange) {  // implement is gated server-side on a linked change
+        var res = document.createElement("input");
+        res.type = "text";
+        res.className = "cq-resolution-input";
+        res.placeholder = "what was done (resolution)";
+        var mark = document.createElement("button");
+        mark.type = "button";
+        mark.className = "secondary cp-implement";
+        mark.textContent = "Mark implemented";
+        mark.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          post(base + "/rids/" + encodeURIComponent(r.rid) + "/implement",
+            { resolution: res.value });
+        });
+        actions.appendChild(res);
+        actions.appendChild(mark);
+      }
+    }
     if (actions.childNodes.length) card.appendChild(actions);
 
     card.addEventListener("click", function (ev) {
@@ -570,6 +601,16 @@
     }
     f.addEventListener("click", function (ev) { ev.stopPropagation(); });
     return f;
+  }
+
+  function syncSaveButton() {
+    var btn = document.getElementById("closeout-save");
+    if (!btn || !editEl) return;
+    var n = list.querySelectorAll('input[name="rids"]:checked').length;
+    var counter = document.getElementById("rid-count");
+    if (counter) counter.textContent = String(n);
+    // the service rejects both cases anyway — this only saves the round-trip
+    btn.disabled = n === 0 || editEl.value === data.latest;
   }
 
   /* v3.1: in closeout the panel IS the work queue — the four groups the
@@ -802,6 +843,7 @@
     }
     // re-apply the current focus across re-renders (no scroll jump)
     setFocus(focusKey && itemByKey(focusKey) ? focusKey : null, { scroll: false });
+    syncSaveButton();  // v3.1: the queue's checkboxes are rebuilt on every pass
   }
   /* ---------------- closeout: Render | Edit ----------------------------- */
   var modeRender = document.getElementById("doc-mode-render");
@@ -816,6 +858,7 @@
   }
   if (modeRender) modeRender.addEventListener("click", function () { setMode(false); });
   if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
+  if (editEl) editEl.addEventListener("input", syncSaveButton);
 
   parseCopy();
   renderLegend();

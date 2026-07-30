@@ -104,6 +104,40 @@ def test_unsubmitted_reviewer_cannot_comment_in_closeout(mkuser, docs):
     assert 'value="submit"' not in html            # nor the Save/Submit bar
 
 
+def test_saving_from_the_document_links_the_ticked_rid(mkuser, docs):
+    owner, _f = _seed_closeout(mkuser, docs)
+    edited = docs["baseline"].replace("shall", "must", 1)
+
+    r = owner.post(
+        f"/ui/reviews/{R}/closeout",
+        data={"content": edited, "rids": ["SIN-SRS-0001"]},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    data = _payload(owner.get(f"/ui/reviews/{R}/document").text)
+    rid = next(x for x in data["rids"] if x["rid"] == "SIN-SRS-0001")
+    assert rid["hasChange"] is True
+    assert data["latest"] == edited
+
+
+def test_mark_implemented_returns_to_the_document_focused(mkuser, docs):
+    owner, _f = _seed_closeout(mkuser, docs)
+    owner.post(
+        f"/ui/reviews/{R}/closeout",
+        data={"content": docs["baseline"].replace("shall", "must", 1), "rids": ["SIN-SRS-0001"]},
+    )
+
+    r = owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/implement",
+        data={"resolution": "reworded"},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/ui/reviews/{R}/document?focus=SIN-SRS-0001"
+
+
 def test_in_review_carries_no_queue(mkuser, docs):
     owner = mkuser("owner", "A. Boffi")
     f = mkuser("fmiccoli", "F. Miccoli")

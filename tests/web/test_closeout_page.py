@@ -122,7 +122,8 @@ def test_post_mark_implemented_with_linked_change_succeeds(mkuser, docs):
 
     r = owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/implement", follow_redirects=False)
     assert r.status_code == 303
-    assert r.headers["location"] == f"/ui/reviews/{R}/closeout"
+    # v3.1 step 01: back to the finding's card in the viewer, not the retired page
+    assert r.headers["location"] == f"/ui/reviews/{R}/document?focus=SIN-SRS-0001"
     assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "implemented"
 
 
@@ -153,10 +154,16 @@ def test_post_mark_implemented_with_resolution_persists_it(mkuser, docs):
     viewer = owner.get(f"/ui/reviews/{R}/document?focus=SIN-SRS-0001").text
     assert '"resolution": "bounded the timeout to 30s"' in viewer
 
-    # and shows up in the closeout queue item itself (now in "Awaiting verification")
-    page = owner.get(f"/ui/reviews/{R}/closeout").text
-    assert "Awaiting verification" in page
-    assert "bounded the timeout to 30s" in page
+    # v3.1 step 01: the queue lives in that payload now (the standalone page is
+    # gone) — the RID moved to the "awaiting verification" bucket
+    import json
+
+    payload = json.loads(
+        viewer.split('<script type="application/json" id="viewer-data">')[1].split("</script>")[0]
+    )
+    rid = next(x for x in payload["rids"] if x["rid"] == "SIN-SRS-0001")
+    assert rid["queue"] == "awaiting"
+    assert rid["resolution"] == "bounded the timeout to 30s"
 
 
 # --------------------------------------------------------------------------- #
