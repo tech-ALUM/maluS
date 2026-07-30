@@ -166,3 +166,18 @@ def test_toggle_is_server_side_only(client):
     css = client.get("/static/app.css").text
     assert ".diff-ln" in css                     # the gutters are styled
     # no script tag is introduced by the diff page (zero-JS toggle)
+
+
+def test_dashboard_links_the_diff_exactly_once(mkuser, docs):
+    """v3.1 step 03: the owner-actions block used to render a second copy of
+    the Full diff button on top of the all-members one (review.html:34)."""
+    owner, f = _seed_answered(mkuser, docs)
+    _to_closeout(owner, f)
+
+    page = owner.get(f"/ui/reviews/{R}")
+    assert page.status_code == 200
+    assert page.text.count(f'href="/ui/reviews/{R}/diff"') == 1
+
+    # and the reviewer, who only ever had the all-members block, is unaffected
+    r_page = f.get(f"/ui/reviews/{R}")
+    assert r_page.text.count(f'href="/ui/reviews/{R}/diff"') == 1

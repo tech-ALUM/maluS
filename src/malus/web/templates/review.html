@@ -31,7 +31,6 @@
     {% endif %}
   {% elif phase == 'closeout' %}
     <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/closeout">Closeout workspace</a>
-    <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a>
     {% if finalize_ready %}
     <form method="post" action="/ui/reviews/{{ review.review_id_str }}/finalize" class="inline"
           onsubmit="return confirm('Terminate the review? The last document version becomes final, the PDF is archived, and no further changes are possible (only a global admin can reopen it).')">
@@ -98,9 +97,9 @@
 </section>
 
 {% if phase in ('closeout', 'finalized') %}
-{# v3 step 03 task 4: every member (not just the owner) can open the full
-   diff once closeout starts — the owner-actions block above already links
-   it, but reviewers/moderators need their own visible copy. #}
+{# v3 step 03 task 4 / v3.1 step 03: the single Full-diff entry point, for
+   owner, reviewer and moderator alike (the duplicate in the owner-actions
+   block above was removed in v3.1). #}
 <p class="actions"><a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a>
 {% if phase == 'finalized' %}
   {# v3 step 04: the review is done — every member downloads the results #}
