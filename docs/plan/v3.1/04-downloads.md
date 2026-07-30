@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** a terminated review hands back everything a member needs, from both
 places a member actually stands. Two new member-only, finalized-only routes —
@@ -58,19 +58,19 @@ Tasks 1, 3 and 4 have no such dependency.
 
 ## Deliverables
 
-- [ ] `GET /ui/reviews/{review_id}/download/baseline.md` — frozen original,
+- [x] `GET /ui/reviews/{review_id}/download/baseline.md` — frozen original,
   `text/markdown; charset=utf-8`, attachment `{review_id}-baseline.md`
-- [ ] `src/malus/web/templates/diff_download.html` — standalone, inline CSS,
+- [x] `src/malus/web/templates/diff_download.html` — standalone, inline CSS,
   no JS, no `base.html`
-- [ ] `GET /ui/reviews/{review_id}/download/diff.html` —
+- [x] `GET /ui/reviews/{review_id}/download/diff.html` —
   `text/html; charset=utf-8`, attachment `{review_id}-diff.html`
-- [ ] Dashboard downloads row extended to `baseline.md · final.md · diff.html
+- [x] Dashboard downloads row extended to `baseline.md · final.md · diff.html
   · report.md · PDF` (PDF slot keeps its `has_pdf` / `Print view` fallback)
-- [ ] `ArtifactRepo.review_ids_with(kind)` — one query for a whole list page
-- [ ] `reviews_page` rows carry `status` + `has_pdf`; `reviews.html` shows a
+- [x] `ArtifactRepo.review_ids_with(kind)` — one query for a whole list page
+- [x] `reviews_page` rows carry `status` + `has_pdf`; `reviews.html` shows a
   `⋯` menu with the five links on finalized rows (members / global admin)
-- [ ] README download sentence updated to the five-artifact set
-- [ ] Full suite green
+- [x] README download sentence updated to the five-artifact set
+- [x] Full suite green
 
 ---
 
@@ -89,7 +89,7 @@ Tasks 1, 3 and 4 have no such dependency.
 `409` unless phase `finalized`; `403` for a non-member (all three from the
 existing `_member_finalized`).
 
-- [ ] **Step 1: failing tests** — append to
+- [x] **Step 1: failing tests** — append to
   `tests/web/test_finalize_downloads.py`:
 
 ```python
@@ -115,9 +115,9 @@ def test_baseline_download_gate(mkuser, docs):
     assert outsider.get(f"/ui/reviews/{R}/download/baseline.md").status_code == 403
 ```
 
-- [ ] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **FAIL** (404: the route does not exist).
-- [ ] **Step 3: implement** in `src/malus/web/router.py`:
+- [x] **Step 3: implement** in `src/malus/web/router.py`:
 
 ```python
 @web.get("/ui/reviews/{review_id}/download/baseline.md")
@@ -137,9 +137,9 @@ def download_baseline_md(review_id: str, request: Request, session: Session = De
 
   `VersionRepo` and `Response` are already imported (`router.py:19,36`); no new
   imports.
-- [ ] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **PASS**, then `python -m pytest -q` → green.
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
   `git commit -m "feat(web): download the frozen baseline of a finalized review"`
 
 ### Task 2: self-contained `download/diff.html`
@@ -161,7 +161,7 @@ the real class names.
 header carrying review id, title and the baseline→latest ordinals, and the
 whole-document line-numbered diff.
 
-- [ ] **Step 1: failing tests** — append to
+- [x] **Step 1: failing tests** — append to
   `tests/web/test_finalize_downloads.py`. Note the second test needs a change
   far from the top of the document, so make `_to_closeout` accept the closeout
   content: change its signature to
@@ -212,9 +212,9 @@ def test_diff_download_gate(mkuser, docs):
     assert outsider.get(f"/ui/reviews/{R}/download/diff.html").status_code == 403
 ```
 
-- [ ] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **FAIL** (404).
-- [ ] **Step 3a: create** `src/malus/web/templates/diff_download.html` — a
+- [x] **Step 3a: create** `src/malus/web/templates/diff_download.html` — a
   whole document, **not** `{% extends "base.html" %}`:
 
 ```html
@@ -267,7 +267,7 @@ def test_diff_download_gate(mkuser, docs):
 
   If step 03's gutter spans use a class other than `diff-ln`, rename the rule
   (and the test assertion) to match and record it under `## Deviations`.
-- [ ] **Step 3b: implement** the route in `src/malus/web/router.py`, after
+- [x] **Step 3b: implement** the route in `src/malus/web/router.py`, after
   `download_final_md`:
 
 ```python
@@ -301,9 +301,9 @@ def download_diff_html(review_id: str, request: Request, session: Session = Depe
   file is an artifact, not a page — it takes no `request` context and must not
   inherit the app chrome. Autoescaping still applies (`select_autoescape()`
   covers `.html`).
-- [ ] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **PASS**, then `python -m pytest -q` → green.
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
   `git commit -m "feat(web): self-contained baseline-to-final diff download"`
 
 ### Task 3: the dashboard downloads row, complete
@@ -317,7 +317,7 @@ def download_diff_html(review_id: str, request: Request, session: Session = Depe
 `baseline.md · final.md · diff.html · report.md · PDF`, in that order; the last
 entry stays conditional on `has_pdf` (already computed at `router.py:339`).
 
-- [ ] **Step 1: failing test** — append to
+- [x] **Step 1: failing test** — append to
   `tests/web/test_finalize_downloads.py`:
 
 ```python
@@ -340,9 +340,9 @@ def test_dashboard_shows_the_full_download_set_in_order(mkuser, docs):
 
   (`str.index` raises `ValueError` if a link is missing, so the list
   comprehension is itself the presence assertion.)
-- [ ] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 2: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **FAIL** (`ValueError: substring not found` on `baseline.md`).
-- [ ] **Step 3: implement** — replace `review.html:100-103` with the full set,
+- [x] **Step 3: implement** — replace `review.html:100-103` with the full set,
   leaving the `{% if has_pdf %}` branch at `104-108` untouched:
 
 ```html
@@ -369,9 +369,9 @@ def test_dashboard_shows_the_full_download_set_in_order(mkuser, docs):
   and, in *Optional extras*, extend the fallback sentence to
   "…downloads offer the baseline, the final Markdown, the diff and the RTD
   report, and a zero-dependency browser print view replaces the PDF."
-- [ ] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
+- [x] **Step 4: run** `python -m pytest tests/web/test_finalize_downloads.py -q`
   → **PASS**, then `python -m pytest -q` → green.
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
   `git commit -m "feat(web): dashboard downloads row — full five-artifact set"`
 
 ### Task 4: batched PDF lookup + `⋯` download menu in the reviews list
@@ -404,7 +404,7 @@ the whole page. Scoping it with an `IN (...)` of the listed ids buys nothing
 here (the page lists *all* reviews) and costs a variable-length clause, so the
 method takes only `kind`.
 
-- [ ] **Step 1: failing tests** — create
+- [x] **Step 1: failing tests** — create
   `tests/web/test_reviews_list_downloads.py` (self-contained helper: the test
   package has no `__init__.py`, so never import across test modules):
 
@@ -490,9 +490,9 @@ def test_pdf_lookup_is_batched_not_one_query_per_row(app, mkuser, docs):
     assert len(hits) == 1, f"expected 1 batched artifact query for 3 rows, got {len(hits)}"
 ```
 
-- [ ] **Step 2: run** `python -m pytest tests/web/test_reviews_list_downloads.py -q`
+- [x] **Step 2: run** `python -m pytest tests/web/test_reviews_list_downloads.py -q`
   → **FAIL** (no links in the list; no `review_artifacts` query at all).
-- [ ] **Step 3a: implement** the repo method in
+- [x] **Step 3a: implement** the repo method in
   `src/malus/repo/repositories.py`, inside `ArtifactRepo` after `get`:
 
 ```python
@@ -507,7 +507,7 @@ def test_pdf_lookup_is_batched_not_one_query_per_row(app, mkuser, docs):
         )
 ```
 
-- [ ] **Step 3b: implement** `reviews_page` (`src/malus/web/router.py:126`) —
+- [x] **Step 3b: implement** `reviews_page` (`src/malus/web/router.py:126`) —
   hoist the repos out of the loop and add the two row fields:
 
 ```python
@@ -532,7 +532,7 @@ def test_pdf_lookup_is_batched_not_one_query_per_row(app, mkuser, docs):
         )
 ```
 
-- [ ] **Step 3c: implement** the menu in
+- [x] **Step 3c: implement** the menu in
   `src/malus/web/templates/reviews.html`, as the last child of the `<li>`
   (after the title span, line 21). Reuse the dashboard's
   `details.menu` / `.menu-items` pattern verbatim (`review.html:48-54`,
@@ -560,7 +560,7 @@ def test_pdf_lookup_is_batched_not_one_query_per_row(app, mkuser, docs):
     {% endif %}
 ```
 
-- [ ] **Step 3d: implement** the one styling rule in
+- [x] **Step 3d: implement** the one styling rule in
   `src/malus/web/static/app.css`, next to the `.reviews` block (line 182):
 
 ```css
@@ -569,30 +569,66 @@ def test_pdf_lookup_is_batched_not_one_query_per_row(app, mkuser, docs):
 
   (`.menu` is `position: relative`, so the popup anchors to the summary and is
   not clipped — `.reviews li` sets no `overflow`.)
-- [ ] **Step 4: run** `python -m pytest tests/web/test_reviews_list_downloads.py -q`
+- [x] **Step 4: run** `python -m pytest tests/web/test_reviews_list_downloads.py -q`
   → **PASS**, then `python -m pytest -q` → green.
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
   `git commit -m "feat(web): download menu on finalized rows of the reviews list"`
 
 ## Definition of Done
 
-- [ ] Every deliverable checked; `python -m pytest -q` green (the suite must
+- [x] Every deliverable checked; `python -m pytest -q` green (the suite must
   pass **with and without** the `malus[pdf]` extra — the fifth slot is
   conditional in both the dashboard row and the list menu).
-- [ ] The five download routes behave identically at the gate: `200` +
+- [x] The five download routes behave identically at the gate: `200` +
   `Content-Disposition: attachment` + non-empty body for a member of a
   finalized review, `409` before finalize, `403` for a non-member.
-- [ ] `download/diff.html` opens correctly from `file://` after a real
+- [x] `download/diff.html` opens correctly from `file://` after a real
   browser download: no console errors, no network requests, line numbers and
   colours visible, prints sensibly.
-- [ ] The batched-query test proves one `review_artifacts` query for three
+- [x] The batched-query test proves one `review_artifacts` query for three
   finalized rows.
-- [ ] Manual smoke: `/ui/reviews` shows `⋯` only on finalized rows and only to
+- [x] Manual smoke: `/ui/reviews` shows `⋯` only on finalized rows and only to
   members/admin; the dashboard row reads
   `baseline.md · final.md · diff.html · report.md · PDF`.
-- [ ] README's finalize step lists the five artifacts.
-- [ ] Any agreed deviation recorded under a `## Deviations` heading in this
+- [x] README's finalize step lists the five artifacts.
+- [x] Any agreed deviation recorded under a `## Deviations` heading in this
   file.
+
+## Deviations
+
+**1. Task 2's version-ordinal assertion was wrong (`v1`/`v2` → `v1 → v3`).**
+The step's test asserted `"v1" in body and "v2" in body` for the exported diff
+header. The implementation renders the real ordinals, which are **v1 → v3**, not
+v1 → v2: `svc.finalize` calls `add_version(..., is_final=True)`, so a finalized
+review has three versions — v1 the frozen baseline, v2 the closeout save, v3 the
+final. (This is the same behaviour v3.1 step 02 pins in
+`test_re_terminate_after_reopen_adds_a_second_final_version`.) The assertion now
+reads `assert "Baseline v1 → final v3" in body`, which checks the header carries
+the ordinals *and* documents why the final one is v3. No production code changed.
+
+**2. `.diff-ln-new` has no rule in the standalone export.** `app.css` gives it
+`border-right` + `margin-right` as a visual separator between the gutters and
+the text; `diff_download.html`'s inline CSS, as specified by this step, styles
+only `.diff-ln`. Verified in a browser: the export reads correctly without it
+(`.diff-ln`'s `padding-right` keeps the columns apart), so the template ships as
+the step wrote it. Noted only because the export therefore looks marginally
+different from the in-app `?view=full` page. `.diff-hunk` and `.diff-ln-old`
+have no rule in `app.css` either — those are structural, by design.
+
+**Verification notes** (not deviations):
+
+- The DoD's "green with **and without** `malus[pdf]`" was run both ways: 506
+  passed / 1 skipped without the extra, **508 passed / 0 skipped** with it. On
+  this machine weasyprint needs `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`
+  to find Homebrew's Pango, otherwise `PDF_AVAILABLE` is silently `False`.
+- `download/diff.html` was downloaded through the real route and rendered from a
+  bare static server with no application behind it:
+  `performance.getEntriesByType('resource')` reported **0** sub-resources, the
+  console was clean, gutters and colours applied, and the `@media print` block
+  was present. (The browser tool would not open a `file://` path directly; a
+  static-reference audit of the saved file — no `<script>`, no `src=`, no
+  `<link>`, no `/static/`, no `http(s)://`, no `@import`, no `url()` — closes
+  that gap.)
 
 ## Out of scope
 
