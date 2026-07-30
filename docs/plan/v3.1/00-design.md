@@ -34,7 +34,7 @@ surfaced:
 | Closeout home | The closeout workspace **moves into the unified document viewer** (`/ui/reviews/{id}/document`). `closeout.html` and `static/editor.js` are deleted; `GET /ui/reviews/{id}/closeout` becomes a 303 redirect to the document (same treatment `GET /implement` got in v3). `POST /ui/reviews/{id}/closeout` keeps its URL and its service call — only its caller changes. |
 | Centre column | In phase `closeout` the sheet renders the **latest `DocumentVersion`**, not the baseline, and carries a two-state toolbar **`Render \| Edit`**. `Edit` swaps the sheet for a full-width textarea and is offered only to a principal that may write (`canDispose`-style: owner or global admin, `is_ai` barred). No inline comment markers in closeout: comment anchors are baseline offsets and the latest version has moved past them — the per-comment `Changes` diff in the card is the anchor now. |
 | Render safety | The closeout render goes through `marked` **and DOMPurify**, like the review-phase sheet. This closes the known v3 minor (the old `editor.js` preview called `marked` unsanitized — self-XSS on the owner). |
-| Side panel | Stays on the **right** (`.workbench` = doc `1fr` + panel `340px`, unchanged). In phase `closeout` its content switches from the flat comment list to the **work queue** — the four groups the workspace already had (`Rework requested`, `To implement`, `Awaiting verification`, `Verified`) — for **every** role, not just the owner, plus a collapsed `<details>` group **`Closed — no change`** holding the rejected and deferred findings so nothing silently disappears. Withdrawn findings stay out of the viewer payload exactly as today (`_document_context` skips them unless focused). |
+| Side panel | Stays on the **right** (`.workbench` = doc `1fr` + panel `340px`, unchanged). Alberto's feedback said "left"; moving it was considered and rejected, because `.workbench` is shared by every role and every phase — flipping the columns would restyle the review phase too, for no gain in closeout. The decision is "the side column", and it is already on the right. In phase `closeout` its content switches from the flat comment list to the **work queue** — the four groups the workspace already had (`Rework requested`, `To implement`, `Awaiting verification`, `Verified`) — for **every** role, not just the owner, plus a collapsed `<details>` group **`Closed — no change`** holding the rejected and deferred findings so nothing silently disappears. Withdrawn findings stay out of the viewer payload exactly as today (`_document_context` skips them unless focused). |
 | Queue items | The queue items are the existing `cp-card` component rendered **collapsed**: head = reviewer chip + RID + status pill + truncated comment; expanding reveals body, owner reply, resolution, history, the `Changes` diff section and the role's action buttons (Verify / Request changes / Mark implemented). `?focus=RID` expands its card as today. |
 | Edit↔RID picker | Fused into the queue: cards in `To implement` and `Rework requested` carry a `name="rids"` checkbox. The panel already lives inside `#rev-form`, so in closeout that form posts `content` + `rids[]` to `POST /closeout`; the submit reads **`Save version & link (N)`** and is disabled while `N = 0` or the text is unchanged (the service rejects both cases anyway — the UI just stops the round-trip). |
 | Mark implemented | HTML forbids nested forms, so the per-RID form of `closeout.html` becomes a `resolution` text input + button inside the card, submitted through the viewer's existing detached-form `post()` helper (the mechanism Verify / Accept / Reopen already use). Redirect target becomes `/document?focus={rid}`. |
@@ -79,9 +79,34 @@ a non-member.
 | 2 | `02-terminate-reopen.md` | `Terminate review` label + document toolbar placement, `svc.reopen_finalized`, admin route + `⋯` entry | v3 04 |
 | 3 | `03-diff-views.md` | `html_diff(context=None, line_numbers=…)`, `?view=` toggle, delete the duplicate dashboard button | v3 03 |
 | 4 | `04-downloads.md` | `baseline.md` + `diff.html` routes, dashboard row, `⋯` menu in the reviews list | 3 (diff renderer) |
+| 5 | `05-one-schema-authority.md` | Alembic as the sole production schema authority: `create_all` confined to tests, backfills moved into revisions, idempotent-revision convention | — |
 
 Steps 2–4 are independent of each other and of step 1; step 1 is the large one.
 Implemented in order, one at a time, per `CLAUDE.md`.
+
+**Cross-step coordination — read before starting any step out of order:**
+
+- Steps **02 and 03 both edit the owner-actions block of
+  `src/malus/web/templates/review.html`** (02 relabels the Finalize button
+  around line 36; 03 deletes the duplicate `Full diff` link at line 34).
+  Whichever lands second must locate its target **by content, not by the line
+  numbers quoted in its own file** — they will have shifted.
+- Step **02's last task depends on step 01** (it puts the Terminate button in
+  the closeout toolbar that step 01 builds). That task is deliberately last and
+  carries its own fallback; the rest of step 02 stands alone.
+- Step **04 consumes the `html_diff` signature step 03 produces**
+  (`context: int | None = 3, line_numbers: bool = False`) and the gutter class
+  `.diff-ln` it emits. Do not start 04 before 03.
+- Step **05 touches the boot path of a running production service** and is
+  independent of the four UI steps. It can be scheduled whenever, but never
+  interleaved task-by-task with them.
+
+**Step 5 was added on 2026-07-30**, after the production incident described in
+its own file: the server went down because `create_all` and Alembic each
+believed they owned the schema. Commit `a5a0125` stopped the bleeding by making
+revision `b9e4d5f6a701` skip objects that already exist; step 5 removes the
+double authority that made the collision possible. It is independent of steps
+1–4 and touches no UI.
 
 ## Sources
 
