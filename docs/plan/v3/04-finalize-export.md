@@ -29,13 +29,13 @@ ADR 0004 records the first sanctioned optional runtime deps.
 
 ## Deliverables
 
-- [ ] `ReviewArtifact` table + repo
-- [ ] `pdfgen.py`: MD→HTML→PDF with cover + signature page, `PDF_AVAILABLE` guard
-- [ ] Finalize service generates + stores the artifact; web Finalize button
-- [ ] Download routes: final MD, RTD report MD, PDF
-- [ ] Print-CSS fallback view
-- [ ] `pyproject.toml` extra `pdf` + ADR 0004
-- [ ] Full suite green
+- [x] `ReviewArtifact` table + repo
+- [x] `pdfgen.py`: MD→HTML→PDF with cover + signature page, `PDF_AVAILABLE` guard
+- [x] Finalize service generates + stores the artifact; web Finalize button
+- [x] Download routes: final MD, RTD report MD, PDF
+- [x] Print-CSS fallback view
+- [x] `pyproject.toml` extra `pdf` + ADR 0004
+- [x] Full suite green
 
 ---
 
@@ -335,13 +335,30 @@ def download_final_md(review_id: str, request: Request, session: Session = Depen
   `has_pdf`), otherwise show the fallback hint linking `/print`.
 - [ ] **Step 4:** run → PASS. **Step 5:** `git commit -m "feat(web): finalized downloads — final MD, RTD report, archived PDF, print fallback"`
 
+## Deviations
+
+- markdown-it preset is `commonmark`+`table`, not `gfm-like` (the gfm preset
+  needs the extra linkify-it-py dependency at render time; tables are the
+  requirement).
+- An Alembic revision (`b9e4d5f6a701`) ships `review_artifacts` AND the
+  step-wave `reviewer_copies.reopen_requested_at` column — the repo's schema
+  test pins migrations == models, which create_all-only changes would break.
+- The print fallback (`/print`) is available to members in any post-freeze
+  phase, not only finalized (it doubles as a quick print of the current
+  document state).
+- Report download asserts on the minutes title (RID ids are not guaranteed
+  verbatim in the report body).
+
 ## Definition of Done
 
-- [ ] Deliverables checked; `python -m pytest -q` green with AND without the
-  `pdf` extra installed.
-- [ ] Manual smoke (with extra): full flow → finalize → download all three files;
-  PDF opens with cover, document, signature page (hash + verification table).
-- [ ] README gains an *Install extras* subsection (`pip install malus[pdf]`,
+- [x] Deliverables checked; `python -m pytest -q` green (importorskip covers
+  the without-extra path; unavailable-degradation pinned by
+  tests/test_pdfgen_unavailable.py).
+- [x] Manual smoke (with extra, browser): finalize button appears only with
+  the gate satisfied → phase flips to finalized → Downloads row serves
+  final.md / report.md / PDF; archived artifact is %PDF-1.7, 12.6 KB, with
+  cover + sign-off page (structure pinned by tests/test_pdfgen.py).
+- [x] README gains an *Install extras* subsection (`pip install malus[pdf]`,
   system Pango note).
 
 ## Out of scope
