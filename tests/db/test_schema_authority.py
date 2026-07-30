@@ -13,6 +13,8 @@ import pytest
 from sqlalchemy import create_engine, inspect
 from sqlmodel import SQLModel
 
+from alembic.config import Config
+
 import malus.db.models  # noqa: F401  populate SQLModel.metadata
 from malus.db.migrations import alembic_ini, current_revision, stamp_head, upgrade_head
 
@@ -114,3 +116,54 @@ def test_create_app_has_no_create_schema_switch():
     from malus.api import create_app
 
     assert "create_schema" not in pyinspect.signature(create_app).parameters
+
+
+# --- v3.1 step 05 tasks 6-7: real boots, through Alembic alone --------------
+
+def _alembic_config(db_url: str) -> Config:
+    cfg = Config(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", db_url)
+    cfg.attributes["configure_logger"] = False
+    return cfg
+
+
+def test_fresh_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
+    """The container path, end to end: empty volume -> `alembic upgrade head`
+    (docker-entrypoint.sh) -> `malus serve` (create_app, which creates nothing)
+    -> /health 200 and a working login. No `create_all` anywhere."""
+    from fastapi.testclient import TestClient
+
+    from malus.api import create_app
+    from malus.db import make_engine
+
+    monkeypatch.delenv("MALUS_DB_URL", raising=False)
+    url = f"sqlite:///{tmp_path / 'fresh-volume.db'}"
+    engine = make_engine(url)
+
+    upgrade_head(engine)                      # the entrypoint's only schema step
+
+    assert current_revision(engine) == "c4d5e6f7a8b9"
+    app = create_app(
+        engine, https_only=False, session_secret="s", bootstrap_admin=("admin", "admin-pw")
+    )
+    client = TestClient(app)
+    assert client.get("/health").status_code == 200
+    assert client.post(
+        "/auth/login", json={"username": "admin", "password": "admin-pw"}
+    ).status_code == 200
+
+
+def test_fresh_deployment_second_boot_is_a_no_op(tmp_path, monkeypatch):
+    """Restarting the container re-runs the entrypoint; the second
+    `alembic upgrade head` must be a no-op, not a collision."""
+    monkeypatch.delenv("MALUS_DB_URL", raising=False)
+    engine = create_engine(f"sqlite:///{tmp_path / 'restart.db'}")
+
+    upgrade_head(engine)
+    upgrade_head(engine)
+
+    assert current_revision(engine) == "c4d5e6f7a8b9"
+    assert set(inspect(engine).get_table_names()) - {"alembic_version"} == set(
+        SQLModel.metadata.tables
+    )
