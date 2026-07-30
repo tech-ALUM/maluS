@@ -12,8 +12,9 @@ interactively to maluS's MCP server (no paid Anthropic API on the server).
 
 1. **Freeze** an immutable baseline of the Document Under Review (DUR).
 2. Reviewers insert structured inline comment blocks
-   (`{COMM|type=…|sev=…: …}`, `{SUGG: "old" -> "new"}`) into their own copy —
-   never editing the baseline text (the *freeze rule*, enforced by the parser).
+   (`{COMM|type=…|sev=…: …}`) into their own copy — never editing the
+   baseline text (the *freeze rule*, enforced by the parser). Submitting the
+   copy is final: editing again needs a reopen approved by the owner (v3).
 3. **Harvest** extracts all comments into RIDs (one tracked finding each).
 4. **Triage** clusters duplicates and batch-applies mechanical suggestions.
 5. The **owner** dispositions each RID (accept / reject / defer) — from the
@@ -25,7 +26,9 @@ interactively to maluS's MCP server (no paid Anthropic API on the server).
    document version linked to the RIDs it resolves (the traceability record —
    no git needed).
 7. **Reviewers — never the owner — verify and close** each RID.
-8. **Finalize** produces the finalized document plus review minutes.
+8. **Finalize** produces the finalized document plus review minutes —
+   downloadable as `final.md`, the RTD report, and an archived PDF
+   (`malus[pdf]`).
 
 The three roles (owner, reviewer, moderator) can each be a human or an AI. The
 reviewer-side closure authority — *only a reviewer or a moderator on their
@@ -38,6 +41,16 @@ that makes AI participation sound, and it is enforced server-side.
 cp .env.example .env          # set MALUS_SECRET_KEY + admin bootstrap; never commit .env
 docker compose up -d --build  # migrates, then serves on 127.0.0.1:8000
 ```
+
+### Optional extras (ADR 0004)
+
+| Extra | Enables | Notes |
+|-------|---------|-------|
+| `pip install 'malus[pdf]'` | archived PDF at finalize (cover + document + sign-off page) | needs system Pango (`libpango-1.0-0`, `libpangoft2-1.0-0` on Debian/Ubuntu) |
+
+Without `malus[pdf]` everything still works: finalize completes, downloads
+offer the final Markdown and the RTD report, and a zero-dependency browser
+print view replaces the PDF.
 
 Put a TLS reverse proxy in front (`deploy/Caddyfile`), then open
 `https://<host>/ui/login`. SQLite (WAL) by default; Postgres is a `.env` +
