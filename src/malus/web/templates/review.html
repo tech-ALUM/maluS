@@ -34,8 +34,8 @@
     <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a>
     {% if finalize_ready %}
     <form method="post" action="/ui/reviews/{{ review.review_id_str }}/finalize" class="inline"
-          onsubmit="return confirm('Finalize the review? The last document version becomes final, the PDF is archived, and no further changes are possible.')">
-      <button class="primary">Finalize review</button>
+          onsubmit="return confirm('Terminate the review? The last document version becomes final, the PDF is archived, and no further changes are possible (only a global admin can reopen it).')">
+      <button class="primary">Terminate review</button>
     </form>
     {% endif %}
     {% if user.is_admin %}

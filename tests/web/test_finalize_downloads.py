@@ -57,8 +57,8 @@ def test_finalize_blocked_until_gate_holds(mkuser, docs):
     )
     f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")
     owner.post(f"/ui/reviews/{R}/start-closeout")
-    # accepted RID not yet verified → 409, dashboard shows no Finalize button
-    assert "Finalize review" not in owner.get(f"/ui/reviews/{R}").text
+    # accepted RID not yet verified → 409, dashboard shows no Terminate button
+    assert "Terminate review" not in owner.get(f"/ui/reviews/{R}").text
     assert owner.post(f"/ui/reviews/{R}/finalize").status_code == 409
 
 
@@ -66,7 +66,7 @@ def test_finalize_flow_and_downloads(mkuser, docs):
     owner, f = _to_closeout(mkuser, docs)
 
     page = owner.get(f"/ui/reviews/{R}").text
-    assert "Finalize review" in page  # gate satisfied → button appears
+    assert "Terminate review" in page  # gate satisfied → button appears
 
     r = owner.post(f"/ui/reviews/{R}/finalize", follow_redirects=False)
     assert r.status_code == 303
@@ -106,3 +106,14 @@ def test_downloads_require_finalized_phase(mkuser, docs):
     # ...but the print fallback works already during closeout
     r = owner.get(f"/ui/reviews/{R}/print")
     assert r.status_code == 200 and "print-sheet" in r.text and "window.print()" in r.text
+
+
+def test_dashboard_button_reads_terminate_review(mkuser, docs):
+    """v3.1 step 02: user-facing wording only — phase, service and route keep
+    the `finalize` vocabulary."""
+    owner, _f = _to_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}").text
+    assert "Terminate review" in page
+    assert "Finalize review" not in page
+    assert "Terminate the review?" in page                 # new confirm text
+    assert f'action="/ui/reviews/{R}/finalize"' in page    # route unchanged
