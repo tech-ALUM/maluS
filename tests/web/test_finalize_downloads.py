@@ -188,3 +188,20 @@ def test_re_terminate_after_reopen_supersedes_final_and_pdf(app, mkuser, docs, a
         if pdfgen.PDF_AVAILABLE:
             pdfs = s.exec(select(ReviewArtifact).where(ReviewArtifact.kind == "pdf")).all()
             assert len(pdfs) == 2
+
+
+def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser, docs, admin):
+    owner, _f = _to_closeout(mkuser, docs)
+    admin.post("/ui/account/password", data={"current": "admin-pw", "new_password": "admin-pw"})
+
+    assert "/reopen-terminated" not in admin.get(f"/ui/reviews/{R}").text  # closeout: not yet
+
+    owner.post(f"/ui/reviews/{R}/finalize")
+    page = admin.get(f"/ui/reviews/{R}").text
+    assert "/reopen-terminated" in page and "Reopen terminated review" in page
+    assert "Reopen this terminated review?" in page   # first confirm
+    assert "Really reopen" in page                    # second confirm
+
+    assert "/reopen-terminated" not in owner.get(f"/ui/reviews/{R}").text  # owner: never
+    ai_admin = mkuser("aiadmin", "AI Admin", is_ai=True, is_admin=True)
+    assert "/reopen-terminated" not in ai_admin.get(f"/ui/reviews/{R}").text  # is_ai bar

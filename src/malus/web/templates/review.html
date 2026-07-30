@@ -49,6 +49,12 @@
     <summary aria-label="More actions">⋯</summary>
     <div class="menu-items">
       <button type="button" class="linkbtn" id="copy-link" data-path="/ui/reviews/{{ review.review_id_str }}" onclick="malusCopyLink(this)">Copy review link</button>
+      {% if phase == 'finalized' and user.is_admin and not user.is_ai %}
+      <form method="post" action="/ui/reviews/{{ review.review_id_str }}/reopen-terminated" class="inline"
+            onsubmit="return confirm('Reopen this terminated review? It goes back to closeout and the owner can edit the document again.') &amp;&amp; confirm('Really reopen {{ review.review_id_str }}? The current final version and PDF stay in history, but terminating again produces new ones.')">
+        <button class="linkbtn menu-danger">Reopen terminated review</button>
+      </form>
+      {% endif %}
       <a class="menu-danger" href="/ui/reviews/{{ review.review_id_str }}/delete">Delete review</a>
     </div>
   </details>
