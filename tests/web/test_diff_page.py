@@ -92,3 +92,77 @@ def test_served_document_viewer_js_contains_cp_changes_renderer(client):
     # brief's own approach) — the diff page shares its CSS with this renderer.
     js = client.get("/static/document-viewer.js").text
     assert "cp-changes" in js
+
+
+# --- v3.1 step 03: Compact | Full view toggle ------------------------------
+
+FILLER = "\n".join(f"filler line {i:02d}" for i in range(30))
+
+
+def _seed_long_closeout(mkuser, docs):
+    """Owner + reviewer, baseline padded with 30 filler lines, one accepted
+    RID, one closeout save touching **two distant lines** — so compact view
+    has two hunks (hence a diff-skip marker) and elides the rest."""
+    owner = mkuser("owner", "A. Boffi")
+    f = mkuser("fmiccoli", "F. Miccoli")
+    baseline = docs["baseline"] + FILLER + "\n"
+    owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
+    owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
+    owner.post(f"/reviews/{R}/freeze", json={"content": baseline})
+    f.post(f"/reviews/{R}/copies/F. Miccoli/submit",
+           json={"content": docs["copy_f"] + FILLER + "\n"})
+    owner.post(f"/reviews/{R}/harvest")
+    owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
+        data={"disposition": "accepted", "reply": "will fix", "resolution": ""},
+    )
+    f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")
+    owner.post(f"/ui/reviews/{R}/start-closeout")
+    edited = baseline.replace("configurable", "bounded").replace(
+        "filler line 20", "filler line twenty"
+    )
+    owner.post(f"/ui/reviews/{R}/closeout",
+               data={"content": edited, "rids": ["SIN-SRS-0001"]})
+    return owner, f
+
+
+def test_default_view_is_compact(mkuser, docs):
+    owner, _ = _seed_long_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}/diff")
+    assert page.status_code == 200
+    assert "filler line 00" not in page.text     # far context elided
+    assert "filler line 29" not in page.text
+    assert "diff-skip" in page.text              # marker between the two hunks
+    assert "diff-ln" not in page.text            # no gutters in compact view
+    assert f'href="/ui/reviews/{R}/diff?view=full"' in page.text
+
+
+def test_full_view_renders_the_whole_document_with_line_numbers(mkuser, docs):
+    owner, _ = _seed_long_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}/diff?view=full")
+    assert page.status_code == 200
+    assert "filler line 00" in page.text and "filler line 29" in page.text
+    assert "diff-skip" not in page.text
+    assert '<span class="diff-ln diff-ln-old">1</span>' in page.text
+    assert f'href="/ui/reviews/{R}/diff?view=compact"' in page.text
+
+
+def test_unknown_view_falls_back_to_compact(mkuser, docs):
+    owner, _ = _seed_long_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}/diff?view=bogus")
+    assert page.status_code == 200               # never 4xx on a read-only page
+    assert "diff-ln" not in page.text
+    assert page.text.count('aria-current="page"') == 1
+
+
+def test_active_view_is_marked_in_the_toggle(mkuser, docs):
+    owner, _ = _seed_long_closeout(mkuser, docs)
+    full = owner.get(f"/ui/reviews/{R}/diff?view=full").text
+    assert f'href="/ui/reviews/{R}/diff?view=full" aria-current="page"' in full
+    assert full.count('aria-current="page"') == 1
+
+
+def test_toggle_is_server_side_only(client):
+    css = client.get("/static/app.css").text
+    assert ".diff-ln" in css                     # the gutters are styled
+    # no script tag is introduced by the diff page (zero-JS toggle)

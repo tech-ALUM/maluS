@@ -864,11 +864,21 @@ def document_page(
 
 
 @web.get("/ui/reviews/{review_id}/diff", response_class=HTMLResponse)
-def diff_page(review_id: str, request: Request, session: Session = Depends(get_session)):
+def diff_page(
+    review_id: str,
+    request: Request,
+    view: str = "compact",
+    session: Session = Depends(get_session),
+):
     """Full-document diff, baseline vs latest version (v3 step 03 task 4):
     same word-level renderer as the per-RID Changes section (task 3), same
     membership authz as ``document_page`` — any review member or a global
-    admin, regardless of review phase."""
+    admin, regardless of review phase.
+
+    v3.1 step 03: ``?view=compact`` (default) keeps ±3 lines around each hunk;
+    ``?view=full`` renders the whole document with old/new line numbers. The
+    state lives in the URL (shareable, no JS — the v2.2 filter-chip idiom);
+    an unrecognised value falls back to compact rather than erroring."""
     user = _current(request, session)
     if not user:
         return _LOGIN
@@ -879,6 +889,7 @@ def diff_page(review_id: str, request: Request, session: Session = Depends(get_s
     if baseline is None:
         raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
     latest = VersionRepo(session).latest(review)
+    full = view == "full"
     return templates.TemplateResponse(
         request,
         "diff.html",
@@ -887,7 +898,13 @@ def diff_page(review_id: str, request: Request, session: Session = Depends(get_s
             "review": review,
             "baseline": baseline,
             "latest": latest,
-            "diff_html": html_diff(baseline.content, latest.content),
+            "view": "full" if full else "compact",
+            "diff_html": html_diff(
+                baseline.content,
+                latest.content,
+                context=None if full else 3,
+                line_numbers=full,
+            ),
         },
     )
 

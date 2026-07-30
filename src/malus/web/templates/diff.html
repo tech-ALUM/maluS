@@ -4,6 +4,17 @@
 {% block content %}
 <p class="crumb"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a></p>
 <h1>Full diff — baseline v{{ baseline.ordinal }} → v{{ latest.ordinal }}</h1>
+{# v3.1 step 03: view toggle — plain links, no JavaScript, state in the URL
+   so the view is shareable (same approach as the v2.2 dashboard filter
+   chips). The active view is the filled .btn, the other one .btn secondary. #}
+<p class="actions" aria-label="Diff view">
+  <a class="btn{% if view != 'compact' %} secondary{% endif %}"
+     href="/ui/reviews/{{ review.review_id_str }}/diff?view=compact"
+     {%- if view == 'compact' %} aria-current="page"{% endif %}>Compact</a>
+  <a class="btn{% if view != 'full' %} secondary{% endif %}"
+     href="/ui/reviews/{{ review.review_id_str }}/diff?view=full"
+     {%- if view == 'full' %} aria-current="page"{% endif %}>Full</a>
+</p>
 {% if diff_html %}
 {{ diff_html | safe }}
 {% else %}
