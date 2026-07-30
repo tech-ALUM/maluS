@@ -15,7 +15,7 @@ import typer
 from sqlmodel import Session
 
 from . import __version__
-from .db import DEFAULT_URL, create_all, make_engine
+from .db import DEFAULT_URL, bootstrap_schema, make_engine
 from .legacy import import_review_dir
 
 app = typer.Typer(
@@ -54,11 +54,28 @@ def import_cmd(
 ) -> None:
     """Import a v0 file-based review into the database."""
     engine = make_engine(db)
-    create_all(engine)
+    bootstrap_schema(engine)  # creates + stamps only if the database is empty
     with Session(engine) as session:
         review = import_review_dir(session, review_dir)
         session.commit()
         typer.echo(f"imported {review.review_id_str} into {db}")
+
+
+@app.command("init-db")
+def init_db(
+    db: str = typer.Option(DEFAULT_URL, "--db", help="Database URL (SQLModel/SQLAlchemy)."),
+) -> None:
+    """Create an empty development database and stamp it at Alembic head.
+
+    Local development only. A deployment migrates with ``alembic upgrade head``
+    — the single schema authority (v3.1 step 05); the container entrypoint runs
+    it before the server starts.
+    """
+    if bootstrap_schema(make_engine(db)):
+        typer.echo(f"created and stamped schema at head: {db}")
+        return
+    typer.echo(f"{db} already has tables — run 'alembic upgrade head' instead")
+    raise typer.Exit(code=1)
 
 
 @app.command("serve")

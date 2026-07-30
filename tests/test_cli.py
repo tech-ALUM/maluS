@@ -24,3 +24,25 @@ def test_import_seeds_the_database(tmp_path):
     assert result.exit_code == 0, result.stdout
     assert "SIN-SRS-R1" in result.stdout
     assert db.exists()
+
+
+def test_init_db_creates_and_stamps(tmp_path):
+    from sqlalchemy import create_engine
+
+    from malus.db import current_revision
+
+    db = tmp_path / "dev.db"
+    result = runner.invoke(app, ["init-db", "--db", f"sqlite:///{db}"])
+
+    assert result.exit_code == 0, result.stdout
+    assert current_revision(create_engine(f"sqlite:///{db}")) is not None
+
+
+def test_init_db_refuses_an_existing_database(tmp_path):
+    db = tmp_path / "dev.db"
+    assert runner.invoke(app, ["init-db", "--db", f"sqlite:///{db}"]).exit_code == 0
+
+    result = runner.invoke(app, ["init-db", "--db", f"sqlite:///{db}"])
+
+    assert result.exit_code == 1
+    assert "alembic upgrade head" in result.stdout

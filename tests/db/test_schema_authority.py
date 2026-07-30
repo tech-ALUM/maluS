@@ -47,3 +47,48 @@ def test_injected_connection_wins_over_MALUS_DB_URL(tmp_path, monkeypatch):
 
     assert "users" in inspect(create_engine(f"sqlite:///{target}")).get_table_names()
     assert not decoy.exists()
+
+
+# --- v3.1 step 05 task 3: bootstrap_schema creates AND stamps ---------------
+
+from malus.db import bootstrap_schema  # noqa: E402
+
+
+def test_bootstrap_schema_creates_and_stamps_an_empty_database(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'new.db'}")
+
+    assert bootstrap_schema(engine) is True
+
+    insp = inspect(engine)
+    assert set(insp.get_table_names()) - {"alembic_version"} == set(SQLModel.metadata.tables)
+    assert current_revision(engine) == "c4d5e6f7a8b9"  # never left unstamped
+
+
+def test_bootstrap_schema_refuses_a_populated_database(tmp_path):
+    """A database that already has tables belongs to Alembic. Stamping it head
+    would skip every pending migration — the 2026-07-30 failure mode, inverted."""
+    url = f"sqlite:///{tmp_path / 'existing.db'}"
+    engine = create_engine(url)
+    upgrade_head(engine)
+
+    assert bootstrap_schema(engine) is False
+    assert current_revision(engine) == "c4d5e6f7a8b9"
+
+
+def test_bootstrap_schema_refuses_a_stamped_but_empty_database(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'weird.db'}")
+    stamp_head(engine)
+
+    with pytest.raises(RuntimeError, match="stamped at"):
+        bootstrap_schema(engine)
+
+
+def test_create_all_does_not_stamp(tmp_path):
+    """`create_all` stays the raw test helper: no stamp, no backfill. The
+    a5a0125 regression test depends on being able to reproduce exactly that."""
+    from malus.db import create_all
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'raw.db'}")
+    create_all(engine)
+
+    assert current_revision(engine) is None
