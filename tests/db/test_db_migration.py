@@ -6,7 +6,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, inspect
 from sqlmodel import SQLModel
 
@@ -64,3 +66,21 @@ def test_migration_downgrades_to_base(tmp_path):
     insp = inspect(create_engine(url))
     tables = set(insp.get_table_names()) - {"alembic_version"}
     assert tables == set()
+
+
+def test_migrations_match_the_models_exactly(tmp_path, monkeypatch):
+    """`alembic upgrade head` must reproduce SQLModel.metadata down to the
+    column — the guard the 2026-07-30 incident was missing. A model added
+    without a revision (or a revision that drifts from its model) fails here,
+    one commit after it is written, instead of one deploy later.
+
+    `compare_metadata` returns 0 differences against the current head, so the
+    assertion carries no tolerance list: any entry is a real drift."""
+    monkeypatch.delenv("MALUS_DB_URL", raising=False)  # alembic/env.py:28 reads it first
+    url = f"sqlite:///{tmp_path / 'parity.db'}"
+    command.upgrade(_alembic_config(url), "head")
+
+    with create_engine(url).connect() as conn:
+        diff = compare_metadata(MigrationContext.configure(conn), SQLModel.metadata)
+
+    assert diff == [], "migrations drifted from the models: " + repr(diff)
