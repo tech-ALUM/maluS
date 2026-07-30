@@ -1,9 +1,11 @@
 """Server-side diff rendering for the v3 closeout verification (stdlib only).
 
 `html_diff` renders old→new as blocks of context lines plus changed lines with
-word-level <ins>/<del> refinement. All text is HTML-escaped before any markup
-is added, so the result is safe to inject into the viewer (which additionally
-runs DOMPurify — defense in depth).
+word-level <ins>/<del> refinement. Two modes: **compact** (the default, ±N lines
+of context around each hunk, the rest elided behind a marker) and **whole
+document** (`context=None`, every line, nothing elided — v3.1 step 03). All text
+is HTML-escaped before any markup is added, so the result is safe to inject into
+the viewer (which additionally runs DOMPurify — defense in depth).
 """
 
 from __future__ import annotations
@@ -38,13 +40,22 @@ def _refine(old_line: str, new_line: str) -> tuple[str, str]:
     return "".join(del_out), "".join(ins_out)
 
 
-def html_diff(old: str, new: str, *, context: int = 3) -> str:
+def html_diff(old: str, new: str, *, context: int | None = 3) -> str:
+    """Line-grouped, word-refined diff as safe HTML (empty string if equal).
+
+    ``context`` is the number of unchanged lines kept around each hunk;
+    ``None`` renders the **whole document** with no elision marker (v3.1
+    step 03 — the ``?view=full`` page and the downloadable diff artifact).
+    """
     if old == new:
         return ""
     old_lines, new_lines = old.splitlines(), new.splitlines()
     sm = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
+    # one group = the whole document when context is None, so the loop body
+    # below is shared by both modes
+    groups = [sm.get_opcodes()] if context is None else sm.get_grouped_opcodes(context)
     parts: list[str] = ['<div class="diff">']
-    for group in sm.get_grouped_opcodes(context):
+    for group in groups:
         parts.append('<div class="diff-hunk">')
         for op, a1, a2, b1, b2 in group:
             if op == "equal":
@@ -61,7 +72,8 @@ def html_diff(old: str, new: str, *, context: int = 3) -> str:
                 for line in new_lines[b1:b2]:
                     parts.append(f'<div class="diff-ins"><ins>{html.escape(line)}</ins></div>')
         parts.append("</div>")
-        parts.append('<div class="diff-skip">⋯</div>')
+        if context is not None:                  # nothing is elided in full mode
+            parts.append('<div class="diff-skip">⋯</div>')
     if parts[-1] == '<div class="diff-skip">⋯</div>':
         parts.pop()                              # no trailing elision marker
     parts.append("</div>")
