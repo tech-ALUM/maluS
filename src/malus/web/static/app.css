@@ -218,31 +218,31 @@ dl.meta dt { color: var(--muted); }
 blockquote { margin: .3rem 0; padding: .65rem 1rem; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; box-shadow: var(--shadow); }
 
 .toolbar { display: flex; gap: .5rem; }
-.editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
-.editor-grid textarea { font-family: var(--mono); font-size: .85rem; width: 100%; min-height: 22rem; }
-.preview { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .6rem .9rem; overflow: auto; min-height: 22rem; }
-.preview :first-child { margin-top: 0; }
-.rid-picker { border: 1px solid var(--line); border-radius: var(--radius-sm); }
-.rid-picker legend { color: var(--muted); font-size: .8rem; padding: 0 .4rem; }
-.chk { display: block; font-size: .88rem; padding: .15rem 0; }
-@media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } }
 
-/* ------------------------------------------------ closeout workspace -- */
-.closeout-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; }
-.closeout-queue { display: flex; flex-direction: column; gap: .8rem; }
-.cq-group { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem .75rem; box-shadow: var(--shadow); }
+/* ------------------------------------------------ closeout in the viewer -- */
+/* v3.1: the closeout workspace lives inside the document viewer — the queue
+   groups below dress the side panel, no longer a page of their own. */
+.doc-toolbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .6rem; }
+.doc-toolbar .doc-ver { font-family: var(--mono); font-size: .78rem; color: var(--muted); margin-right: .3rem; }
+.doc-toolbar button.active { box-shadow: inset 0 0 0 2px var(--teal); }
+.doc-edit { width: 100%; min-height: 1120px; font-family: var(--mono); font-size: .85rem;
+  padding: 60px 72px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.cq-group { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem .75rem; box-shadow: var(--shadow); margin-bottom: .8rem; }
 .cq-group h2 { margin: 0 0 .5rem; font-size: .82rem; font-weight: 600; display: flex; align-items: center; gap: .4rem; }
-.cq-item { display: flex; flex-direction: column; gap: .15rem; padding: .45rem 0; border-top: 1px solid var(--line); }
-.cq-item:first-of-type { border-top: none; }
-.cq-item a { font-family: var(--mono); font-weight: 600; }
-.cq-item .cmt { color: var(--muted); font-size: .82rem; }
-.cq-item .cq-reason { color: #7a5c00; font-size: .8rem; }
-.cq-item .cq-resolution { color: var(--teal-dark); font-size: .8rem; }
-.cq-item form.inline { display: flex; gap: .35rem; margin-top: .25rem; }
-.cq-item form.inline input[type="text"] { font-size: .8rem; padding: .2rem .4rem; flex: 1; min-width: 0; }
 .cq-rework { border-color: #d8b74a; background: #fbf6e7; }
 .cq-rework h2 .badge { background: #d8b74a; color: #7a5c00; }
-@media (max-width: 900px) { .closeout-grid { grid-template-columns: 1fr; } }
+.cp-card.collapsed .cp-body { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cp-card.collapsed .cp-detail,
+.cp-card.collapsed .cp-records,
+.cp-card.collapsed .cp-history,
+.cp-card.collapsed .cp-changes,
+.cp-card.collapsed .cp-actions,
+.cp-card.collapsed .cp-note-label,
+.cp-card.collapsed .cq-pick { display: none; }
+.cq-pick { display: block; font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+.cq-resolution-input { font-size: .8rem; padding: .2rem .4rem; flex: 1; min-width: 0; }
+.cq-nochange > summary { font-size: .82rem; font-weight: 600; cursor: pointer; }
+@media (max-width: 900px) { .doc-edit { padding: 24px; min-height: 40rem; } }
 
 /* reviewer editor — rendered sheet + comments panel (v1.4 layout kept) */
 #rev-form { width: min(94vw, 1400px); margin-left: calc((100% - min(94vw, 1400px)) / 2); }
