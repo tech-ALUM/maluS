@@ -73,6 +73,15 @@
     <span class="doc-ver">v{{ data.latestOrdinal }}</span>
     <button type="button" id="doc-mode-render" class="secondary active">Render</button>
     {% if data.canEditDoc %}<button type="button" id="doc-mode-edit" class="secondary">Edit</button>{% endif %}
+    {# v3.1 step 02 task 5: the toolbar sits inside #rev-form, so Terminate cannot
+       be a <form> (HTML forbids nesting) — it is a detached-form post() button,
+       the idiom step 01 used for Mark implemented. Label + confirm string are
+       byte-identical to the dashboard's (review.html). #}
+    {% if finalize_ready and data.canDispose %}
+    <button type="button" id="doc-terminate" class="primary"
+            data-action="/ui/reviews/{{ review.review_id_str }}/finalize"
+            data-confirm="Terminate the review? The last document version becomes final, the PDF is archived, and no further changes are possible (only a global admin can reopen it).">Terminate review</button>
+    {% endif %}
   </div>
   {% endif %}
   <div class="workbench">

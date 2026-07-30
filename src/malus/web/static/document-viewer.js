@@ -860,6 +860,16 @@
   if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
   if (editEl) editEl.addEventListener("input", syncSaveButton);
 
+  // v3.1 step 02: Terminate lives in the closeout toolbar, which is inside
+  // #rev-form — a nested <form> is invalid HTML, so it posts detached like
+  // every other card action. Label/route/confirm come from the template.
+  var terminateBtn = document.getElementById("doc-terminate");
+  if (terminateBtn) {
+    terminateBtn.addEventListener("click", function () {
+      post(terminateBtn.dataset.action, {}, terminateBtn.dataset.confirm);
+    });
+  }
+
   parseCopy();
   renderLegend();
   refresh(false);

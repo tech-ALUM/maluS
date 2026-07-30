@@ -205,3 +205,54 @@ def test_reopen_entry_shows_only_for_a_human_admin_on_a_terminated_review(mkuser
     assert "/reopen-terminated" not in owner.get(f"/ui/reviews/{R}").text  # owner: never
     ai_admin = mkuser("aiadmin", "AI Admin", is_ai=True, is_admin=True)
     assert "/reopen-terminated" not in ai_admin.get(f"/ui/reviews/{R}").text  # is_ai bar
+
+
+def test_document_offers_terminate_when_the_gate_holds(mkuser, docs):
+    owner, f = _to_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}/document").text
+    assert "Terminate review" in page
+    assert f'/ui/reviews/{R}/finalize' in page
+    # a reviewer never terminates (the toolbar button is canDispose-gated)
+    assert "Terminate review" not in f.get(f"/ui/reviews/{R}/document").text
+
+
+def test_document_hides_terminate_until_the_gate_holds(mkuser, docs):
+    owner = mkuser("owner", "A. Boffi")
+    f = mkuser("fmiccoli", "F. Miccoli")
+    mod = mkuser("mod", "M. Mod")
+    owner.post("/reviews", json={"review_id": R, "rid_prefix": "SIN-SRS"})
+    owner.post(f"/reviews/{R}/reviewers", json={"name": "F. Miccoli", "role": "reviewer"})
+    owner.post(f"/reviews/{R}/reviewers", json={"name": "M. Mod", "role": "moderator"})
+    owner.post(f"/reviews/{R}/freeze", json={"content": docs["baseline"]})
+    f.post(f"/reviews/{R}/copies/F. Miccoli/submit", json={"content": docs["copy_f"]})
+    mod.post(f"/reviews/{R}/harvest")
+    owner.post(
+        f"/ui/reviews/{R}/rids/SIN-SRS-0001/dispose",
+        data={"disposition": "accepted", "reply": "ok"},
+    )
+    f.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/accept")
+    owner.post(f"/ui/reviews/{R}/start-closeout")  # accepted RID not yet verified
+    assert "Terminate review" not in owner.get(f"/ui/reviews/{R}/document").text
+
+
+def test_document_terminate_is_not_a_nested_form(mkuser, docs):
+    """v3.1 step 02 deviation: the closeout toolbar lives inside #rev-form, so
+    Terminate is a detached-form post() button — never a nested <form>."""
+    owner, _f = _to_closeout(mkuser, docs)
+    page = owner.get(f"/ui/reviews/{R}/document").text
+    body = page[page.index('id="rev-form"') : page.index("</form>", page.index('id="rev-form"'))]
+    assert "Terminate review" in body        # it is inside the toolbar
+    assert "<form" not in body               # ...but not as a nested <form>
+
+
+def test_document_and_dashboard_share_the_terminate_confirm(mkuser, docs):
+    """The design requires the two Terminate confirms to be byte-identical; the
+    document's lives in data-confirm so it stays next to the dashboard's."""
+    owner, _f = _to_closeout(mkuser, docs)
+    confirm = (
+        "Terminate the review? The last document version becomes final, the PDF "
+        "is archived, and no further changes are possible (only a global admin "
+        "can reopen it)."
+    )
+    assert confirm in owner.get(f"/ui/reviews/{R}").text
+    assert f'data-confirm="{confirm}"' in owner.get(f"/ui/reviews/{R}/document").text

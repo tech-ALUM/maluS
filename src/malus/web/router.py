@@ -827,7 +827,18 @@ def _document_context(
         "saved": bool(saved),
         "focus": focus,
     }
-    return {"user": user, "review": review, "role": role, "data": data, "error": error}
+    # v3.1 step 02 task 5: Terminate rides in the closeout toolbar once the gate
+    # holds. A Jinja-only flag — deliberately *not* in ``data``, so the
+    # ``#viewer-data`` payload and its snapshot assertions stay untouched.
+    finalize_ready = is_closeout and not svc.finalize_gate(session, review)
+    return {
+        "user": user,
+        "review": review,
+        "role": role,
+        "data": data,
+        "error": error,
+        "finalize_ready": finalize_ready,
+    }
 
 
 @web.get("/ui/reviews/{review_id}/document", response_class=HTMLResponse)
