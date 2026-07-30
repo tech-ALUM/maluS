@@ -78,6 +78,24 @@ def init_db(
     raise typer.Exit(code=1)
 
 
+def _require_schema(engine, db: str) -> None:
+    """Refuse to serve a database that was never migrated. ``serve`` is
+    read-only with respect to the schema (v3.1 step 05) — it must not silently
+    invent one, which is how the two schema authorities drifted apart."""
+    from sqlalchemy import inspect
+
+    if "users" in inspect(engine).get_table_names():
+        return
+    typer.secho(
+        f"error: no schema in {db}.\n"
+        "  deployment: run 'alembic upgrade head' (the container entrypoint does this)\n"
+        f"  local dev:  run 'malus init-db --db {db}'",
+        err=True,
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=2)
+
+
 @app.command("serve")
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
@@ -91,8 +109,10 @@ def serve(
     from .logging import configure_logging
 
     configure_logging()
+    engine = make_engine(db)
+    _require_schema(engine, db)
     typer.echo(f"serving maluS API on http://{host}:{port} (db: {db})")
-    uvicorn.run(create_app(make_engine(db)), host=host, port=port)
+    uvicorn.run(create_app(engine), host=host, port=port)
 
 
 @app.command("mcp")

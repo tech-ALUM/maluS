@@ -92,3 +92,25 @@ def test_create_all_does_not_stamp(tmp_path):
     create_all(engine)
 
     assert current_revision(engine) is None
+
+
+# --- v3.1 step 05 task 4: the serving path creates nothing ------------------
+
+def test_create_app_creates_no_schema(tmp_path):
+    """The boot path is read-only with respect to the schema. In production the
+    entrypoint has already run `alembic upgrade head`; anything create_app did
+    on top of that could only be drift."""
+    from malus.api import create_app
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'untouched.db'}")
+    create_app(engine, https_only=False, session_secret="s", bootstrap_admin=None)
+
+    assert inspect(engine).get_table_names() == []
+
+
+def test_create_app_has_no_create_schema_switch():
+    import inspect as pyinspect
+
+    from malus.api import create_app
+
+    assert "create_schema" not in pyinspect.signature(create_app).parameters

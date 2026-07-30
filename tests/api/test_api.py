@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from malus.api import create_app
-from malus.db import make_engine
+from malus.db import create_all, make_engine
 
 R = "SIN-SRS-R1"
 
@@ -108,8 +108,10 @@ def test_export_import_roundtrip_across_databases(app, mkuser, docs):
     yaml_text = owner.get(f"/reviews/{R}/export").text
 
     # a second server with its own DB + admin
+    other_engine = make_engine("sqlite://")
+    create_all(other_engine)  # tests own their schema; the app creates none (v3.1 step 05)
     other_app = create_app(
-        make_engine("sqlite://"), https_only=False, session_secret="s2", bootstrap_admin=("a", "pw")
+        other_engine, https_only=False, session_secret="s2", bootstrap_admin=("a", "pw")
     )
     other = TestClient(other_app)
     other.post("/auth/login", json={"username": "a", "password": "pw"})

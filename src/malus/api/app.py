@@ -41,7 +41,7 @@ from malus.api.errors import install_error_handlers
 from malus.api.routes import router
 from malus.auth.routes import auth_router, users_router
 from malus.auth.service import bootstrap_admin as _bootstrap_admin
-from malus.db import DEFAULT_URL, create_all, make_engine
+from malus.db import DEFAULT_URL, make_engine
 from malus.web import STATIC_DIR
 from malus.web import web as web_router
 from malus.web.accounts import accounts as accounts_router
@@ -66,11 +66,14 @@ _DEV_SECRET = "dev-insecure-secret-change-me"
 def create_app(
     engine: Optional[Engine] = None,
     *,
-    create_schema: bool = True,
     session_secret: Optional[str] = None,
     https_only: bool = True,
     bootstrap_admin: Optional[tuple[str, str]] = None,
 ) -> FastAPI:
+    """Build the ASGI app. **Creates no schema**: Alembic is the single schema
+    authority (v3.1 step 05) and ``docker-entrypoint.sh`` runs
+    ``alembic upgrade head`` before the server starts. Tests create their own
+    schema with ``malus.db.create_all``; developers use ``malus init-db``."""
     app = FastAPI(
         title="maluS API",
         version=malus.__version__,
@@ -80,8 +83,6 @@ def create_app(
         ),
     )
     app.state.engine = engine or make_engine(os.environ.get("MALUS_DB_URL", DEFAULT_URL))
-    if create_schema:
-        create_all(app.state.engine)
 
     # Added before SessionMiddleware so it runs *inside* it (session is populated).
     app.add_middleware(BaseHTTPMiddleware, dispatch=_force_password_change)

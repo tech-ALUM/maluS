@@ -6,15 +6,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from malus.api import create_app
-from malus.db import make_engine
+from malus.db import create_all, make_engine
 
 ADMIN = ("admin", "admin-pw")
 
 
 @pytest.fixture
 def app():
+    engine = make_engine("sqlite://")
+    create_all(engine)  # tests own their schema; the app creates none (v3.1 step 05)
     return create_app(
-        make_engine("sqlite://"),
+        engine,
         https_only=False,
         session_secret="test-secret",
         bootstrap_admin=ADMIN,
