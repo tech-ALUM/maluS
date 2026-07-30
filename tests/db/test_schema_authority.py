@@ -31,7 +31,7 @@ def test_stamp_head_marks_an_unstamped_database(tmp_path):
 
     stamp_head(engine)
 
-    assert current_revision(engine) == "b9e4d5f6a701"  # head at task 1
+    assert current_revision(engine) == "c4d5e6f7a8b9"  # head
 
 
 def test_injected_connection_wins_over_MALUS_DB_URL(tmp_path, monkeypatch):
