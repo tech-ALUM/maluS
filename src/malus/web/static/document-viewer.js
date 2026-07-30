@@ -250,6 +250,14 @@
     card.className = "cp-card " + colorClass(reviewer) + (kind === "SUGG" ? " sugg" : "");
     applyColor(card, reviewer);
     card.setAttribute("data-key", it.key);
+    if (phase === "closeout") {
+      // collapsed by default: the queue must stay scannable; the head toggles
+      card.classList.add("collapsed");
+      card.addEventListener("click", function (ev) {
+        if (ev.target.closest(".cp-body, .cp-actions, .cp-changes, button, input, textarea, select, label, a, summary")) return;
+        card.classList.toggle("collapsed");
+      });
+    }
 
     var head = document.createElement("div");
     head.className = "cp-head";
@@ -564,11 +572,40 @@
     return f;
   }
 
+  /* v3.1: in closeout the panel IS the work queue — the four groups the
+     standalone workspace had, for every role, plus a collapsed disclosure for
+     the findings closed with no change (nothing silently disappears). */
+  var QUEUE_GROUPS = [
+    ["rework", "Rework requested"],
+    ["todo", "To implement"],
+    ["awaiting", "Awaiting verification"],
+    ["done", "Verified"],
+  ];
   function renderPanel(its) {
     list.innerHTML = "";
     countEl.textContent = String(its.length);
     emptyEl.hidden = its.length > 0;
-    its.forEach(function (it) { list.appendChild(cardEl(it)); });
+    if (data.phase !== "closeout") {
+      its.forEach(function (it) { list.appendChild(cardEl(it)); });
+      return;
+    }
+    QUEUE_GROUPS.forEach(function (g) {
+      var members = its.filter(function (it) { return it.rid && it.rid.queue === g[0]; });
+      var sec = document.createElement("section");
+      sec.className = "cq-group cq-" + g[0];
+      sec.innerHTML = '<h2>' + esc(g[1]) + ' <span class="badge">' + members.length + "</span></h2>";
+      members.forEach(function (it) { sec.appendChild(cardEl(it)); });
+      if (!members.length) sec.innerHTML += '<p class="muted">—</p>';
+      list.appendChild(sec);
+    });
+    var closed = its.filter(function (it) { return it.rid && it.rid.queue === "noChange"; });
+    if (closed.length) {
+      var det = document.createElement("details");
+      det.className = "cq-group cq-nochange";
+      det.innerHTML = "<summary>Closed — no change (" + closed.length + ")</summary>";
+      closed.forEach(function (it) { det.appendChild(cardEl(it)); });
+      list.appendChild(det);
+    }
   }
 
   /* ------- focus: click a comment to focus it, click away / ESC to exit --
@@ -610,6 +647,9 @@
       if (on) {
         var h = el.querySelector(".cp-history");
         if (h) h.open = true;
+        el.classList.remove("collapsed");  // v3.1: ?focus=RID opens its card
+        var grp = el.closest("details.cq-group");
+        if (grp) grp.open = true;          // …even inside the collapsed group
       }
     });
     if (window.history && history.replaceState) {
