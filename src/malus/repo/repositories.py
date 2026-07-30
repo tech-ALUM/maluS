@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from malus.db.models import (
+    ReviewArtifact,
     RID,
     AuditLog,
     Document,
@@ -315,6 +316,32 @@ class RidRepo:
                 select(RidChange).where(RidChange.rid_id == rid.id).order_by(RidChange.id)
             ).all()
         )
+
+
+class ArtifactRepo:
+    """Finalize-time review exports (v3 step 04): stored once, served verbatim."""
+
+    def __init__(self, session: Session) -> None:
+        self.s = session
+
+    def add(self, review: Review, kind: str, content: bytes) -> ReviewArtifact:
+        artifact = ReviewArtifact(
+            review_id=review.id,
+            kind=kind,
+            content=content,
+            sha256=hashlib.sha256(content).hexdigest(),
+        )
+        self.s.add(artifact)
+        self.s.flush()
+        return artifact
+
+    def get(self, review: Review, kind: str) -> Optional[ReviewArtifact]:
+        return self.s.exec(
+            select(ReviewArtifact)
+            .where(ReviewArtifact.review_id == review.id)
+            .where(ReviewArtifact.kind == kind)
+            .order_by(ReviewArtifact.created.desc(), ReviewArtifact.id.desc())
+        ).first()
 
 
 class AuditRepo:

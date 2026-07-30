@@ -19,7 +19,7 @@ import datetime as dt
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, LargeBinary, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from malus.constants import Status
@@ -242,6 +242,23 @@ class RidChange(SQLModel, table=True):
 
     rid: Optional[RID] = Relationship(back_populates="changes")
     version: Optional[DocumentVersion] = Relationship()
+
+
+class ReviewArtifact(SQLModel, table=True):
+    """A finalize-time export of the review, stored once and served verbatim
+    (v3 step 04): the archived PDF — and later its signed variant — must be a
+    stable byte-for-byte file (a signature covers exact bytes)."""
+
+    __tablename__ = "review_artifacts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    review_id: Optional[int] = Field(default=None, foreign_key="reviews.id", nullable=False)
+    kind: str  # "pdf" | "pdf_signed" (v3 vocabulary, plain string)
+    content: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    sha256: str
+    created: dt.datetime = Field(default_factory=_utcnow)
+
+    review: Optional[Review] = Relationship()
 
 
 class AuditLog(SQLModel, table=True):
