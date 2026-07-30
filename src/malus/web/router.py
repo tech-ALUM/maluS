@@ -1156,6 +1156,21 @@ def _member_finalized(session: Session, request: Request, review_id: str):
     return user, review, None
 
 
+@web.get("/ui/reviews/{review_id}/download/baseline.md")
+def download_baseline_md(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """The frozen original (v3.1 step 04) — what the reviewers actually read,
+    kept next to the final text so the pair is auditable outside maluS."""
+    _user, review, redirect = _member_finalized(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    baseline = VersionRepo(session).baseline(review)
+    return Response(
+        content=baseline.content if baseline else "",
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{review_id}-baseline.md"'},
+    )
+
+
 @web.get("/ui/reviews/{review_id}/download/final.md")
 def download_final_md(review_id: str, request: Request, session: Session = Depends(get_session)):
     _user, review, redirect = _member_finalized(session, request, review_id)

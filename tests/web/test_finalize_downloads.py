@@ -256,3 +256,25 @@ def test_document_and_dashboard_share_the_terminate_confirm(mkuser, docs):
     )
     assert confirm in owner.get(f"/ui/reviews/{R}").text
     assert f'data-confirm="{confirm}"' in owner.get(f"/ui/reviews/{R}/document").text
+
+
+def test_baseline_download_serves_the_frozen_original(mkuser, docs):
+    owner, f = _to_closeout(mkuser, docs)
+    assert owner.post(f"/ui/reviews/{R}/finalize", follow_redirects=False).status_code == 303
+
+    for client in (owner, f):  # any member, owner and reviewer alike
+        r = client.get(f"/ui/reviews/{R}/download/baseline.md")
+        assert r.status_code == 200
+        assert r.text == docs["baseline"]  # the frozen original…
+        assert r.text != FINAL_MD          # …not the final text
+        assert r.headers["content-type"].startswith("text/markdown")
+        assert r.headers["content-disposition"] == f'attachment; filename="{R}-baseline.md"'
+
+
+def test_baseline_download_gate(mkuser, docs):
+    owner, _f = _to_closeout(mkuser, docs)
+    # still in closeout: nothing is downloadable yet
+    assert owner.get(f"/ui/reviews/{R}/download/baseline.md").status_code == 409
+    owner.post(f"/ui/reviews/{R}/finalize")
+    outsider = mkuser("nobody", "No Body")
+    assert outsider.get(f"/ui/reviews/{R}/download/baseline.md").status_code == 403
