@@ -327,3 +327,20 @@ def test_diff_download_gate(mkuser, docs):
     owner.post(f"/ui/reviews/{R}/finalize")
     outsider = mkuser("nobody", "No Body")
     assert outsider.get(f"/ui/reviews/{R}/download/diff.html").status_code == 403
+
+
+def test_dashboard_shows_the_full_download_set_in_order(mkuser, docs):
+    owner, _f = _to_closeout(mkuser, docs)
+    owner.post(f"/ui/reviews/{R}/finalize")
+    page = owner.get(f"/ui/reviews/{R}").text
+
+    names = ("baseline.md", "final.md", "diff.html", "report.md")
+    positions = [page.index(f"/ui/reviews/{R}/download/{n}") for n in names]
+    assert positions == sorted(positions), "links must read baseline → final → diff → report"
+
+    from malus import pdfgen
+
+    if pdfgen.PDF_AVAILABLE:  # the archived PDF closes the row…
+        assert f"/ui/reviews/{R}/download/review.pdf" in page
+    else:                     # …or the zero-dependency print fallback does
+        assert f"/ui/reviews/{R}/print" in page

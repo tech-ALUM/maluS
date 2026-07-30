@@ -27,8 +27,8 @@ interactively to maluS's MCP server (no paid Anthropic API on the server).
    no git needed).
 7. **Reviewers — never the owner — verify and close** each RID.
 8. **Finalize** produces the finalized document plus review minutes —
-   downloadable as `final.md`, the RTD report, and an archived PDF
-   (`malus[pdf]`).
+   downloadable as `baseline.md`, `final.md`, a self-contained `diff.html`,
+   the RTD report, and an archived PDF (`malus[pdf]`).
 
 The three roles (owner, reviewer, moderator) can each be a human or an AI. The
 reviewer-side closure authority — *only a reviewer or a moderator on their
@@ -49,8 +49,8 @@ docker compose up -d --build  # migrates, then serves on 127.0.0.1:8000
 | `pip install 'malus[pdf]'` | archived PDF at finalize (cover + document + sign-off page) | needs system Pango (`libpango-1.0-0`, `libpangoft2-1.0-0` on Debian/Ubuntu) |
 
 Without `malus[pdf]` everything still works: finalize completes, downloads
-offer the final Markdown and the RTD report, and a zero-dependency browser
-print view replaces the PDF.
+offer the baseline, the final Markdown, the diff and the RTD report, and a
+zero-dependency browser print view replaces the PDF.
 
 Put a TLS reverse proxy in front (`deploy/Caddyfile`), then open
 `https://<host>/ui/login`. SQLite (WAL) by default; Postgres is a `.env` +

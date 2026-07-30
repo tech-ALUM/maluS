@@ -102,9 +102,15 @@
    block above was removed in v3.1). #}
 <p class="actions"><a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/diff">Full diff</a>
 {% if phase == 'finalized' %}
-  {# v3 step 04: the review is done — every member downloads the results #}
+  {# v3.1 step 04: the review is done — every member downloads the whole set:
+     the frozen original, the final text, the diff between them, the minutes,
+     and the archived PDF (or the print fallback when malus[pdf] was absent). #}
   <span class="muted">Downloads:</span>
+  <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/download/baseline.md"
+     title="The frozen original, exactly as the reviewers read it">baseline.md</a>
   <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/download/final.md">final.md</a>
+  <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/download/diff.html"
+     title="Self-contained baseline → final diff, with line numbers">diff.html</a>
   <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/download/report.md">report.md</a>
   {% if has_pdf %}
   <a class="btn secondary" href="/ui/reviews/{{ review.review_id_str }}/download/review.pdf">PDF</a>
