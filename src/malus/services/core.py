@@ -43,6 +43,7 @@ from malus.models import RID as RidDTO
 from malus.models import RTD, ClosureAuthorityError, TransitionError, transition
 from malus.report import render_report, validate
 from malus.repo import (
+    ArtifactRepo,
     AuditRepo,
     ReviewerCopyRepo,
     ReviewRepo,
@@ -907,11 +908,10 @@ def report(session: Session, review: Review) -> tuple[list[str], str]:
     return errors, ("" if errors else render_report(rtd))
 
 
-def finalize(
-    session: Session, review: Review, *, final_content: Optional[str] = None, by=None
-) -> list[str]:
-    _forbid_ai_commit(by)
-    _require_phase(review, ReviewStatus.CLOSEOUT)
+def finalize_gate(session: Session, review: Review) -> list[str]:
+    """The finalize preconditions as a read-only check (v3 step 04): empty when
+    every accepted RID is verified and every rejected/deferred one is closed
+    (withdrawn ignored; legacy v2 `verified` rejected/deferred also pass)."""
     rtd = export_rtd(session, review)
     errors: list[str] = []
     blocking = [
@@ -928,6 +928,15 @@ def finalize(
     if blocking:
         errors.append("findings not yet verified/closed: " + ", ".join(blocking))
     errors += validate(rtd)
+    return errors
+
+
+def finalize(
+    session: Session, review: Review, *, final_content: Optional[str] = None, by=None
+) -> list[str]:
+    _forbid_ai_commit(by)
+    _require_phase(review, ReviewStatus.CLOSEOUT)
+    errors = finalize_gate(session, review)
     if errors:
         return errors
 
@@ -941,8 +950,32 @@ def finalize(
         action="finalize",
         target=f"review:{review.review_id_str}",
         actor=by,
-        detail={"deferred": sum(1 for r in rtd.rids if r.disposition is Disposition.DEFERRED)},
+        detail={
+            "deferred": sum(
+                1
+                for r in RidRepo(session).list(review)
+                if r.disposition == Disposition.DEFERRED.value
+            )
+        },
     )
+
+    # v3 step 04: archive the PDF once, at finalize — the stable file a later
+    # signature covers. A broken PDF must never un-finalize the review.
+    from malus import pdfgen
+
+    if pdfgen.PDF_AVAILABLE:
+        try:
+            ArtifactRepo(session).add(review, "pdf", pdfgen.generate_review_pdf(session, review))
+            AuditRepo(session).log(
+                action="export_pdf", target=f"review:{review.review_id_str}", actor=by
+            )
+        except Exception as exc:
+            AuditRepo(session).log(
+                action="pdf_failed",
+                target=f"review:{review.review_id_str}",
+                actor=by,
+                detail={"error": str(exc)},
+            )
     return []
 
 

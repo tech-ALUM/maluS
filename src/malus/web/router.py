@@ -31,6 +31,7 @@ from malus.diffing import html_diff
 from malus.harvest import FreezeViolation, WithdrawViolation, build_rtd, validate_insertion_only
 from malus.parser import ParseError
 from malus.repo import (
+    ArtifactRepo,
     AuditRepo,
     ReviewerCopyRepo,
     ReviewerNoteRepo,
@@ -332,6 +333,13 @@ def review_page(
     total = len(rtd.rids)
     phase = review.status
     closeout_errors = svc.closeout_gate(session, review) if phase == ReviewStatus.IN_REVIEW.value else []
+    finalize_ready = (
+        phase == ReviewStatus.CLOSEOUT.value and not svc.finalize_gate(session, review)
+    )
+    has_pdf = (
+        phase == ReviewStatus.FINALIZED.value
+        and ArtifactRepo(session).get(review, "pdf") is not None
+    )
 
     # v1.6: reviewer submission panel (soft indicator — blocks nothing)
     copies_by_uid = {c.user_id: c for c in ReviewerCopyRepo(session).list(review)}
@@ -384,6 +392,8 @@ def review_page(
             "ai_proposals": ai_proposals,
             "phase": phase,
             "closeout_errors": closeout_errors,
+            "finalize_ready": finalize_ready,
+            "has_pdf": has_pdf,
         },
     )
 
@@ -1061,3 +1071,102 @@ def mark_implemented(
 def implement_redirect(review_id: str):
     """v2's implement page is superseded by the closeout workspace (v3)."""
     return RedirectResponse(f"/ui/reviews/{review_id}/closeout", 303)
+
+
+# --------------------------------------------------------------------------- #
+# finalize + downloads (v3 step 04)
+# --------------------------------------------------------------------------- #
+
+
+@web.post("/ui/reviews/{review_id}/finalize")
+def finalize_action(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Owner (human) finalizes: last version stamped final, phase flips, the
+    PDF is generated once and archived (when malus[pdf] is installed)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    authz.require_owner(session, review, user)
+    authz.forbid_ai_commit(user)
+    errors = svc.finalize(session, review, by=user)
+    if errors:
+        raise HTTPException(status_code=409, detail="; ".join(errors))
+    return RedirectResponse(f"/ui/reviews/{review_id}", 303)
+
+
+def _member_finalized(session: Session, request: Request, review_id: str):
+    user = _current(request, session)
+    if not user:
+        return None, None, _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) is None and not user.is_admin:
+        raise HTTPException(status_code=403, detail="members only")
+    if review.status != ReviewStatus.FINALIZED.value:
+        raise HTTPException(status_code=409, detail="the review is not finalized yet")
+    return user, review, None
+
+
+@web.get("/ui/reviews/{review_id}/download/final.md")
+def download_final_md(review_id: str, request: Request, session: Session = Depends(get_session)):
+    _user, review, redirect = _member_finalized(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    latest = VersionRepo(session).latest(review)
+    return Response(
+        content=latest.content if latest else "",
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{review_id}-final.md"'},
+    )
+
+
+@web.get("/ui/reviews/{review_id}/download/report.md")
+def download_report_md(review_id: str, request: Request, session: Session = Depends(get_session)):
+    _user, review, redirect = _member_finalized(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    errors, report_md = svc.report(session, review)
+    if errors:
+        raise HTTPException(status_code=409, detail="; ".join(errors))
+    return Response(
+        content=report_md,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{review_id}-report.md"'},
+    )
+
+
+@web.get("/ui/reviews/{review_id}/download/review.pdf")
+def download_review_pdf(review_id: str, request: Request, session: Session = Depends(get_session)):
+    _user, review, redirect = _member_finalized(session, request, review_id)
+    if redirect is not None:
+        return redirect
+    artifact = ArtifactRepo(session).get(review, "pdf")
+    if artifact is None:
+        raise HTTPException(
+            status_code=404,
+            detail="PDF was not generated — install malus[pdf] and re-finalize",
+        )
+    return Response(
+        content=artifact.content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{review_id}.pdf"'},
+    )
+
+
+@web.get("/ui/reviews/{review_id}/print", response_class=HTMLResponse)
+def print_view(review_id: str, request: Request, session: Session = Depends(get_session)):
+    """Zero-dependency PDF fallback: the final document rendered for the
+    browser print dialog (any member, any phase past the freeze)."""
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    if authz.review_role(session, review, user) is None and not user.is_admin:
+        raise HTTPException(status_code=403, detail="members only")
+    latest = VersionRepo(session).latest(review)
+    if latest is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    return templates.TemplateResponse(
+        request,
+        "print.html",
+        {"user": user, "review": review, "content": latest.content},
+    )

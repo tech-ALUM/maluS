@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set nav_active = 'dashboard' %}
+{% block title %}Print — {{ review.review_id_str }}{% endblock %}
+{% block content %}
+<p class="crumb no-print"><a href="/ui/reviews/{{ review.review_id_str }}">← {{ review.review_id_str }}</a>
+  <button type="button" class="btn no-print" onclick="window.print()">Print / Save as PDF</button>
+  <span class="muted no-print">Zero-dependency fallback — the archived PDF (when malus[pdf] is installed) carries the cover and sign-off page.</span>
+</p>
+<div id="print-sheet" class="a4-sheet doc-sheet" aria-label="Final document"></div>
+<script type="application/json" id="print-src">{{ content | tojson }}</script>
+<style>
+  @media print {
+    .no-print, nav, .sidebar, header { display: none !important; }
+    #print-sheet { box-shadow: none; margin: 0; padding: 0; }
+  }
+</style>
+<script src="/static/vendor/marked.min.js?v={{ asset_v }}"></script>
+<script src="/static/vendor/purify.min.js?v={{ asset_v }}"></script>
+<script>
+  (function () {
+    var src = JSON.parse(document.getElementById("print-src").textContent);
+    var html = window.marked ? window.marked.parse(src) : src;
+    if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
+    document.getElementById("print-sheet").innerHTML = html;
+  })();
+</script>
+{% endblock %}
