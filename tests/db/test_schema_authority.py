@@ -167,3 +167,58 @@ def test_fresh_deployment_second_boot_is_a_no_op(tmp_path, monkeypatch):
     assert set(inspect(engine).get_table_names()) - {"alembic_version"} == set(
         SQLModel.metadata.tables
     )
+
+
+def test_drifted_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
+    """The 2026-07-30 server state: stamped at a7c31e90d412 while `create_all`
+    had already made review_artifacts and the reopen column, plus a pre-v3
+    review row stuck at `draft` with a frozen baseline. One
+    `alembic upgrade head` must converge the schema *and* run the phase
+    backfill, and the app must then boot with no schema creation of its own."""
+    import sqlalchemy as sa
+    from fastapi.testclient import TestClient
+
+    from alembic import command
+
+    from malus.api import create_app
+    from malus.db import create_all, make_engine
+
+    monkeypatch.delenv("MALUS_DB_URL", raising=False)
+    url = f"sqlite:///{tmp_path / 'drifted-volume.db'}"
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "a7c31e90d412")
+    engine = make_engine(url)
+    with engine.begin() as conn:
+        conn.execute(sa.text(
+            "INSERT INTO users (id, username, display_name, is_active, created,"
+            " is_admin, is_ai, must_change_password)"
+            " VALUES (1, 'own', 'own', 1, '2026-01-01 00:00:00', 0, 0, 0)"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO reviews (id, review_id_str, owner_id, status, created)"
+            " VALUES (1, 'LEGACY-R1', 1, 'draft', '2026-01-01')"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO documents (id, review_id, name) VALUES (1, 1, 'd.md')"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO document_versions (id, document_id, ordinal, content,"
+            " content_hash, is_baseline, is_final, created)"
+            " VALUES (1, 1, 1, '# doc', 'h', 1, 0, '2026-01-01 00:00:00')"
+        ))
+    create_all(engine)                  # the old bootstrap, mid-window
+
+    upgrade_head(engine)                # the entrypoint's only schema step
+
+    assert current_revision(engine) == "c4d5e6f7a8b9"
+    insp = inspect(engine)
+    assert set(insp.get_table_names()) - {"alembic_version"} == set(SQLModel.metadata.tables)
+    assert "reopen_requested_at" in {c["name"] for c in insp.get_columns("reviewer_copies")}
+    with engine.connect() as conn:      # the backfill ran, no row lost
+        assert conn.execute(
+            sa.text("SELECT status FROM reviews WHERE review_id_str = 'LEGACY-R1'")
+        ).scalar() == "in_review"
+        assert conn.execute(sa.text("SELECT count(*) FROM users")).scalar() == 1
+
+    client = TestClient(create_app(engine, https_only=False, session_secret="s"))
+    assert client.get("/health").status_code == 200
