@@ -10,6 +10,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
 from malus.api.deps import get_session
+from malus.auth import throttle
 from malus.auth.service import authenticate
 from malus.db.models import User
 
@@ -22,7 +23,12 @@ def _basic_auth_user(request: Request, session: Session) -> User | None:
         username, _, password = base64.b64decode(header[6:]).decode("utf-8").partition(":")
     except (binascii.Error, ValueError, UnicodeDecodeError):
         return None
-    return authenticate(session, username, password)
+    # Basic auth is accepted on *every* protected endpoint, so it is as much a
+    # guessing surface as the login form and is throttled the same way (ADR 0005).
+    throttle.check(request, username)
+    user = authenticate(session, username, password)
+    throttle.record(request, username, ok=user is not None)
+    return user
 
 
 def get_current_user(request: Request, session: Session = Depends(get_session)) -> User:

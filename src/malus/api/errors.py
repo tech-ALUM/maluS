@@ -6,6 +6,8 @@
   (``IntegrityError``), or an unmet precondition (``ValueError`` from a service,
   e.g. the traceability gate).
 - 404 — endpoints raise ``HTTPException(404)`` for a missing review/RID/user.
+- 429 — too many failed credential checks (``TooManyAttempts``, ADR 0005),
+  carrying ``Retry-After``. The GUI login form renders its own 429 page instead.
 - 422 — request-body validation (FastAPI's ``RequestValidationError``, automatic).
 
 Handler lookup walks the exception's MRO, so ``ClosureAuthorityError`` (403) is
@@ -18,6 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from malus.auth.throttle import TooManyAttempts
 from malus.models import ClosureAuthorityError, TransitionError
 
 
@@ -33,6 +36,12 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(TransitionError)
     async def _transition(_request: Request, exc: TransitionError) -> JSONResponse:
         return _detail(409, str(exc))
+
+    @app.exception_handler(TooManyAttempts)
+    async def _throttled(_request: Request, exc: TooManyAttempts) -> JSONResponse:
+        response = _detail(429, str(exc))
+        response.headers["Retry-After"] = str(exc.retry_after)
+        return response
 
     @app.exception_handler(IntegrityError)
     async def _integrity(_request: Request, _exc: IntegrityError) -> JSONResponse:

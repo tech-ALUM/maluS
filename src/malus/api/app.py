@@ -41,6 +41,7 @@ from malus.api.errors import install_error_handlers
 from malus.api.routes import router
 from malus.auth.routes import auth_router, users_router
 from malus.auth.service import bootstrap_admin as _bootstrap_admin
+from malus.auth.throttle import LoginThrottle, ThrottlePolicy
 from malus.db import DEFAULT_URL, make_engine
 from malus.web import STATIC_DIR
 from malus.web import web as web_router
@@ -69,6 +70,7 @@ def create_app(
     session_secret: Optional[str] = None,
     https_only: bool = True,
     bootstrap_admin: Optional[tuple[str, str]] = None,
+    login_policy: Optional[ThrottlePolicy] = None,
 ) -> FastAPI:
     """Build the ASGI app. **Creates no schema**: Alembic is the single schema
     authority (v3.1 step 05) and ``docker-entrypoint.sh`` runs
@@ -83,6 +85,8 @@ def create_app(
         ),
     )
     app.state.engine = engine or make_engine(os.environ.get("MALUS_DB_URL", DEFAULT_URL))
+    # Per-app so tests never share counters; tuned by MALUS_LOGIN_* (ADR 0005).
+    app.state.login_throttle = LoginThrottle(login_policy or ThrottlePolicy.from_env())
 
     # Added before SessionMiddleware so it runs *inside* it (session is populated).
     app.add_middleware(BaseHTTPMiddleware, dispatch=_force_password_change)

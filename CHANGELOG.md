@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.4.0 — 2026-08-12 (login throttling)
+
+- **Failed logins are rate-limited** (ADR 0005) — maluS is public and the edge
+  Caddy adds no authentication of its own, so the app's login was the only
+  brake on password guessing and it had none. Failures are now counted in a
+  sliding window on two independent dimensions: per **username** (default 5 per
+  15 min), which stops guessing against a named account however many addresses
+  the attacker rotates through, and per **client IP** (default 20), which stops
+  password spraying across many usernames. Either one refuses the attempt with
+  **429** + `Retry-After`; the GUI login page explains the wait instead of
+  returning JSON. Tunable via `MALUS_LOGIN_MAX_ATTEMPTS`,
+  `MALUS_LOGIN_IP_MAX_ATTEMPTS` and `MALUS_LOGIN_WINDOW_SECONDS`
+  (docs/ops/runbook.md § Login throttling).
+- **All three credential surfaces are covered** — `/auth/login`, the `/ui/login`
+  form and HTTP Basic, which is accepted on *every* protected endpoint and was
+  therefore just as brute-forceable as the login form.
+- **The check runs before argon2**, so a throttled attacker no longer costs us
+  the hashing CPU they were previously buying for free.
+- A successful login clears that username's counter — mistyping your password
+  and then getting it right never leaves you locked out. The IP counter is not
+  cleared on success, so one valid account cannot launder an ongoing spray.
+
 ## v2.3.0 — 2026-07-28 (filter builder, admin withdraw/purge pair, color fixes)
 
 - **Filter builder with operators** — the chips are gone: pick a field

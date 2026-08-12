@@ -87,6 +87,30 @@ Schedule `scripts/backup.sh` via cron; keep off-host copies.
 - **Admin/user passwords**: change via the GUI (`/auth/change-password`) or an
   admin resets by creating/updating the user.
 
+## Login throttling
+
+Failed credential checks are rate-limited in the app (ADR 0005) — the edge
+Caddy adds no authentication, so this is the only brake on password guessing.
+It covers `/auth/login`, `/ui/login` and HTTP Basic. Defaults, overridable in
+`.env` (a restart applies them; counters are in-process and reset on restart):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MALUS_LOGIN_MAX_ATTEMPTS` | `5` | Failures per username per window |
+| `MALUS_LOGIN_IP_MAX_ATTEMPTS` | `20` | Failures per client IP per window |
+| `MALUS_LOGIN_WINDOW_SECONDS` | `900` | Sliding window, in seconds |
+
+A blocked attempt returns **429** with `Retry-After`; the GUI renders the login
+page with an explanation. A successful login clears that username's counter, so
+a mistyped password never leaves a legitimate user locked out.
+
+**Locked out with no second admin?** Wait out the window, or
+`docker compose restart app` — the counters live in memory.
+
+> Do **not** run the app with `--workers` or multiple replicas without moving
+> this state to a shared store: each process keeps its own counters, which
+> multiplies the effective limit by the process count (ADR 0005 §Consequences).
+
 ## Switch to Postgres
 
 1. In `.env`: `MALUS_DB_URL=postgresql+psycopg://malus:PASS@db:5432/malus` and set

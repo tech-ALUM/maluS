@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from malus.api.deps import get_session
+from malus.auth import throttle
 from malus.auth.deps import get_current_user, require_admin
 from malus.auth.passwords import verify_password
 from malus.auth.service import authenticate, create_user, set_password
@@ -61,7 +62,9 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 @auth_router.post("/login", response_model=UserOut)
 def login(request: Request, body: LoginIn, session: Session = Depends(get_session)):
+    throttle.check(request, body.username)  # 429 before argon2 (ADR 0005)
     user = authenticate(session, body.username, body.password)
+    throttle.record(request, body.username, ok=user is not None)
     if user is None:
         raise HTTPException(status_code=401, detail="invalid username or password")
     request.session["user_id"] = user.id

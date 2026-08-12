@@ -24,6 +24,7 @@ from malus import __version__ as malus_version
 from malus import services as svc
 from malus.api import authz
 from malus.api.deps import get_session
+from malus.auth import throttle
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
 from malus.db.models import ReviewStatus, User
@@ -98,7 +99,24 @@ def login_submit(
     password: str = Form(...),
     session: Session = Depends(get_session),
 ):
+    # The form renders its own 429 rather than the JSON error handler, so a
+    # throttled human sees the login page with an explanation (ADR 0005).
+    try:
+        throttle.check(request, username)
+    except throttle.TooManyAttempts as exc:
+        minutes = max(1, round(exc.retry_after / 60))
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "user": None,
+                "error": f"Too many failed attempts. Try again in about {minutes} minute(s).",
+            },
+            status_code=429,
+            headers={"Retry-After": str(exc.retry_after)},
+        )
     user = authenticate(session, username, password)
+    throttle.record(request, username, ok=user is not None)
     if user is None:
         return templates.TemplateResponse(
             request,
