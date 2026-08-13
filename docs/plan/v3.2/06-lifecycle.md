@@ -27,17 +27,30 @@ Feedback points **14** and **15** of the v3.2 wave.
 **Files:** modify `src/malus/lifecycle.py`, `src/malus/constants.py`,
 `src/malus/services/core.py`
 
-The defect is worse than the label Alberto used. `reopen_rid` sends the finding
-to `OPEN` unconditionally (`lifecycle.py:115-147`, target set at line 144), and
-the closeout queue has **no bucket for `open`** — it groups `closed`,
-`implemented` and `verified` only (`web/router.py:797-804`). So reopening a
-verified finding during closeout does not put it in rework: it removes it from
-the workspace altogether.
+**Corrected on 2026-08-13 by reading the viewer** — the earlier reading of this
+defect was wrong in an important way, and the fix is not where it looked.
 
-- [ ] **Step 1:** in phase `closeout`, reopening a `verified` finding targets
-      **`implemented`** — the change exists and is linked, what was withdrawn
-      is the verdict on it, so the finding belongs in *Awaiting verification*.
-      In phase `in_review`, reopen keeps targeting `open`, unchanged.
+In closeout, the button labelled `Reopen…` on a `verified` finding does **not**
+call reopen at all: it posts to **`request-changes`**
+(`document-viewer.js:465-477`), which is exactly why the finding lands in
+rework. `reopen_rid` (`lifecycle.py:115-147`) targets `OPEN` unconditionally
+and is the button used in `in_review`; the closeout queue has no bucket for
+`open` (`web/router.py:797-804`), so routing closeout reopens through it would
+make findings vanish from the workspace instead.
+
+So there are two distinct actions on a verified finding in closeout, and today
+they are collapsed into one:
+
+| Intent | Should land in | Today |
+|---|---|---|
+| "the change is wrong, do it again" (**Request changes**) | rework — `closed` + reason | correct |
+| "I withdraw my verdict, let me look again" (**Reopen**) | *Awaiting verification* — `implemented` | posts request-changes → rework |
+
+- [ ] **Step 1:** give the two intents two paths. A new service moves
+      `verified → implemented` (withdraw the verdict, the change stands), and
+      the closeout `Reopen…` button calls **it** instead of `request-changes`.
+      `Request changes…` keeps doing what it does. In phase `in_review`,
+      reopen keeps targeting `open`, unchanged.
 - [ ] **Step 2:** `TRANSITIONS` (`constants.py:70-77`) declares `VERIFIED` as
       terminal, and reopen already lives outside that graph. Decide
       deliberately whether to add `VERIFIED → IMPLEMENTED` to the graph or to
