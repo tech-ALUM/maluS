@@ -215,6 +215,17 @@ class VersionRepo:
             .where(DocumentVersion.ordinal == ordinal)
         ).first()
 
+    def list(self, review: Review) -> list[DocumentVersion]:
+        """Every version in order, baseline first (v3.2 step 05: the chain the
+        diff attribution walks to learn which finding wrote which line)."""
+        return list(
+            self.s.exec(
+                select(DocumentVersion)
+                .where(DocumentVersion.document_id == self._document(review).id)
+                .order_by(DocumentVersion.ordinal)
+            ).all()
+        )
+
 
 class ReviewerCopyRepo:
     def __init__(self, session: Session) -> None:

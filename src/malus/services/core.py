@@ -771,6 +771,31 @@ def link_change(
     return change
 
 
+def version_chain(session: Session, review: Review) -> list[tuple[str, list[str]]]:
+    """The document's history as ``[(content, rids), …]``, baseline first.
+
+    Each entry after the baseline carries the findings that version was saved
+    against — its cause. Since v3.2 step 04 a version has exactly one
+    implementation session behind it, so this is what lets the diff renderer
+    label each hunk with the comment it came from (``diffing.line_provenance``).
+
+    Versions saved before v3.2, or by the legacy multi-RID picker, simply carry
+    several RIDs; a version with no link at all carries none and its lines end
+    up unlabelled, which is the honest answer.
+    """
+    versions = VersionRepo(session).list(review)
+    if not versions:
+        return []
+    links: dict[int, list[str]] = {}
+    for row in RidRepo(session).list(review):
+        for change in RidRepo(session).changes_for(row):
+            links.setdefault(change.version_id, []).append(row.rid_str)
+    return [
+        (v.content, [] if v.is_baseline else sorted(links.get(v.id, [])))
+        for v in versions
+    ]
+
+
 def rid_has_change(session: Session, review: Review, rid_id: str) -> bool:
     """True if ``rid_id`` is already linked to a post-baseline version (v3
     closeout workspace, Task 2: lets the UI show which accepted RIDs still
