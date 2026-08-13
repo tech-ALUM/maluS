@@ -65,13 +65,14 @@ def test_full_multi_user_review_to_finalize(app, mkuser, basic_client, docs):
 
     # --- owner saves the edit in the closeout workspace (GUI) -> version + RID link ---
     # (the rejected AI finding stays 'closed' — only an accepted RID may be implemented;
-    #  v3: saving links the change but no longer auto-advances the RID's status)
+    #  v3.2 point 13: the save closes an implementation session — it links the
+    #  change AND implements the finding, in one gesture)
     assert owner.post(
         f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"] + "\nThe timeout is bounded to 30s.\n", "rids": [human_rid]},
         follow_redirects=False,
     ).status_code == 303
-    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "closed"
+    assert owner.get(f"/reviews/{R}/rids/{human_rid}").json()["status"] == "implemented"
     assert human_rid in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
     # --- owner explicitly marks the finding implemented (GUI) ---

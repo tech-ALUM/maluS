@@ -80,17 +80,17 @@ def test_disposition_and_verification_cycle_in_browser(mkuser, docs, app):
     r = owner.post(f"/ui/reviews/{R}/start-closeout", follow_redirects=False)
     assert r.status_code == 303
 
-    # owner saves the edit in the closeout workspace, linking it to the accepted
-    # finding (v3: saving no longer auto-advances the RID's status)
+    # owner closes an implementation session on the accepted finding
+    # (v3.2 point 13: one gesture — the save links the change and implements it)
     r = owner.post(
         f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"] + "\nbounded.\n", "rids": ["SIN-SRS-0001"]},
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert '"status": "closed"' in owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
+    assert '"status": "implemented"' in owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text
 
-    # then explicitly marks it implemented
+    # the standalone route survives for pre-v3.2 data, and is idempotent
     r = owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/implement", follow_redirects=False)
     assert r.status_code == 303
     assert '"status": "implemented"' in owner.get(f"/ui/reviews/{R}/rids/SIN-SRS-0001").text

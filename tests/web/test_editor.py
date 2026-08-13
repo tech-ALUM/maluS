@@ -74,17 +74,21 @@ def test_owner_implement_creates_version_and_links_rid(mkuser, docs):
     page = owner.get(f"/ui/reviews/{R}/document")  # the workspace lives here now
     assert page.status_code == 200 and "SIN-SRS-0001" in page.text
 
-    # v3: saving links the version to the ticked RID but no longer auto-advances it
+    # v3.2 point 13: the save closes an implementation session — it links the
+    # version to the finding *and* implements it, in one transaction. v3 split
+    # this into a save followed by an explicit "Mark implemented"; that second
+    # gesture is what Alberto asked to remove.
     r = owner.post(
         f"/ui/reviews/{R}/closeout",
         data={"content": docs["baseline"] + "\nbounded.\n", "rids": ["SIN-SRS-0001"]},
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "closed"
+    assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "implemented"
     assert "SIN-SRS-0001" in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
-    # Mark implemented is now an explicit per-RID action
+    # the standalone route survives for findings whose change predates v3.2, and
+    # is idempotent: asking for a state that already holds is not an error
     r = owner.post(f"/ui/reviews/{R}/rids/SIN-SRS-0001/implement", follow_redirects=False)
     assert r.status_code == 303
     assert owner.get(f"/reviews/{R}/rids/SIN-SRS-0001").json()["status"] == "implemented"

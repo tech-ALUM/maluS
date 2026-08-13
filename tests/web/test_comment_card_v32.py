@@ -72,7 +72,7 @@ def _seed_rework(mkuser):
         data={"content": IMPLEMENTED, "rids": [rid]},
         follow_redirects=False,
     )
-    owner.post(f"/ui/reviews/{R}/rids/{rid}/implement", follow_redirects=False)
+    # the save above already implemented it (v3.2 point 13); no second gesture
     return owner, reviewer, rid
 
 
@@ -112,7 +112,6 @@ def test_the_queue_buckets_from_the_column_not_from_the_reply_text(mkuser):
         data={"content": IMPLEMENTED + "\nBeyond the bound the driver aborts.\n", "rids": [rid]},
         follow_redirects=False,
     )
-    owner.post(f"/ui/reviews/{R}/rids/{rid}/implement", follow_redirects=False)
 
     data = _viewer_data(owner.get(f"/ui/reviews/{R}/document").text)
     assert _rid(data, rid)["queue"] == "awaiting"

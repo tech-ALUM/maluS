@@ -101,10 +101,15 @@ def test_post_closeout_save_with_ticked_rid_links_version_and_unlocks_mark_imple
         follow_redirects=False,
     )
     assert r.status_code == 303
-    assert r.headers["location"] == f"/ui/reviews/{R}/document"
+    # v3.2 point 13: the save closes an implementation session, so it lands on
+    # the card it just closed rather than on the bare document.
+    assert r.headers["location"] == f"/ui/reviews/{R}/document?focus=SIN-SRS-0001"
 
-    # the RID queue moved: it now carries a linked change, so Mark implemented unlocks
+    # the RID carries a linked change — and, since v3.2, the save that created
+    # it also implemented the finding: closing a session is one gesture, not a
+    # save followed by a separate "Mark implemented".
     assert _rid(owner)["hasChange"] is True
+    assert _rid(owner)["status"] == "implemented"
     assert "SIN-SRS-0001" in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
 

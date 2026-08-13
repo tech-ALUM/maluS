@@ -126,11 +126,13 @@ def test_full_v3_review_closeout_verify_finalize_flow(app, mkuser, docs=None):
         data={"content": CLOSEOUT_CONTENT, "rids": [timeout_rid]},
         follow_redirects=False,
     ).status_code == 303
-    assert owner.get(f"/reviews/{R}/rids/{timeout_rid}").json()["status"] == "closed"
+    # v3.2 point 13: the save closes an implementation session, so it links the
+    # change AND implements the finding — one gesture, one transaction.
+    assert owner.get(f"/reviews/{R}/rids/{timeout_rid}").json()["status"] == "implemented"
     assert timeout_rid in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
     assert csv_rid not in owner.get(f"/reviews/{R}/traceability").json()["referenced"]
 
-    # --- mark implemented ---
+    # the standalone route survives for pre-v3.2 data and is idempotent
     assert owner.post(
         f"/ui/reviews/{R}/rids/{timeout_rid}/implement", follow_redirects=False
     ).status_code == 303
