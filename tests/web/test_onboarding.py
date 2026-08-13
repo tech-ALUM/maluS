@@ -18,8 +18,13 @@ def _seed(mkuser, docs):
 
 def test_reviewer_sees_landing_cta_but_owner_does_not(mkuser, docs):
     owner, f = _seed(mkuser, docs)
-    assert "add your comments" in f.get(f"/ui/reviews/{R}").text.lower()  # prominent reviewer CTA
-    assert "add your comments" not in owner.get(f"/ui/reviews/{R}").text.lower()
+    # v3.2 point 5: the coral banner and its sentence are gone; the reviewer's
+    # way into the document is a single button, and only the reviewer sees it.
+    reviewer_page = f.get(f"/ui/reviews/{R}").text
+    assert "go to document editor" in reviewer_page.lower()
+    assert "cta-banner" not in reviewer_page
+    assert "you're a <b>reviewer</b> on this document" not in reviewer_page.lower()
+    assert "go to document editor" not in owner.get(f"/ui/reviews/{R}").text.lower()
 
 
 def test_owner_sees_a_copy_link_control(mkuser, docs):

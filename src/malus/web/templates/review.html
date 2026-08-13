@@ -10,10 +10,9 @@
   {% if role %}<span class="role role-{{ role }}">{{ role }}</span>{% else %}—{% endif %}</span>
 </p>
 {% if role == 'reviewer' %}
-<div class="cta-banner">
-  <span>You're a <b>reviewer</b> on this document — add your comments in the document view.</span>
-  <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/document">Add your comments</a>
-</div>
+<p class="actions">
+  <a class="btn" href="/ui/reviews/{{ review.review_id_str }}/document">Go to document editor</a>
+</p>
 {% endif %}
 {% if role == 'owner' or user.is_admin %}
 <p class="actions">
