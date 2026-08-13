@@ -464,6 +464,19 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 
 /* v3 step 03: per-RID Changes section (card) + full-diff page — same diff
    markup rendered server-side by malus.diffing.html_diff */
+/* The implementation session (v3.2 point 13). */
+.doc-edit-hint {
+  margin: 0 0 .6rem; padding: .55rem .8rem; font-size: .88rem; color: var(--muted);
+  background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius-sm);
+}
+.doc-edit[readonly] { background: #fbfbfc; color: var(--muted); cursor: default; }
+.session-dlg .session-res { display: block; margin: 0 0 .8rem; font-size: .85rem; color: var(--muted); }
+.session-dlg .session-res input { display: block; width: 100%; margin-top: .25rem; }
+.session-dlg .session-dup-title { margin: .2rem 0 .4rem; font-size: .85rem; }
+.session-dlg .session-dup { display: block; font-size: .85rem; margin-bottom: .25rem; }
+.session-dlg .session-warn { color: var(--coral-dark); font-size: .85rem; font-weight: 600; }
+.cp-session-cancel { font-size: .82rem; }
+
 /* An outstanding rework request (v3.2 point 10). Amber, like every other
    "someone is waiting on you" surface in the app — not red: nothing is wrong,
    there is work to do. */

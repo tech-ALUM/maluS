@@ -482,34 +482,35 @@
       actions.appendChild(undo);
     }
     if (r && data.canEditDoc && (r.queue === "todo" || r.queue === "rework")) {
-      // the edit↔RID picker IS the queue: tick the findings this save resolves
-      var pick = document.createElement("label");
-      pick.className = "cq-pick";
-      var box = document.createElement("input");
-      box.type = "checkbox";
-      box.name = "rids";
-      box.value = r.rid;
-      box.addEventListener("change", syncSaveButton);
-      pick.appendChild(box);
-      pick.appendChild(document.createTextNode(" this edit resolves it"));
-      card.appendChild(pick);
+      // v3.2 point 13: the editor is locked until a finding is opened for
+      // implementation, and one session is open at a time. The v3.1 checkbox
+      // picker is gone — ticking findings after the fact made the pairing an
+      // assertion; a session makes it a fact, which is what lets step 05
+      // attribute each hunk of the final diff to the comment behind it.
+      var open = session && session.rid === r.rid;
+      var impl = document.createElement("button");
+      impl.type = "button";
+      impl.className = "primary cp-implement";
+      impl.textContent = open ? "Close and associate change" : "Implement comment";
+      impl.disabled = !!session && !open;
+      if (impl.disabled) impl.title = "Close the change in progress first";
+      impl.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (open) openCloseSession(r);
+        else startSession(r);
+      });
+      actions.appendChild(impl);
 
-      if (r.hasChange) {  // implement is gated server-side on a linked change
-        var res = document.createElement("input");
-        res.type = "text";
-        res.className = "cq-resolution-input";
-        res.placeholder = "what was done (resolution)";
-        var mark = document.createElement("button");
-        mark.type = "button";
-        mark.className = "secondary cp-implement";
-        mark.textContent = "Mark implemented";
-        mark.addEventListener("click", function (ev) {
+      if (open) {
+        var cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "cp-session-cancel";
+        cancel.textContent = "Cancel";
+        cancel.addEventListener("click", function (ev) {
           ev.stopPropagation();
-          post(base + "/rids/" + encodeURIComponent(r.rid) + "/implement",
-            { resolution: res.value });
+          if (window.confirm("Abandon this change? The text you typed is lost.")) endSession();
         });
-        actions.appendChild(res);
-        actions.appendChild(mark);
+        actions.appendChild(cancel);
       }
     }
     if (actions.childNodes.length) card.appendChild(actions);
@@ -580,14 +581,147 @@
     return f;
   }
 
+  /* ---------------- one implementation session (v3.2 point 13) ---------- */
+  /* The closeout editor is locked until a finding is opened for implementation,
+     and exactly one session is open at a time. `session` is the single source
+     of truth: the textarea's readonly, the card buttons, the hint and the
+     submit all read it, so they cannot disagree. It is deliberately client
+     state — a reload drops it, with a warning, and the server stays the
+     authority on every rule (≥1 accepted finding, text actually changed). */
+  var session = null;   // {rid: "<RID>"} while a change is being made
+
+  function startSession(r) {
+    session = { rid: r.rid };
+    setMode(true);
+    syncSession();
+    refresh(false);
+    if (editEl) editEl.focus();
+  }
+
+  function endSession() {
+    session = null;
+    if (editEl) editEl.value = data.latest;   // discard the unsaved text
+    setMode(false);
+    syncSession();
+    refresh(false);
+  }
+
+  function syncSession() {
+    if (!editEl) return;
+    editEl.readOnly = !session;
+    var hint = document.getElementById("doc-edit-hint");
+    if (hint) hint.hidden = !!session;
+    var modeEditBtn = document.getElementById("doc-mode-edit");
+    if (modeEditBtn) modeEditBtn.title = session
+      ? "Editing for " + session.rid
+      : "Pick a finding to implement first";
+    syncSaveButton();
+  }
+
+  /* Closing a session: name the duplicates this same edit resolves, record the
+     resolution, and post them together. The panel is built on demand rather
+     than living in every card, so nothing about it can be half-filled. */
+  function openCloseSession(r) {
+    var others = (data.rids || []).filter(function (x) {
+      return x.rid !== r.rid && (x.queue === "todo" || x.queue === "rework");
+    });
+    var wrap = document.getElementById("session-close") || document.createElement("dialog");
+    wrap.id = "session-close";
+    wrap.className = "bin-dlg session-dlg";
+    if (!wrap.isConnected) document.body.appendChild(wrap);
+    wrap.innerHTML = "";
+
+    var h = document.createElement("h3");
+    h.className = "bin-dlg-title";
+    h.textContent = "Close and associate change — " + r.rid;
+    var p = document.createElement("p");
+    p.textContent = "This edit is recorded against " + r.rid
+      + " and the finding moves to Awaiting verification.";
+    wrap.appendChild(h);
+    wrap.appendChild(p);
+
+    var resLabel = document.createElement("label");
+    resLabel.className = "session-res";
+    resLabel.textContent = "Resolution (optional)";
+    var res = document.createElement("input");
+    res.type = "text";
+    res.placeholder = "what was done";
+    resLabel.appendChild(res);
+    wrap.appendChild(resLabel);
+
+    var picks = [];
+    if (others.length) {
+      var dupTitle = document.createElement("p");
+      dupTitle.className = "session-dup-title";
+      dupTitle.textContent = "Does this same change resolve any of these too?";
+      wrap.appendChild(dupTitle);
+      others.forEach(function (o) {
+        var lab = document.createElement("label");
+        lab.className = "session-dup";
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.value = o.rid;
+        lab.appendChild(box);
+        lab.appendChild(document.createTextNode(" " + o.rid + " — " + (o.comment || "").slice(0, 70)));
+        wrap.appendChild(lab);
+        picks.push(box);
+      });
+    }
+
+    var row = document.createElement("div");
+    row.className = "bin-dlg-actions";
+    var ok = document.createElement("button");
+    ok.type = "button";
+    ok.className = "primary";
+    ok.textContent = "Close and associate change";
+    ok.disabled = !editEl || editEl.value === data.latest;
+    if (ok.disabled) {
+      var warn = document.createElement("p");
+      warn.className = "session-warn";
+      warn.textContent = "The document has not changed yet, so there is nothing to associate.";
+      wrap.appendChild(warn);
+    }
+    ok.addEventListener("click", function () {
+      var rids = [r.rid].concat(picks.filter(function (b) { return b.checked; })
+        .map(function (b) { return b.value; }));
+      wrap.close();
+      submitSession(rids, res.value);
+    });
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Keep editing";
+    cancel.addEventListener("click", function () { wrap.close(); });
+    row.appendChild(ok);
+    row.appendChild(cancel);
+    wrap.appendChild(row);
+    wrap.showModal();
+  }
+
+  function submitSession(rids, resolution) {
+    if (!form) return;
+    form.querySelectorAll('input[name="rids"], input[name="resolution"]').forEach(function (el) {
+      el.remove();
+    });
+    rids.forEach(function (rid) {
+      var h = document.createElement("input");
+      h.type = "hidden";
+      h.name = "rids";
+      h.value = rid;
+      form.appendChild(h);
+    });
+    var rh = document.createElement("input");
+    rh.type = "hidden";
+    rh.name = "resolution";
+    rh.value = resolution || "";
+    form.appendChild(rh);
+    session = null;          // the page is leaving; do not warn about the text
+    form.submit();
+  }
+
   function syncSaveButton() {
     var btn = document.getElementById("closeout-save");
     if (!btn || !editEl) return;
-    var n = list.querySelectorAll('input[name="rids"]:checked').length;
-    var counter = document.getElementById("rid-count");
-    if (counter) counter.textContent = String(n);
-    // the service rejects both cases anyway — this only saves the round-trip
-    btn.disabled = n === 0 || editEl.value === data.latest;
+    btn.disabled = !session || editEl.value === data.latest;
   }
 
   /* v3.1: in closeout the panel IS the work queue — the four groups the
@@ -953,6 +1087,15 @@
   if (modeRender) modeRender.addEventListener("click", function () { setMode(false); });
   if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
   if (editEl) editEl.addEventListener("input", syncSaveButton);
+
+  // v3.2 point 13: the closeout editor starts locked, and a reload drops an
+  // open session — so warn before the text goes with it.
+  if (editEl) {
+    syncSession();
+    window.addEventListener("beforeunload", function (ev) {
+      if (session && editEl.value !== data.latest) { ev.preventDefault(); ev.returnValue = ""; }
+    });
+  }
 
   // v3.1 step 02: Terminate lives in the closeout toolbar, which is inside
   // #rev-form — a nested <form> is invalid HTML, so it posts detached like

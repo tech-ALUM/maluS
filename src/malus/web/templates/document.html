@@ -87,7 +87,13 @@
   <div class="workbench">
     <div id="sheet" class="a4-sheet doc-sheet" aria-label="Rendered document"></div>
     {% if data.canEditDoc %}
-    <textarea id="doc-edit" name="content" class="doc-edit" spellcheck="false" hidden>{{ data.latest }}</textarea>
+    {# v3.2 point 13: the editor is locked until a finding is opened for
+       implementation from its card — one change at a time, so every version
+       has exactly one cause. #}
+    <p id="doc-edit-hint" class="doc-edit-hint" hidden>
+      Pick a finding in the queue and press <b>Implement comment</b> to unlock the document.
+    </p>
+    <textarea id="doc-edit" name="content" class="doc-edit" spellcheck="false" readonly hidden>{{ data.latest }}</textarea>
     {% endif %}
     <aside class="comments-panel">
       <div id="legend" class="legend" aria-label="Reviewer colors"></div>
@@ -101,12 +107,6 @@
     <button type="submit" name="action" value="save" class="secondary">Save draft</button>
     <button type="submit" name="action" value="submit" class="primary"
             onclick="return confirm('Submit your copy? Once submitted it is locked: editing again needs a reopen approved by the owner.') && confirm('Really submit now? This is final.')">Submit copy</button>
-  </div>
-  {% endif %}
-  {% if data.canEditDoc %}
-  <div class="rev-actions">
-    <button type="submit" class="primary" id="closeout-save" disabled>
-      Save version &amp; link (<span id="rid-count">0</span>)</button>
   </div>
   {% endif %}
 </form>
