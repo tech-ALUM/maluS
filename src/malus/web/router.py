@@ -28,7 +28,7 @@ from malus.auth import throttle
 from malus.auth.service import authenticate
 from malus.constants import Disposition, Role, Status
 from malus.db.models import ReviewStatus, User
-from malus.diffing import html_diff
+from malus.diffing import html_diff, line_provenance
 from malus.harvest import FreezeViolation, WithdrawViolation, build_rtd, validate_insertion_only
 from malus.parser import ParseError
 from malus.repo import (
@@ -946,9 +946,57 @@ def diff_page(
                 latest.content,
                 context=None if full else 3,
                 line_numbers=full,
+                # v3.2 point 13: each hunk names the finding behind it, so a
+                # reviewer reading the whole diff can tell which of their
+                # comments produced which change — and can click through to it.
+                attribution=line_provenance(svc.version_chain(session, review)),
+                rid_base=f"/ui/reviews/{review.review_id_str}/document?focus=",
             ),
         },
     )
+
+
+@web.post("/ui/reviews/{review_id}/diff-preview", response_class=HTMLResponse)
+def diff_preview(
+    review_id: str,
+    request: Request,
+    content: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    """The editor's live diff (v3.2 points 11–12): baseline → the text as it
+    stands right now, including what is being typed.
+
+    There is one diff, not two. Everything already implemented is in it because
+    it is in the saved versions; the pending edit is in it because it is in the
+    request. Rendering it here rather than in JavaScript keeps a single diff
+    algorithm in the project — a second implementation in the browser would
+    drift from the authoritative one, and ADR 0003 caps the vendored front-end
+    libraries at three.
+
+    Authorization is the editor's own: this returns nothing a principal who may
+    write the document cannot already read, and it must not become an open diff
+    service for arbitrary text.
+    """
+    user = _current(request, session)
+    if not user:
+        return _LOGIN
+    review = _review_or_404(session, review_id)
+    role = authz.review_role(session, review, user)
+    may_edit = (role == Role.OWNER.value or user.is_admin) and not user.is_ai
+    if not may_edit:
+        raise HTTPException(status_code=403, detail="only the document's writer may preview a diff")
+    if review.status != ReviewStatus.CLOSEOUT.value:
+        raise HTTPException(status_code=409, detail="the review is not in closeout")
+    baseline = VersionRepo(session).baseline(review)
+    if baseline is None:
+        raise HTTPException(status_code=409, detail="the baseline is not frozen yet")
+    markup = html_diff(
+        baseline.content,
+        content,
+        context=None,
+        attribution=line_provenance(svc.version_chain(session, review)),
+    )
+    return HTMLResponse(markup or '<p class="muted">Nothing has changed yet.</p>')
 
 
 @web.get("/ui/reviews/{review_id}/edit-copy")
@@ -1251,7 +1299,13 @@ def download_diff_html(review_id: str, request: Request, session: Session = Depe
         review=review,
         baseline=baseline,
         latest=latest,
-        diff_html=html_diff(baseline.content, latest.content, context=None, line_numbers=True),
+        diff_html=html_diff(
+            baseline.content,
+            latest.content,
+            context=None,
+            line_numbers=True,
+            attribution=line_provenance(svc.version_chain(session, review)),
+        ),
     )
     return Response(
         content=markup,

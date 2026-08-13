@@ -72,7 +72,10 @@
   <div class="doc-toolbar">
     <span class="doc-ver">v{{ data.latestOrdinal }}</span>
     <button type="button" id="doc-mode-render" class="secondary active">Render</button>
-    {% if data.canEditDoc %}<button type="button" id="doc-mode-edit" class="secondary">Edit</button>{% endif %}
+    {% if data.canEditDoc %}<button type="button" id="doc-mode-edit" class="secondary">Edit</button>
+    {# v3.2 points 11-12: the changes since the frozen baseline, including the
+       ones being typed right now. One diff, not two. #}
+    <button type="button" id="doc-mode-changes" class="secondary">Changes</button>{% endif %}
     {# v3.1 step 02 task 5: the toolbar sits inside #rev-form, so Terminate cannot
        be a <form> (HTML forbids nesting) — it is a detached-form post() button,
        the idiom step 01 used for Mark implemented. Label + confirm string are
@@ -94,6 +97,7 @@
       Pick a finding in the queue and press <b>Implement comment</b> to unlock the document.
     </p>
     <textarea id="doc-edit" name="content" class="doc-edit" spellcheck="false" readonly hidden>{{ data.latest }}</textarea>
+    <div id="doc-changes" class="a4-sheet doc-changes" aria-label="Changes since the baseline" hidden></div>
     {% endif %}
     <aside class="comments-panel">
       <div id="legend" class="legend" aria-label="Reviewer colors"></div>

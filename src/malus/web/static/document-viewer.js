@@ -1073,20 +1073,98 @@
     setFocus(focusKey && itemByKey(focusKey) ? focusKey : null, { scroll: false });
     syncSaveButton();  // v3.1: the queue's checkboxes are rebuilt on every pass
   }
-  /* ---------------- closeout: Render | Edit ----------------------------- */
+  /* ---------------- closeout: Render | Edit | Changes -------------------- */
   var modeRender = document.getElementById("doc-mode-render");
   var modeEdit = document.getElementById("doc-mode-edit");
-  function setMode(edit) {
-    if (!editEl) return;
-    editEl.hidden = !edit;
-    sheet.hidden = edit;
-    if (modeEdit) modeEdit.classList.toggle("active", edit);
-    if (modeRender) modeRender.classList.toggle("active", !edit);
-    if (!edit) renderSheet(currentItems);   // re-render from the edited text
+  var modeChanges = document.getElementById("doc-mode-changes");
+  var changesEl = document.getElementById("doc-changes");
+
+  /* Leaving Edit must not cost the writer their place: the caret and the
+     textarea's scroll are remembered and put back, with focus, on return
+     (v3.2 — Alberto's explicit requirement). The sheet and the diff keep their
+     own scroll positions independently, so switching views never scrolls
+     anything the user did not scroll. */
+  var caret = { start: 0, end: 0, scroll: 0 };
+  var viewScroll = { render: 0, changes: 0 };
+
+  function rememberCaret() {
+    if (!editEl || editEl.hidden) return;
+    caret.start = editEl.selectionStart;
+    caret.end = editEl.selectionEnd;
+    caret.scroll = editEl.scrollTop;
   }
-  if (modeRender) modeRender.addEventListener("click", function () { setMode(false); });
-  if (modeEdit) modeEdit.addEventListener("click", function () { setMode(true); });
-  if (editEl) editEl.addEventListener("input", syncSaveButton);
+  function restoreCaret() {
+    if (!editEl) return;
+    try { editEl.setSelectionRange(caret.start, caret.end); } catch (e) { /* detached */ }
+    editEl.scrollTop = caret.scroll;
+    if (!editEl.readOnly) editEl.focus();
+  }
+
+  function setMode(mode) {                 // "render" | "edit" | "changes"
+    if (!editEl) return;
+    if (mode === true) mode = "edit";      // v3.1 callers passed a boolean
+    else if (mode === false) mode = "render";
+    if (!editEl.hidden) rememberCaret();
+    else if (!sheet.hidden) viewScroll.render = sheet.scrollTop;
+    else if (changesEl && !changesEl.hidden) viewScroll.changes = changesEl.scrollTop;
+
+    editEl.hidden = mode !== "edit";
+    sheet.hidden = mode !== "render";
+    if (changesEl) changesEl.hidden = mode !== "changes";
+    if (modeEdit) modeEdit.classList.toggle("active", mode === "edit");
+    if (modeRender) modeRender.classList.toggle("active", mode === "render");
+    if (modeChanges) modeChanges.classList.toggle("active", mode === "changes");
+
+    if (mode === "render") {
+      renderSheet(currentItems);           // re-render from the edited text
+      sheet.scrollTop = viewScroll.render;
+    } else if (mode === "edit") {
+      restoreCaret();
+    } else {
+      changesEl.scrollTop = viewScroll.changes;
+      requestDiff(true);
+    }
+  }
+
+  /* The live diff is computed by the server — the same renderer every other
+     diff in the product uses. Debounced, and a newer request always wins: a
+     slow response must never overwrite a fresher diff. */
+  var diffTimer = null, diffSeq = 0, lastDiffed = null;
+  function requestDiff(immediate) {
+    if (!changesEl || !editEl) return;
+    if (changesEl.hidden) return;          // never poll a view nobody is looking at
+    clearTimeout(diffTimer);
+    diffTimer = setTimeout(function () {
+      var text = editEl.value;
+      if (text === lastDiffed) return;
+      var seq = ++diffSeq;
+      var body = new URLSearchParams();
+      body.set("content", text);
+      fetch(base + "/diff-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        credentials: "same-origin",
+      }).then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+        .then(function (markup) {
+          if (seq !== diffSeq) return;     // a newer request has taken over
+          lastDiffed = text;
+          changesEl.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(markup) : markup;
+        })
+        .catch(function () {
+          if (seq !== diffSeq) return;
+          changesEl.innerHTML = '<p class="muted">The diff could not be refreshed.</p>';
+        });
+    }, immediate ? 0 : 400);
+  }
+
+  if (modeRender) modeRender.addEventListener("click", function () { setMode("render"); });
+  if (modeEdit) modeEdit.addEventListener("click", function () { setMode("edit"); });
+  if (modeChanges) modeChanges.addEventListener("click", function () { setMode("changes"); });
+  if (editEl) editEl.addEventListener("input", function () {
+    syncSaveButton();
+    requestDiff(false);                    // live while the Changes view is up
+  });
 
   // v3.2 point 13: the closeout editor starts locked, and a reload drops an
   // open session — so warn before the text goes with it.
