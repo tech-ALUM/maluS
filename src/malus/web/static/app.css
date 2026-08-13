@@ -316,7 +316,24 @@ blockquote { margin: .3rem 0; padding: .65rem 1rem; background: var(--card); bor
 .cp-card .cp-meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
 .cp-note { width: 100%; margin-top: .4rem; font-size: .85rem; min-height: 3.2rem; }
 .cp-note-label { font-size: .72rem; color: var(--muted); }
-.cp-del { float: right; font-size: .72rem; }
+/* One bin per comment (v3.2 point 7). It sits apart from the verbs: it is the
+   only destructive control on the card, and the admin's choice between
+   withdrawing and deleting for good lives in its dialog, not in the UI. */
+.cp-bin {
+  margin-left: auto; padding: .18rem .4rem; line-height: 1;
+  background: none; border: 1px solid transparent; box-shadow: none;
+  font-size: .9rem; cursor: pointer; opacity: .55;
+  transition: opacity var(--speed), border-color var(--speed), background var(--speed);
+}
+.cp-bin:hover { opacity: 1; border-color: var(--coral); background: var(--coral-soft); }
+.bin-dlg {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.3rem;
+  max-width: min(92vw, 34rem); box-shadow: var(--shadow-lift); color: var(--ink);
+}
+.bin-dlg::backdrop { background: rgba(21, 24, 29, .35); }
+.bin-dlg-title { font-family: var(--mono); font-size: .82rem; margin: 0 0 .4rem; }
+.bin-dlg p { margin: 0 0 1rem; font-size: .9rem; color: var(--muted); }
+.bin-dlg-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
 
 .cmt-pop { position: absolute; z-index: 60; width: 290px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: .7rem; box-shadow: var(--shadow-lift); }
 .cmt-pop .cmt-pop-row { display: flex; gap: .5rem; margin-bottom: .5rem; }
@@ -447,8 +464,25 @@ button.candidate:hover { background: var(--teal-soft); border-color: transparent
 
 /* v3 step 03: per-RID Changes section (card) + full-diff page — same diff
    markup rendered server-side by malus.diffing.html_diff */
-.cp-changes { margin-top: .5rem; font-size: .85em; }
-.cp-changes-title { font-weight: 600; margin-bottom: .25rem; }
+/* An outstanding rework request (v3.2 point 10). Amber, like every other
+   "someone is waiting on you" surface in the app — not red: nothing is wrong,
+   there is work to do. */
+.cp-rework {
+  margin: .5rem 0 .2rem; padding: .5rem .7rem;
+  border-left: 3px solid #d98324; border-radius: var(--radius-sm);
+  background: #fff8ee;
+}
+.cp-rework-head {
+  font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .4px; color: #9a5b12; margin-bottom: .2rem;
+}
+.cp-rework-body { font-size: .86rem; color: var(--ink); white-space: pre-wrap; }
+
+/* Changes is a <details> since v3.2 (point 9): collapsed by default, so a card
+   in the closeout queue opens with its text rather than with a wall of diff. */
+.cp-changes { margin-top: .5rem; font-size: .85em; border-top: 1px dashed var(--line); padding-top: .35rem; }
+.cp-changes-title { font-weight: 600; margin-bottom: .25rem; cursor: pointer; }
+.cp-changes[open] > .cp-changes-title { margin-bottom: .4rem; }
 .diff { font-family: var(--mono, monospace); white-space: pre-wrap; overflow-x: auto; }
 .diff-ctx { opacity: .65; }
 .diff-del { background: color-mix(in srgb, crimson 12%, transparent); }

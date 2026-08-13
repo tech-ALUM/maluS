@@ -808,12 +808,27 @@ def _document_context(
     # context (retired in task 6) so the buckets could not drift apart.
     is_closeout = review.status == ReviewStatus.CLOSEOUT.value
     latest = VersionRepo(session).latest(review)
+    # v3.2 point 10: the rework request comes off its own columns, not off a
+    # substring of ``reply``. Rows are read once, keyed by RID string.
+    rework_rows = {row.rid_str: row for row in RidRepo(session).list(review)}
     for r in rids:
+        row = rework_rows.get(r["rid"])
+        reworked = bool(row is not None and row.rework_at is not None)
+        # Only a finding still sitting at ``closed`` has an *outstanding*
+        # request; once the owner implements it again the columns are history.
+        r["rework"] = (
+            {
+                "reason": row.rework_reason,
+                "by": (row.rework_by.display_name if row.rework_by else None),
+                "at": row.rework_at.isoformat(),
+            }
+            if reworked and r["status"] == Status.CLOSED.value
+            else None
+        )
         group = None
         if r["disposition"] in (Disposition.REJECTED.value, Disposition.DEFERRED.value):
             group = "noChange"
         elif r["disposition"] == Disposition.ACCEPTED.value:
-            reworked = "[changes requested by" in (r["reply"] or "")
             if r["status"] == Status.CLOSED.value:
                 group = "rework" if reworked else "todo"
             elif r["status"] == Status.IMPLEMENTED.value:

@@ -284,6 +284,26 @@
     }
     card.appendChild(body);
 
+    if (r && r.rework) {
+      // v3.2 point 10: an outstanding rework request is a work item, not a log
+      // line. It used to reach the owner only as a suffix inside their own
+      // reply field, or buried in the history — so it sits right under the
+      // comment, before anything else the card has to say.
+      var rw = document.createElement("div");
+      rw.className = "cp-rework";
+      var rwHead = document.createElement("div");
+      rwHead.className = "cp-rework-head";
+      rwHead.textContent = "Changes requested"
+        + (r.rework.by ? " by " + r.rework.by : "")
+        + (r.rework.at ? " · " + r.rework.at.slice(0, 10) : "");
+      var rwBody = document.createElement("div");
+      rwBody.className = "cp-rework-body";
+      rwBody.textContent = r.rework.reason || "(no reason recorded)";
+      rw.appendChild(rwHead);
+      rw.appendChild(rwBody);
+      card.appendChild(rw);
+    }
+
     if (r) { // fixed record: anchor context + owner-side values, read-only
       var bits = [];
       if (r.section) bits.push("§ " + r.section);
@@ -308,9 +328,11 @@
     }
 
     if (r && r.changes && r.changes.length) {
-      var chWrap = document.createElement("div");
+      // v3.2 point 9: closed by default, like the history below it. A card in
+      // the closeout queue opens with its text, not with a wall of diff.
+      var chWrap = document.createElement("details");
       chWrap.className = "cp-changes";
-      var chTitle = document.createElement("div");
+      var chTitle = document.createElement("summary");
       chTitle.className = "cp-changes-title";
       chTitle.textContent = "Changes (" + r.changes.length + ")";
       chWrap.appendChild(chTitle);
@@ -335,19 +357,8 @@
     var actions = document.createElement("div");
     actions.className = "cp-actions";
 
-    if (c && !r) { // own UNSAVED comment: deletable here; once harvested,
-      // withdrawal moves to the dashboard ⋯ menu (open findings only, v3)
-      var del = document.createElement("button");
-      del.type = "button";
-      del.className = "linkbtn cp-del";
-      del.textContent = "delete";
-      del.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        comments = comments.filter(function (x) { return x.cid !== c.cid; });
-        refresh(true);
-      });
-      actions.appendChild(del);
-    }
+    var bin = binFor(c, r);   // v3.2 point 7: one 🗑 per comment, role-aware
+    if (bin) actions.appendChild(bin);
     if (data.role || data.isAdmin) { // v3: every member gets a private note on
       // any comment (e.g. the owner annotates a draft they cannot dispose yet)
       var noteKey = String(c ? c.offset : r.offset);
@@ -393,30 +404,25 @@
       editToggle.className = "secondary cp-dispose-toggle";
       editToggle.textContent = "Edit disposition";
       var eform = disposeForm(r);
-      eform.hidden = true;
+      // v3.2 point 8: locked means locked. `hidden` takes the form out of the
+      // page, but its fields stayed enabled and would still be submitted by a
+      // stray Enter; disabling them makes the lock real rather than visual.
+      var setLocked = function (locked) {
+        eform.hidden = locked;
+        eform.querySelectorAll("select, textarea, input, button").forEach(function (f) {
+          f.disabled = locked;
+        });
+      };
+      setLocked(true);
       editToggle.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        eform.hidden = !eform.hidden;
+        setLocked(!eform.hidden ? true : false);
         editToggle.hidden = !eform.hidden;  // never two dispose buttons at once
       });
       actions.appendChild(editToggle);
       card.appendChild(eform);
     }
 
-    if (r && r.mine && data.isReviewer && r.status === "open" && phase === "in_review") {
-      // the reviewer withdraws their own open comment right from the viewer
-      // (same server route as the dashboard trash icon)
-      var wd = document.createElement("button");
-      wd.type = "button";
-      wd.className = "warn cp-withdraw";
-      wd.textContent = "🗑 Withdraw";
-      wd.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {},
-          "Withdraw " + r.rid + "? A pristine comment is deleted; an acted-upon one is kept as withdrawn.");
-      });
-      actions.appendChild(wd);
-    }
 
     if (r && r.canVerify && phase === "in_review" && r.status === "answered") {
       var accept = document.createElement("button");
@@ -474,35 +480,6 @@
         if (reason) post(base + "/rids/" + encodeURIComponent(r.rid) + "/request-changes", { reason: reason });
       });
       actions.appendChild(undo);
-    }
-    if (r && r.canPurge && phase === "in_review") { // v2.3: Withdraw — admin-only in the
-      // card, amber, same visual weight as Purge (reviewers manage their own comments
-      // from the editor; the RTD table keeps the v1.8 own+open control); in_review only —
-      // retract_comment is phase-gated (the admin any-phase path is reopen_review →
-      // withdraw → start_closeout); Purge stays any-phase (below)
-      var withdraw = document.createElement("button");
-      withdraw.type = "button";
-      withdraw.className = "warn cp-withdraw";
-      withdraw.textContent = "Withdraw";
-      withdraw.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {},
-          "Withdraw " + r.rid + "? A pristine comment is deleted; an acted-upon one is kept as withdrawn.");
-      });
-      actions.appendChild(withdraw);
-    }
-    if (r && r.canPurge) { // v2.2: admin-only permanent removal, double confirm
-      var purge = document.createElement("button");
-      purge.type = "button";
-      purge.className = "danger cp-purge";
-      purge.textContent = "Purge permanently";
-      purge.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        if (!window.confirm("PERMANENTLY remove " + r.rid + "? It disappears from the review and the RTD.")) return;
-        if (!window.confirm("Really purge " + r.rid + "? Only the audit log will keep a trace. This cannot be undone.")) return;
-        post(base + "/rids/" + encodeURIComponent(r.rid) + "/purge", {});
-      });
-      actions.appendChild(purge);
     }
     if (r && data.canEditDoc && (r.queue === "todo" || r.queue === "rework")) {
       // the edit↔RID picker IS the queue: tick the findings this save resolves
@@ -674,6 +651,101 @@
     el.classList.add("flash");
     setTimeout(function () { el.classList.remove("flash"); }, 2300);
   }
+  /* ---------------- one bin per comment (v3.2 point 7) ------------------ */
+  /* Four destructive controls used to share a card — a local delete, the
+     reviewer's withdraw, the admin's withdraw and the admin's purge. They are
+     one 🗑 now. What it does follows role and state; where an admin has two
+     legitimate outcomes on the same comment, the choice lives inside the
+     confirmation rather than as a second button. Authority is unchanged: the
+     dialog only routes to the services that already guard themselves. */
+  var binDlg = null;
+  function askBin(opts) {
+    if (!window.HTMLDialogElement) {          // no <dialog>: degrade to confirm()
+      if (window.confirm(opts.body)) opts.choices[0].onPick();
+      return;
+    }
+    if (!binDlg) {
+      binDlg = document.createElement("dialog");
+      binDlg.className = "bin-dlg";
+      document.body.appendChild(binDlg);
+    }
+    binDlg.innerHTML = "";
+    var h = document.createElement("h3");
+    h.className = "bin-dlg-title";
+    h.textContent = opts.title;
+    var p = document.createElement("p");
+    p.textContent = opts.body;
+    var row = document.createElement("div");
+    row.className = "bin-dlg-actions";
+    opts.choices.forEach(function (ch) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = ch.cls || "";
+      b.textContent = ch.label;
+      b.addEventListener("click", function () { binDlg.close(); ch.onPick(); });
+      row.appendChild(b);
+    });
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "bin-dlg-cancel";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", function () { binDlg.close(); });
+    row.appendChild(cancel);
+    binDlg.appendChild(h);
+    binDlg.appendChild(p);
+    binDlg.appendChild(row);
+    binDlg.showModal();
+  }
+
+  function binFor(c, r) {
+    var local = !!(c && !r);
+    // `phase` is local to cardEl; this helper reads the payload directly.
+    // retract_comment is open-only and in_review-only (services/core.py) — the
+    // v3 rule that stopped a disposed comment being withdrawn behind the graph
+    var canRetract = !!(r && data.phase === "in_review" && r.status === "open" &&
+                        ((r.mine && data.isReviewer) || r.canPurge));
+    var canPurge = !!(r && r.canPurge);       // human global admin, any phase
+    if (!local && !canRetract && !canPurge) return null;
+
+    var bin = document.createElement("button");
+    bin.type = "button";
+    bin.className = "cp-bin";
+    bin.textContent = "🗑";
+    bin.title = local ? "Delete this unsaved comment"
+      : canRetract ? "Withdraw this comment" : "Remove this comment";
+    bin.setAttribute("aria-label", bin.title + (r ? " " + r.rid : ""));
+    bin.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (local) {                            // never saved: no server, no dialog
+        comments = comments.filter(function (x) { return x.cid !== c.cid; });
+        refresh(true);
+        return;
+      }
+      var choices = [];
+      if (canRetract) {
+        choices.push({ label: "Withdraw", cls: "warn", onPick: function () {
+          post(base + "/rids/" + encodeURIComponent(r.rid) + "/retract", {});
+        } });
+      }
+      if (canPurge) {
+        choices.push({ label: "Delete permanently", cls: "danger", onPick: function () {
+          if (!window.confirm("Really delete " + r.rid + " for good? Only the audit log "
+            + "will keep a trace. This cannot be undone.")) return;
+          post(base + "/rids/" + encodeURIComponent(r.rid) + "/purge", {});
+        } });
+      }
+      askBin({
+        title: r.rid,
+        body: canRetract
+          ? "Withdrawing keeps an acted-upon finding on record as withdrawn, and "
+            + "deletes a pristine one outright."
+          : "This finding is past 'open', so it can no longer be withdrawn.",
+        choices: choices
+      });
+    });
+    return bin;
+  }
+
   function setFocus(key, opts) {
     opts = opts || {};
     focusKey = key;
@@ -686,8 +758,8 @@
       el.classList.toggle("active", on);
       el.classList.toggle("focus-card", on);
       if (on) {
-        var h = el.querySelector(".cp-history");
-        if (h) h.open = true;
+        // v3.2 point 9: focusing a card opens the card, not its sections.
+        // History and Changes stay closed until they are asked for.
         el.classList.remove("collapsed");  // v3.1: ?focus=RID opens its card
         var grp = el.closest("details.cq-group");
         if (grp) grp.open = true;          // …even inside the collapsed group
