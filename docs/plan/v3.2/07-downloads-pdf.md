@@ -79,11 +79,29 @@ the interface degrades to `Print view` (ADR 0004).
       on-demand generation cannot work either. The PDF entry must then say why
       in the interface — extra not installed on this server — instead of
       returning 404 or a broken download. Do not pretend the button works.
-- [ ] **Step 4:** **operator prerequisite, and it is not optional.** Alberto's
-      decision assumes `malus[pdf]` (WeasyPrint, which needs system Pango) is
-      installed in the ALUM server's venv. Confirm it is, or report that it is
-      not — this step cannot make a PDF appear on a server that cannot render
-      one. Record the answer here.
+- [ ] **Step 4 — ANSWERED 2026-08-13 by reading the image, not by asking.**
+      The ALUM server **cannot** render a PDF today: `Dockerfile:14` installs
+      `pip install ".[mcp]"` only, and the image carries none of the system
+      libraries WeasyPrint needs (Pango, cairo, gdk-pixbuf). That is the whole
+      explanation for the `Print view` Alberto sees in production — the PDF was
+      never generated at finalize because `PDF_AVAILABLE` is False there.
+
+      So this is a change to make, not a question to ask:
+
+      - add the runtime system libraries to the image (`libpango-1.0-0`,
+        `libpangoft2-1.0-0`, `libgdk-pixbuf-2.0-0`, `libcairo2` and the fonts
+        WeasyPrint falls back to) in one `apt-get` layer, cleaned in the same
+        `RUN`;
+      - install `".[mcp,pdf]"`;
+      - verify in the built image that `malus.pdfgen.PDF_AVAILABLE` is True —
+        a test that asserts the extra is *importable* proves nothing about the
+        image, so this check belongs to the build, not to pytest;
+      - note in `docs/ops/runbook.md` that upgrading to this release needs a
+        `docker compose build`, because the image gained system packages.
+
+      The image grows by roughly the size of the Pango stack. If that trade is
+      unwanted, the alternative is to keep the PDF optional and say so in the
+      UI — but that contradicts point 16, so it is not the default.
 - [ ] **Step 5:** tests — `review.pdf` with no artifact and the extra available
       → 200, and an artifact now exists; with the extra unavailable → the
       documented refusal, not a 500; the `/print` route is gone; no template
