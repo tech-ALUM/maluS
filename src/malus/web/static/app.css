@@ -100,9 +100,30 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 1.12rem; letter-s
   radial-gradient(1100px 500px at 85% -10%, var(--coral-soft), transparent 60%),
   radial-gradient(900px 480px at -10% 110%, var(--teal-soft), transparent 55%), var(--paper); }
 
+/* Collapsing the sidebar is one variable flip: .sidebar sizes itself from
+   --sidebar-w, so overriding it on <html> collapses the column and lets the
+   content reclaim the width. The class sits on <html> (not .shell) so the
+   pre-paint script in base.html can set it before anything renders. */
+.nav-toggle {
+  position: fixed; z-index: 60; top: 14px; left: calc(var(--sidebar-w) - 13px);
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  background: var(--card); color: var(--muted); border: 1px solid var(--line);
+  display: grid; place-items: center; cursor: pointer;
+  font-size: .78rem; line-height: 1; box-shadow: var(--shadow);
+  transition: left var(--speed), color var(--speed), border-color var(--speed);
+}
+.nav-toggle:hover { color: var(--teal); border-color: var(--teal); }
+html.nav-collapsed { --sidebar-w: 0px; }
+html.nav-collapsed .sidebar { padding-left: 0; padding-right: 0; overflow: hidden; }
+html.nav-collapsed .nav-toggle { left: 10px; }
+
 .mobile-topbar { display: none; }
 .nav-scrim { display: none; }
 @media (max-width: 900px) {
+  /* The drawer owns the narrow layout; the desktop collapse must not fight it. */
+  .nav-toggle { display: none; }
+  html.nav-collapsed { --sidebar-w: 232px; }
+  html.nav-collapsed .sidebar { padding-left: .8rem; padding-right: .8rem; overflow: visible; }
   .sidebar { position: fixed; z-index: 80; left: 0; top: 0; transform: translateX(-100%); transition: transform .2s ease-out; box-shadow: none; }
   body.nav-open .sidebar { transform: translateX(0); box-shadow: 12px 0 40px rgba(21, 24, 29, .3); }
   .nav-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(21, 24, 29, .4); opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -245,8 +266,18 @@ blockquote { margin: .3rem 0; padding: .65rem 1rem; background: var(--card); bor
 .cq-nochange > summary { font-size: .82rem; font-weight: 600; cursor: pointer; }
 @media (max-width: 900px) { .doc-edit { padding: 24px; min-height: 40rem; } }
 
-/* reviewer editor — rendered sheet + comments panel (v1.4 layout kept) */
-#rev-form { width: min(94vw, 1400px); margin-left: calc((100% - min(94vw, 1400px)) / 2); }
+/* reviewer editor — rendered sheet + comments panel (v1.4 layout kept)
+   The form breaks out of the 1060px text column to give the sheet and its
+   panel the width they need. The breakout is measured against the *content
+   column*, never the viewport: 94vw ignored the sidebar, so the form spilled
+   left underneath it and the sticky (therefore painted-above) sidebar covered
+   the draft actions — v3.2 point 4. min(0px, …) keeps the breakout one-sided,
+   so the form can never start left of the column it lives in. */
+#rev-form {
+  --rev-form-w: min(1400px, calc(100vw - var(--sidebar-w) - 3.2rem));
+  width: var(--rev-form-w);
+  margin-left: min(0px, calc((100% - var(--rev-form-w)) / 2));
+}
 .workbench { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.4rem; align-items: start; }
 @media (max-width: 900px) {
   #rev-form { width: 100%; margin-left: 0; }
@@ -296,11 +327,8 @@ blockquote { margin: .3rem 0; padding: .65rem 1rem; background: var(--card); bor
 .rev-actions { margin-top: 1rem; display: flex; gap: .6rem; }
 
 /* -------------------------------------------------- banners, submissions -- */
-.cta-banner {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  background: var(--coral-soft); border: 1px solid var(--coral); border-radius: var(--radius);
-  padding: .85rem 1.1rem; margin: .6rem 0 1rem;
-}
+/* .cta-banner removed in v3.2: the reviewer's coral box on the RTD table said
+   in a sentence what its own button already said, so only the button is left. */
 .flash { background: #eef8f0; border: 1px solid #57b877; color: #1f7a3d; border-radius: var(--radius-sm); padding: .5rem .8rem; font-size: .9rem; }
 .ai-proposal { background: var(--teal-soft); border-color: var(--teal); color: var(--teal); }
 .discard-form { margin-top: .5rem; }

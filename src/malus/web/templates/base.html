@@ -11,6 +11,9 @@
   <meta name="theme-color" content="#15181D">
   <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   <script src="/static/vendor/htmx.min.js?v={{ asset_v }}" defer></script>
+  <!-- Restore the collapsed sidebar before first paint: the class lives on
+       <html> so it survives hx-boost swaps and never flashes expanded. -->
+  <script>try{if(localStorage.getItem("malus.nav")==="collapsed"){document.documentElement.classList.add("nav-collapsed");}}catch(e){}</script>
 </head>
 <body hx-boost="true">
 {% if user %}
@@ -46,6 +49,8 @@
     </div>
   </aside>
   <div class="content">
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-controls="sidebar"
+            aria-expanded="true" aria-label="Collapse the sidebar" title="Collapse the sidebar">«</button>
     <header class="mobile-topbar">
       <button class="menu-toggle" aria-label="Menu" aria-controls="sidebar"
               onclick="document.body.classList.toggle('nav-open')">☰</button>
@@ -72,6 +77,32 @@
       e.detail.isError = false;
     }
   });
+
+  // Collapse / expand the workspace sidebar (v3.2 point 3). Delegated from the
+  // document so one listener survives every hx-boost swap; guarded because this
+  // inline script itself re-runs when htmx swaps the body.
+  (function () {
+    if (window.__malusNav) { syncNavToggle(); return; }
+    window.__malusNav = true;
+    document.addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest("#nav-toggle");
+      if (!btn) return;
+      var collapsed = document.documentElement.classList.toggle("nav-collapsed");
+      try { localStorage.setItem("malus.nav", collapsed ? "collapsed" : "open"); } catch (e) {}
+      syncNavToggle();
+    });
+    document.addEventListener("htmx:afterSwap", syncNavToggle);
+    syncNavToggle();
+  })();
+  function syncNavToggle() {
+    var collapsed = document.documentElement.classList.contains("nav-collapsed");
+    var btn = document.getElementById("nav-toggle");
+    if (!btn) return;
+    btn.setAttribute("aria-expanded", String(!collapsed));
+    btn.setAttribute("aria-label", collapsed ? "Expand the sidebar" : "Collapse the sidebar");
+    btn.title = btn.getAttribute("aria-label");
+    btn.textContent = collapsed ? "»" : "«";
+  }
 </script>
 </body>
 </html>
