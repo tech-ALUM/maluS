@@ -21,6 +21,21 @@ from malus.db.migrations import alembic_ini, current_revision, stamp_head, upgra
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def head_revision() -> str:
+    """The current Alembic head, read from the script directory.
+
+    These assertions used to name the head as a literal, so every new revision
+    broke six tests that have nothing to do with it. What they actually mean is
+    "stamped at head", and that is now what they say.
+    """
+    from alembic.script import ScriptDirectory
+
+    return ScriptDirectory.from_config(Config(str(alembic_ini()))).get_current_head()
+
+
+HEAD = head_revision()
+
+
 def test_alembic_ini_is_discoverable_from_the_package():
     assert alembic_ini() == ROOT / "alembic.ini"
 
@@ -33,7 +48,7 @@ def test_stamp_head_marks_an_unstamped_database(tmp_path):
 
     stamp_head(engine)
 
-    assert current_revision(engine) == "c4d5e6f7a8b9"  # head
+    assert current_revision(engine) == HEAD  # head
 
 
 def test_injected_connection_wins_over_MALUS_DB_URL(tmp_path, monkeypatch):
@@ -63,7 +78,7 @@ def test_bootstrap_schema_creates_and_stamps_an_empty_database(tmp_path):
 
     insp = inspect(engine)
     assert set(insp.get_table_names()) - {"alembic_version"} == set(SQLModel.metadata.tables)
-    assert current_revision(engine) == "c4d5e6f7a8b9"  # never left unstamped
+    assert current_revision(engine) == HEAD  # never left unstamped
 
 
 def test_bootstrap_schema_refuses_a_populated_database(tmp_path):
@@ -74,7 +89,7 @@ def test_bootstrap_schema_refuses_a_populated_database(tmp_path):
     upgrade_head(engine)
 
     assert bootstrap_schema(engine) is False
-    assert current_revision(engine) == "c4d5e6f7a8b9"
+    assert current_revision(engine) == HEAD
 
 
 def test_bootstrap_schema_refuses_a_stamped_but_empty_database(tmp_path):
@@ -143,7 +158,7 @@ def test_fresh_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
 
     upgrade_head(engine)                      # the entrypoint's only schema step
 
-    assert current_revision(engine) == "c4d5e6f7a8b9"
+    assert current_revision(engine) == HEAD
     app = create_app(
         engine, https_only=False, session_secret="s", bootstrap_admin=("admin", "admin-pw")
     )
@@ -163,7 +178,7 @@ def test_fresh_deployment_second_boot_is_a_no_op(tmp_path, monkeypatch):
     upgrade_head(engine)
     upgrade_head(engine)
 
-    assert current_revision(engine) == "c4d5e6f7a8b9"
+    assert current_revision(engine) == HEAD
     assert set(inspect(engine).get_table_names()) - {"alembic_version"} == set(
         SQLModel.metadata.tables
     )
@@ -210,7 +225,7 @@ def test_drifted_deployment_boots_from_alembic_alone(tmp_path, monkeypatch):
 
     upgrade_head(engine)                # the entrypoint's only schema step
 
-    assert current_revision(engine) == "c4d5e6f7a8b9"
+    assert current_revision(engine) == HEAD
     insp = inspect(engine)
     assert set(insp.get_table_names()) - {"alembic_version"} == set(SQLModel.metadata.tables)
     assert "reopen_requested_at" in {c["name"] for c in insp.get_columns("reviewer_copies")}

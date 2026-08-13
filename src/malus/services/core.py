@@ -719,13 +719,24 @@ def request_changes(
     rtd = export_rtd(session, review)
     request_changes_rid(rtd, rid_id, reviewer=reviewer, reason=reason, moderator=moderator)
     sync_rtd_to_review(session, review, rtd)
+    actor = UserRepo(session).get_or_create(reviewer)
+    # v3.2: the request is also recorded in its own columns. The note stays in
+    # ``reply`` for report.md, the PDF and the timeline; these three are what
+    # the closeout queue and the owner's callout read, so neither has to guess
+    # from a substring of a field the owner also writes in.
+    row = RidRepo(session).get(review, rid_id)
+    row.rework_reason = reason.strip()
+    row.rework_by_id = actor.id
+    row.rework_at = dt.datetime.now(dt.timezone.utc)
+    session.add(row)
+    session.flush()
     AuditRepo(session).log(
         action="request_changes",
         target=f"rid:{rid_id}",
-        actor=UserRepo(session).get_or_create(reviewer),
+        actor=actor,
         detail={"reason": reason},
     )
-    return RidRepo(session).get(review, rid_id)
+    return row
 
 
 def pending(session: Session, review: Review, reviewer: str) -> list[RidDTO]:

@@ -212,6 +212,14 @@ class RID(SQLModel, table=True):
     verified_by_id: Optional[int] = Field(default=None, foreign_key="users.id")
     verified_on: Optional[dt.date] = None
     ai_drafted: bool = False
+    # v3.2: the reviewer's rework request, first-class. It used to live only as
+    # "[changes requested by X: …]" appended to ``reply``, which the closeout
+    # queue then had to sniff for to decide the rework bucket — and which the
+    # owner could not tell apart from their own words. The note still goes into
+    # ``reply`` (report.md and the PDF read it); these carry the *logic*.
+    rework_reason: Optional[str] = None
+    rework_by_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    rework_at: Optional[dt.datetime] = None
 
     review: Optional[Review] = Relationship(back_populates="rids")
     reviewer: Optional[User] = Relationship(
@@ -219,6 +227,9 @@ class RID(SQLModel, table=True):
     )
     verified_by: Optional[User] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[RID.verified_by_id]"}
+    )
+    rework_by: Optional[User] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[RID.rework_by_id]"}
     )
     master: Optional["RID"] = Relationship(
         back_populates="duplicates",
