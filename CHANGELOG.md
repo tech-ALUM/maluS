@@ -21,10 +21,11 @@ authority) — plus this release step (`docs/plan/v3/06-release.md`).
   rejected/deferred disposition, are terminal at finalize.
 - **Review phases replace the single `active` status**: `draft → in_review →
   closeout → finalized`. `active` is dropped and auto-backfilled by the
-  migration. A human global admin keeps two escape hatches: `closeout →
-  in_review` (`reopen-review`) and `finalized → closeout` — labeled
-  **Terminate** / its undo in the GUI — for a review pushed back after the
-  fact.
+  migration. The owner's end-of-review action, `closeout → finalized`, is
+  labeled **Terminate review** in the GUI. A human global admin keeps two
+  escape hatches for a review pushed back after the fact: `closeout →
+  in_review` (`reopen-review`) and `finalized → closeout`
+  (`reopen-terminated`).
 - **Closeout workspace, folded into the document viewer** — the owner
   implements accepted findings in the same page reviewers already use: a
   work queue (to do / awaiting verification / rework / done, rejected and

@@ -114,4 +114,3 @@ Jinja + HTMX GUI · MCP · Docker. See `docs/adr/`.
 | `docs/adr`, `docs/plan/`, `docs/spec`, `docs/ops`, `docs/usage*` | decisions, plan, contracts, ops, guides |
 | `gui/rtd.html` | legacy v0 single-file GUI |
 | `tests/` | pytest suite (db, api, web, mcp, ops, e2e) |
-| `memory/` | design decisions & specs |
