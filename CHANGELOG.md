@@ -1,5 +1,53 @@
 # Changelog
 
+## v3.0.0 — 2026-08-13 (closeout phase, Accept disposition, finalize + downloads)
+
+Breaking workflow release, shipped across three waves — `docs/plan/v3/`
+(steps 01–04: lifecycle, closeout workspace, verification, finalize/export),
+`docs/plan/v3.1/` (steps 01–05: closeout folded into the document viewer,
+Terminate/reopen, diff views, downloads, Alembic as the single schema
+authority) — plus this release step (`docs/plan/v3/06-release.md`).
+
+- **Breaking: the old `answered → verified` shortcut is gone.** A reviewer no
+  longer verifies straight off the owner's disposition. What used to be the
+  Verify button in review is now **Accept disposition**
+  (`answered → closed`): the reviewer (or a moderator on their behalf, never
+  the owner, never an AI principal) agrees the finding is settled. Actual
+  verification of the document edit moves to the closeout phase, once the
+  owner has implemented the change.
+- **New RID status `closed`** — a finding lands here once its disposition is
+  accepted (in review) and again after every closeout rework round
+  (`request-changes`); only `verified`/`withdrawn`, or `closed` with a
+  rejected/deferred disposition, are terminal at finalize.
+- **Review phases replace the single `active` status**: `draft → in_review →
+  closeout → finalized`. `active` is dropped and auto-backfilled by the
+  migration. A human global admin keeps two escape hatches: `closeout →
+  in_review` (`reopen-review`) and `finalized → closeout` — labeled
+  **Terminate** / its undo in the GUI — for a review pushed back after the
+  fact.
+- **Closeout workspace, folded into the document viewer** — the owner
+  implements accepted findings in the same page reviewers already use: a
+  work queue (to do / awaiting verification / rework / done, rejected and
+  deferred findings kept out of the queue entirely), a `Render | Edit`
+  toggle over the latest version, and an explicit **Mark implemented** action
+  per RID once a save has linked a post-baseline version to it.
+- **Per-RID diffs + a full-diff page** — a word-level diff (`src/malus/diffing.py`,
+  stdlib `difflib`) renders under each accepted finding once it has a linked
+  change, and `/ui/reviews/{id}/diff` shows the whole baseline→final diff
+  either as ±3-line hunks (default) or the full document with line numbers
+  (`?view=full`).
+- **Finalize in the GUI + downloads** — the owner finalizes from the
+  document viewer once every finding is verified or closed; a finalized
+  review's members can download `baseline.md`, `final.md`, a self-contained
+  `diff.html`, the RTD `report.md`, and (when the `malus[pdf]` extra is
+  installed) an archived PDF generated once at finalize. Without the extra, a
+  zero-dependency browser print view (`/ui/reviews/{id}/print`) replaces the
+  PDF.
+- **Alembic is now the single schema authority** — `alembic upgrade head`
+  (run by `docker-entrypoint.sh`) owns the production schema; `create_app`
+  creates nothing anymore. `malus init-db` stamps head in the same call so a
+  database is never left unstamped (the 2026-07-30 incident that prompted
+  this, `docs/plan/v3.1/05-one-schema-authority.md`).
 ## v2.4.0 — 2026-08-12 (login throttling)
 
 - **Failed logins are rate-limited** (ADR 0005) — maluS is public and the edge

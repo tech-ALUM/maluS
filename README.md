@@ -8,13 +8,17 @@ reviewers, owners and moderators — human or AI — work through the browser be
 login. An AI reviewer participates for free by connecting Claude Code
 interactively to maluS's MCP server (no paid Anthropic API on the server).
 
-## The review cycle
+## The review cycle (v3)
 
-1. **Freeze** an immutable baseline of the Document Under Review (DUR).
+A review moves through four phases: `draft → in_review → closeout →
+finalized`.
+
+1. **Freeze** an immutable baseline of the Document Under Review (DUR) —
+   `draft → in_review`.
 2. Reviewers insert structured inline comment blocks
    (`{COMM|type=…|sev=…: …}`) into their own copy — never editing the
    baseline text (the *freeze rule*, enforced by the parser). Submitting the
-   copy is final: editing again needs a reopen approved by the owner (v3).
+   copy is final: editing again needs a reopen approved by the owner.
 3. **Harvest** extracts all comments into RIDs (one tracked finding each).
 4. **Triage** clusters duplicates and batch-applies mechanical suggestions.
 5. The **owner** dispositions each RID (accept / reject / defer) — from the
@@ -22,18 +26,30 @@ interactively to maluS's MCP server (no paid Anthropic API on the server).
    everyone sees the rendered document with all comments colored per
    reviewer, and every finding always opens **beside the document** it
    refers to.
-6. Accepted RIDs are **implemented** in the in-browser editor, creating a new
-   document version linked to the RIDs it resolves (the traceability record —
-   no git needed).
-7. **Reviewers — never the owner — verify and close** each RID.
-8. **Finalize** produces the finalized document plus review minutes —
-   downloadable as `baseline.md`, `final.md`, a self-contained `diff.html`,
-   the RTD report, and an archived PDF (`malus[pdf]`).
+6. The RID's own **reviewer accepts the disposition** (or a moderator on
+   their behalf) — never the owner, never an AI principal. Once every
+   finding is accepted or withdrawn, the owner **starts closeout**
+   (`in_review → closeout`).
+7. In closeout, the owner edits the document **inside the same viewer**: a
+   work queue of accepted findings (rejected/deferred ones stay out of it),
+   a `Render | Edit` toggle, and an explicit **Mark implemented** once a save
+   has linked a post-baseline version to the RID. Each accepted finding shows
+   a word-level diff of exactly what changed for it.
+8. **Reviewers — never the owner — verify** each implemented finding, or
+   **request changes** to send it back for another round (a mandatory reason
+   is recorded on the finding's thread).
+9. **Finalize** (`closeout → finalized`, "Terminate" in the GUI) produces the
+   finalized document plus review minutes — downloadable as `baseline.md`,
+   `final.md`, a self-contained `diff.html`, the RTD `report.md`, and an
+   archived PDF (`malus[pdf]`). A human global admin can push a review back
+   one phase (`closeout → in_review` or `finalized → closeout`) as an escape
+   hatch.
 
 The three roles (owner, reviewer, moderator) can each be a human or an AI. The
 reviewer-side closure authority — *only a reviewer or a moderator on their
-behalf may verify; the owner never can; an AI never can* — is the safety control
-that makes AI participation sound, and it is enforced server-side.
+behalf may accept a disposition or verify; the owner never can; an AI never
+can* — is the safety control that makes AI participation sound, and it is
+enforced server-side.
 
 ## Deploy
 
@@ -46,11 +62,12 @@ docker compose up -d --build  # migrates, then serves on 127.0.0.1:8000
 
 | Extra | Enables | Notes |
 |-------|---------|-------|
-| `pip install 'malus[pdf]'` | archived PDF at finalize (cover + document + sign-off page) | needs system Pango (`libpango-1.0-0`, `libpangoft2-1.0-0` on Debian/Ubuntu) |
+| `pip install 'malus[pdf]'` | archived PDF at finalize (cover + document + sign-off page), generated once via WeasyPrint | needs system Pango (`libpango-1.0-0`, `libpangoft2-1.0-0` on Debian/Ubuntu) |
 
 Without `malus[pdf]` everything still works: finalize completes, downloads
 offer the baseline, the final Markdown, the diff and the RTD report, and a
-zero-dependency browser print view replaces the PDF.
+zero-dependency browser print view (`/ui/reviews/{id}/print`) replaces the
+PDF.
 
 Put a TLS reverse proxy in front (`deploy/Caddyfile`), then open
 `https://<host>/ui/login`. SQLite (WAL) by default; Postgres is a `.env` +
@@ -82,7 +99,8 @@ Jinja + HTMX GUI · MCP · Docker. See `docs/adr/`.
 
 ## Status
 
-**v1.0.0.** Suite: `python -m pytest -q` (green). Plan: `docs/plan/v1/`.
+**v3.0.0.** Suite: `python -m pytest -q` (green). Plan: `docs/plan/v3/`,
+`docs/plan/v3.1/`.
 
 ## Repository layout
 
@@ -93,7 +111,7 @@ Jinja + HTMX GUI · MCP · Docker. See `docs/adr/`.
 | `src/malus/mcp`, `legacy` | MCP AI-reviewer server; v0 import |
 | `src/malus/{models,parser,triage,harvest,report,lifecycle}.py` | reused domain core |
 | `alembic/` | migrations · `Dockerfile`, `docker-compose.yml`, `deploy/`, `scripts/` |
-| `docs/adr`, `docs/plan/v1`, `docs/spec`, `docs/ops`, `docs/usage*` | decisions, plan, contracts, ops, guides |
+| `docs/adr`, `docs/plan/`, `docs/spec`, `docs/ops`, `docs/usage*` | decisions, plan, contracts, ops, guides |
 | `gui/rtd.html` | legacy v0 single-file GUI |
 | `tests/` | pytest suite (db, api, web, mcp, ops, e2e) |
 | `memory/` | design decisions & specs |
