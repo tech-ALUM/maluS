@@ -13,8 +13,102 @@ from __future__ import annotations
 import difflib
 import html
 import re
+from dataclasses import dataclass, field
 
 _WORDS = re.compile(r"\s+|\w+|[^\w\s]", re.UNICODE)
+
+
+# --------------------------------------------------------------------------- #
+# v3.2 point 13: which finding caused which hunk
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class Attribution:
+    """Where each line of the final document came from.
+
+    ``inserted[i]`` are the findings that last wrote line *i* of the final text
+    — empty when the line survives from the baseline untouched. ``deleted[j]``
+    are the findings whose version removed baseline line *j*; a deletion leaves
+    no line behind to carry a label, so it is recorded separately.
+
+    Both are tuples of RID strings: one implementation session may legitimately
+    resolve a cluster of duplicates (v3.2 step 04).
+    """
+
+    inserted: tuple[tuple[str, ...], ...] = ()
+    deleted: dict[int, tuple[str, ...]] = field(default_factory=dict)
+
+    def for_new_line(self, index: int) -> tuple[str, ...]:
+        return self.inserted[index] if 0 <= index < len(self.inserted) else ()
+
+    def for_old_line(self, index: int) -> tuple[str, ...]:
+        return self.deleted.get(index, ())
+
+
+def line_provenance(chain: list[tuple[str, list[str]]]) -> Attribution:
+    """Carry line provenance through a chain of document versions.
+
+    ``chain`` is ``[(baseline, []), (content, rids), …]`` in order. Each step's
+    ``rids`` are the findings that version was saved against — which, since
+    v3.2 step 04, is exactly the implementation session that produced it. That
+    is what makes this sound: a version with one cause can label its lines.
+
+    ``equal`` opcodes propagate both provenance and the baseline line each line
+    descends from; ``insert`` and ``replace`` overwrite provenance with the
+    current step's findings, and record the baseline lines that step removed.
+    A line whose provenance cannot be established stays empty — the renderer
+    shows no badge rather than a guess.
+    """
+    if not chain:
+        return Attribution()
+    baseline = chain[0][0].splitlines()
+    prov: list[tuple[str, ...]] = [() for _ in baseline]
+    origin: list[int | None] = list(range(len(baseline)))
+    deleted: dict[int, tuple[str, ...]] = {}
+    current = baseline
+
+    for content, rids in chain[1:]:
+        step = tuple(rids)
+        nxt = content.splitlines()
+        sm = difflib.SequenceMatcher(a=current, b=nxt, autojunk=False)
+        new_prov: list[tuple[str, ...]] = []
+        new_origin: list[int | None] = []
+        for op, a1, a2, b1, b2 in sm.get_opcodes():
+            if op == "equal":
+                new_prov.extend(prov[a1:a2])
+                new_origin.extend(origin[a1:a2])
+                continue
+            for i in range(a1, a2):          # lines this step removed
+                if origin[i] is not None:
+                    deleted[origin[i]] = step
+            for _ in range(b1, b2):          # lines this step wrote
+                new_prov.append(step)
+                new_origin.append(None)
+        prov, origin, current = new_prov, new_origin, nxt
+
+    return Attribution(inserted=tuple(prov), deleted=deleted)
+
+
+def _badge(rids: tuple[str, ...], rid_base: str | None = None) -> str:
+    """The RID label on a changed row — empty when provenance is unknown.
+
+    With ``rid_base`` each RID becomes a link to its comment; without it the
+    label is inert text. The self-contained ``diff.html`` download passes
+    nothing, because a link into the application would dangle the moment that
+    file is e-mailed or archived.
+    """
+    if not rids:
+        return ""
+    if rid_base is None:
+        text = html.escape(" ".join(rids))
+        return f'<span class="diff-rid" title="{text}">{text}</span>'
+    links = "".join(
+        f'<a class="diff-rid" href="{html.escape(rid_base + rid, quote=True)}"'
+        f' title="{html.escape(rid)}">{html.escape(rid)}</a>'
+        for rid in rids
+    )
+    return links
 
 
 def _split_words(line: str) -> list[str]:
@@ -64,6 +158,8 @@ def html_diff(
     *,
     context: int | None = 3,
     line_numbers: bool = False,
+    attribution: Attribution | None = None,
+    rid_base: str | None = None,
 ) -> str:
     """Line-grouped, word-refined diff as safe HTML (empty string if equal).
 
@@ -71,7 +167,11 @@ def html_diff(
     ``None`` renders the **whole document** with no elision marker. With
     ``line_numbers`` every row is prefixed by two gutter spans, old then new
     (v3.1 step 03 — the ``?view=full`` page and the downloadable diff
-    artifact). Defaults reproduce the v3 output byte for byte.
+    artifact). With ``attribution`` every changed row carries the finding that
+    caused it (v3.2 point 13); a row whose provenance is unknown carries
+    nothing, and with ``rid_base`` each badge links to its comment. Defaults
+    reproduce the v3 output byte for byte — the per-finding ``Changes`` section
+    and the v3.1 downloads depend on that.
     """
     if old == new:
         return ""
@@ -93,15 +193,19 @@ def html_diff(
                     d, i = _refine(o, n)
                     gd = _gutter(a1 + k + 1, None, line_numbers)
                     gi = _gutter(None, b1 + k + 1, line_numbers)
-                    parts.append(f'<div class="diff-del">{gd}{d}</div>')
-                    parts.append(f'<div class="diff-ins">{gi}{i}</div>')
+                    bd = _badge(attribution.for_old_line(a1 + k), rid_base) if attribution else ""
+                    bi = _badge(attribution.for_new_line(b1 + k), rid_base) if attribution else ""
+                    parts.append(f'<div class="diff-del">{gd}{bd}{d}</div>')
+                    parts.append(f'<div class="diff-ins">{gi}{bi}{i}</div>')
             else:
                 for k, line in enumerate(old_lines[a1:a2]):
                     g = _gutter(a1 + k + 1, None, line_numbers)
-                    parts.append(f'<div class="diff-del">{g}<del>{html.escape(line)}</del></div>')
+                    b = _badge(attribution.for_old_line(a1 + k), rid_base) if attribution else ""
+                    parts.append(f'<div class="diff-del">{g}{b}<del>{html.escape(line)}</del></div>')
                 for k, line in enumerate(new_lines[b1:b2]):
                     g = _gutter(None, b1 + k + 1, line_numbers)
-                    parts.append(f'<div class="diff-ins">{g}<ins>{html.escape(line)}</ins></div>')
+                    b = _badge(attribution.for_new_line(b1 + k), rid_base) if attribution else ""
+                    parts.append(f'<div class="diff-ins">{g}{b}<ins>{html.escape(line)}</ins></div>')
         parts.append("</div>")
         if context is not None:                  # nothing is elided in full mode
             parts.append('<div class="diff-skip">⋯</div>')
