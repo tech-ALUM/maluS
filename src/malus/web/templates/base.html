@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}maluS{% endblock %}</title>
-  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
-  <link rel="apple-touch-icon" href="/static/icon.svg">
-  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icon-32.png?v={{ asset_v }}">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png?v={{ asset_v }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icon-180.png?v={{ asset_v }}">
+  <link rel="manifest" href="/static/manifest.json?v={{ asset_v }}">
   <meta name="theme-color" content="#15181D">
   <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   <script src="/static/vendor/htmx.min.js?v={{ asset_v }}" defer></script>
@@ -16,7 +17,7 @@
 <div class="shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="/ui/reviews">
-      <img class="brand-mark" src="/static/alum-mark.svg" alt="ALUM" width="26" height="26">
+      <img class="brand-mark" src="/static/alum-mark.png?v={{ asset_v }}" alt="ALUM" width="26" height="26">
       <span class="brand-word">malu<span class="s">S</span></span>
     </a>
     <nav class="nav" aria-label="Main">
@@ -49,7 +50,7 @@
       <button class="menu-toggle" aria-label="Menu" aria-controls="sidebar"
               onclick="document.body.classList.toggle('nav-open')">☰</button>
       <a class="brand brand-sm" href="/ui/reviews">
-        <img class="brand-mark" src="/static/alum-mark.svg" alt="ALUM" width="20" height="20">
+        <img class="brand-mark" src="/static/alum-mark.png?v={{ asset_v }}" alt="ALUM" width="20" height="20">
         <span class="brand-word">malu<span class="s">S</span></span>
       </a>
     </header>
