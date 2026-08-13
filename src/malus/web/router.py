@@ -1087,6 +1087,7 @@ def closeout_save(
     request: Request,
     content: str = Form(...),
     rids: list[str] = Form(default=[]),
+    resolution: str = Form(""),
     session: Session = Depends(get_session),
 ):
     user = _current(request, session)
@@ -1097,7 +1098,13 @@ def closeout_save(
     authz.forbid_ai_commit(user)
     rids = list(dict.fromkeys(rids))  # dedup ticked RIDs (the service links duplicates verbatim)
     try:
-        svc.save_closeout_version(session, review, content, rid_ids=rids, by=user)
+        # v3.2 point 13: closing an implementation session saves the version,
+        # links every finding it resolves and marks them implemented, in the one
+        # transaction get_session commits. `implement` is still reachable on its
+        # own for findings whose change was saved before this release.
+        svc.implement_change(
+            session, review, content, rid_ids=rids, resolution=resolution or None, by=user
+        )
     except svc.PhaseError:
         raise HTTPException(status_code=409, detail="the review is not in closeout")
     except ValueError as exc:
@@ -1105,7 +1112,8 @@ def closeout_save(
             session, request, user, review, error=str(exc), content_override=content
         )
         return templates.TemplateResponse(request, "document.html", ctx, status_code=422)
-    return RedirectResponse(f"/ui/reviews/{review_id}/document", 303)
+    focus = f"?focus={rids[0]}" if rids else ""
+    return RedirectResponse(f"/ui/reviews/{review_id}/document{focus}", 303)
 
 
 @web.post("/ui/reviews/{review_id}/rids/{rid}/implement")

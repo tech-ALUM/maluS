@@ -627,6 +627,14 @@ def implement(session: Session, review: Review, rid_id: str, *, by=None):
         raise ValueError(
             f"cannot implement {rid_id}: no change links it to a post-baseline version"
         )
+    if row.status == Status.IMPLEMENTED.value:
+        # Idempotent since v3.2: closing an implementation session already
+        # implements the finding, so a follow-up call — from an older client, a
+        # double submit, or a caller that still performs the two-step flow — is
+        # asking for a state that already holds. Every guard above still ran;
+        # only the transition is skipped, and no audit entry is written because
+        # nothing changed.
+        return row
     rtd = export_rtd(session, review)
     rid = _find(rtd, rid_id)
     transition(rid, Status.IMPLEMENTED, actor_role=Role.OWNER, actor_name=review.owner.display_name)
@@ -838,6 +846,56 @@ def save_closeout_version(
         target=f"review:{review.review_id_str}",
         actor=by,
         detail={"ordinal": version.ordinal, "rids": [r.rid_str for r in rows]},
+    )
+    return version
+
+
+def implement_change(
+    session: Session,
+    review: Review,
+    content: str,
+    *,
+    rid_ids: list[str],
+    resolution: Optional[str] = None,
+    by=None,
+) -> DocumentVersion:
+    """One implementation session, in one transaction (v3.2 point 13).
+
+    The owner opens a finding, the editor unlocks for it, they make the change
+    and close it. That single gesture used to be two — ``save_closeout_version``
+    then ``implement`` — which meant it could half-succeed: a version saved and
+    linked, the finding still sitting in *To implement*.
+
+    ``rid_ids[0]`` is the finding the session was opened on; the rest are
+    duplicates the same edit resolves. Every one of them is linked to the new
+    version and moved ``closed -> implemented``.
+
+    Guards are the ones already in place, not new ones: ``save_closeout_version``
+    refuses an empty RID list, unchanged text and a non-accepted finding;
+    ``implement`` refuses an AI principal, the wrong phase, and a finding with
+    no post-baseline change. The owner still cannot reach ``verified``.
+    """
+    version = save_closeout_version(session, review, content, rid_ids=rid_ids, by=by)
+    for rid_id in rid_ids:
+        row = RidRepo(session).get(review, rid_id)
+        if resolution and resolution.strip():
+            row.resolution = resolution.strip()
+            session.add(row)
+            session.flush()
+        # Implement the findings this session can legally implement. A finding
+        # already past `closed` — `verified`, typically after an admin reopened
+        # a terminated review — keeps its status and simply gains the link, the
+        # behaviour saving had before this release. The *guards* are never
+        # skipped: `save_closeout_version` above has already refused anything
+        # that is not an accepted finding, and withdrawing a verdict stays the
+        # reviewer's act, never a side effect of the owner saving.
+        if row.status == Status.CLOSED.value:
+            implement(session, review, rid_id, by=by)
+    AuditRepo(session).log(
+        action="implement_change",
+        target=f"review:{review.review_id_str}",
+        actor=by,
+        detail={"ordinal": version.ordinal, "rids": list(rid_ids)},
     )
     return version
 
