@@ -700,10 +700,32 @@
         : base + "/document");
     }
     if (key && opts.scroll !== false) {
+      // The card first, inside its own panel, and never with scrollIntoView:
+      // that call bubbles to the viewport and would cancel the marker's
+      // in-flight smooth scroll a line below — which is why clicking a comment
+      // lit its marker up without ever travelling to it (v3.2 point 2).
+      var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
+      if (card) revealInPanel(card);
+      // The marker last, so the page scroll is the final word. In closeout the
+      // sheet renders the latest version unmarked, so there is legitimately
+      // no marker to travel to.
       var marker = sheet.querySelector('.marker[data-key="' + CSS.escape(key) + '"]');
       if (marker) { marker.scrollIntoView({ behavior: "smooth", block: "center" }); flashEl(marker); }
-      var card = list.querySelector('.cp-card[data-key="' + CSS.escape(key) + '"]');
-      if (card) card.scrollIntoView({ block: "nearest" });
+    }
+  }
+  /* Scroll an element into view *within the comments panel only*, leaving the
+     page scroll untouched. Measured through getBoundingClientRect so it does
+     not depend on which ancestor happens to be the offsetParent. */
+  function revealInPanel(el) {
+    var panel = el.closest(".comments-panel");
+    if (!panel) return;
+    var r = el.getBoundingClientRect(), p = panel.getBoundingClientRect();
+    var top = r.top - p.top + panel.scrollTop;
+    var margin = 8;
+    if (top - margin < panel.scrollTop) {
+      panel.scrollTop = Math.max(0, top - margin);
+    } else if (top + r.height + margin > panel.scrollTop + panel.clientHeight) {
+      panel.scrollTop = top + r.height + margin - panel.clientHeight;
     }
   }
   function selectCard(key) { setFocus(key, { scroll: true }); }
